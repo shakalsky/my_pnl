@@ -1,0 +1,10 @@
+targets:
+  $default:
+    builders:
+      drift_dev:
+        options:
+          # PowerSync's local columns are text/integer/real only — there is no
+          # native date type. Storing DateTime as text makes drift write
+          # ISO-8601 UTC strings, which Postgres `timestamptz` accepts as-is.
+          store_date_time_values_as_text: true
+          named_parameters: true

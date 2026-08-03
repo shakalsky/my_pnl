@@ -1,0 +1,65 @@
+import 'dart:developer';
+
+import 'package:bloc/bloc.dart';
+import 'package:bloc_concurrency/bloc_concurrency.dart';
+import 'package:equatable/equatable.dart';
+import 'package:my_pnl/features/spending/domain/entities/ledger_entry.dart';
+import 'package:my_pnl/features/spending/domain/usecases/delete_spend.dart';
+import 'package:my_pnl/features/spending/domain/usecases/watch_all_entries.dart';
+
+part 'all_transactions_event.dart';
+part 'all_transactions_state.dart';
+
+/// Drives the modal listing every entry.
+class AllTransactionsBloc
+    extends Bloc<AllTransactionsEvent, AllTransactionsState> {
+  AllTransactionsBloc({
+    required WatchAllEntries watchAllEntries,
+    required DeleteSpend deleteSpend,
+  }) : _watchAllEntries = watchAllEntries,
+       _deleteSpend = deleteSpend,
+       super(const AllTransactionsState()) {
+    on<AllTransactionsSubscriptionRequested>(
+      _onSubscriptionRequested,
+      transformer: restartable(),
+    );
+    on<AllTransactionsEntryDeleted>(_onEntryDeleted);
+  }
+
+  final WatchAllEntries _watchAllEntries;
+  final DeleteSpend _deleteSpend;
+
+  Future<void> _onSubscriptionRequested(
+    AllTransactionsSubscriptionRequested event,
+    Emitter<AllTransactionsState> emit,
+  ) async {
+    emit(state.copyWith(status: AllTransactionsStatus.loading));
+
+    await emit.forEach<List<LedgerEntry>>(
+      _watchAllEntries(),
+      onData: (entries) => state.copyWith(
+        status: AllTransactionsStatus.success,
+        entries: entries,
+        clearError: true,
+      ),
+      onError: (error, stackTrace) {
+        log('Watching all entries failed', error: error, stackTrace: stackTrace);
+        return state.copyWith(status: AllTransactionsStatus.failure);
+      },
+    );
+  }
+
+  Future<void> _onEntryDeleted(
+    AllTransactionsEntryDeleted event,
+    Emitter<AllTransactionsState> emit,
+  ) async {
+    try {
+      await _deleteSpend(event.entryId);
+      // No emit on success: the watch stream carries the new list, so there is
+      // one source of truth for what the modal shows.
+    } on Object catch (e, s) {
+      log('Deleting ${event.entryId} failed', error: e, stackTrace: s);
+      emit(state.copyWith(errorMessage: 'Could not delete that entry'));
+    }
+  }
+}

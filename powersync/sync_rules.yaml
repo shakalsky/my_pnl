@@ -1,0 +1,54 @@
+# PowerSync sync rules — paste into the PowerSync dashboard for this instance.
+#
+# These decide which Postgres rows reach which device. `request.user_id()` is
+# the `sub` claim of the Supabase JWT that SupabaseConnector supplies, so each
+# client only ever receives its own rows. Getting this wrong either leaks data
+# or ships a client someone else's history — it is the one piece of PowerSync
+# config worth reviewing carefully.
+#
+# Soft-deleted rows are still synced so that a delete on one device propagates
+# to the others; the app filters `deleted_at is null` on read.
+
+bucket_definitions:
+  user_data:
+    # One bucket per signed-in user.
+    parameters: select request.user_id() as user_id
+    data:
+      - select * from accounts where owner_id = bucket.user_id
+      - select * from categories where owner_id = bucket.user_id
+      - select * from currencies where owner_id = bucket.user_id
+      - select * from debts where owner_id = bucket.user_id
+      - select * from goals where owner_id = bucket.user_id
+      - select * from transactions where owner_id = bucket.user_id
+
+# `app_requirements` — the minimum app version — is deliberately absent. It is
+# read with a direct Supabase select instead, because the update gate has to
+# answer on the sign-in screen, where there is no JWT and therefore no bucket,
+# and it has to be current rather than whatever the last sync brought down. It
+# is also global rather than per-user, so it belongs in no bucket above.
+#
+# If you ever want the requirement enforced offline as well, it can be synced
+# to every client with a parameterless bucket — note there is no `parameters:`
+# line, which is what makes it global:
+#
+#   app_config:
+#     data:
+#       - select * from app_requirements
+#
+# That needs the table added to the `powersync` publication in schema.sql and
+# to `appSchema` in lib/database/powersync/app_schema.dart, and it changes the
+# gate from "fail open when unreachable" to "enforce the last value synced".
+
+# When transaction history grows, split it so a new device does not download
+# everything on first sync — e.g. a bucket per year, with the client
+# subscribing only to recent ones:
+#
+#   user_data_by_year:
+#     parameters: |
+#       select request.user_id() as user_id,
+#              extract(year from executed_at)::int as year
+#       from transactions
+#     data:
+#       - select * from transactions
+#         where owner_id = bucket.user_id
+#           and extract(year from executed_at)::int = bucket.year
