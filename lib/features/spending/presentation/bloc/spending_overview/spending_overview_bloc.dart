@@ -6,8 +6,12 @@ import 'package:equatable/equatable.dart';
 import 'package:my_pnl/features/spending/domain/entities/calendar_month.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/entities/category_spend.dart';
+import 'package:my_pnl/features/spending/domain/entities/overrun_settings.dart';
+import 'package:my_pnl/features/spending/domain/entities/spend_baseline.dart';
 import 'package:my_pnl/features/spending/domain/usecases/watch_category_spend.dart';
 import 'package:my_pnl/features/spending/domain/usecases/watch_net_total.dart';
+import 'package:my_pnl/features/spending/domain/usecases/watch_overrun_settings.dart';
+import 'package:my_pnl/features/spending/domain/usecases/watch_spend_baselines.dart';
 
 part 'spending_overview_event.dart';
 part 'spending_overview_state.dart';
@@ -18,10 +22,14 @@ class SpendingOverviewBloc
   SpendingOverviewBloc({
     required WatchCategorySpend watchCategorySpend,
     WatchNetTotal? watchNetTotal,
+    WatchSpendBaselines? watchSpendBaselines,
+    WatchOverrunSettings? watchOverrunSettings,
     this.kind = CategoryKind.expense,
     CalendarMonth? initialMonth,
   }) : _watchCategorySpend = watchCategorySpend,
        _watchNetTotal = watchNetTotal,
+       _watchSpendBaselines = watchSpendBaselines,
+       _watchOverrunSettings = watchOverrunSettings,
        super(
          SpendingOverviewState(month: initialMonth ?? CalendarMonth.now()),
        ) {
@@ -35,12 +43,56 @@ class SpendingOverviewBloc
       _onNetTotalRequested,
       transformer: restartable(),
     );
+    on<SpendingOverviewBaselinesRequested>(
+      _onBaselinesRequested,
+      transformer: restartable(),
+    );
+    on<SpendingOverviewSettingsRequested>(
+      _onSettingsRequested,
+      transformer: restartable(),
+    );
     on<SpendingOverviewMonthChanged>(_onMonthChanged);
   }
 
   /// Null on pages that do not show a net figure, so they open no second
   /// query for a number nothing renders.
   final WatchNetTotal? _watchNetTotal;
+
+  /// Null on pages that do not flag unusual months — the income page, where a
+  /// month above the usual is good news and marking it red would be a lie.
+  final WatchSpendBaselines? _watchSpendBaselines;
+
+  /// Null alongside [_watchSpendBaselines]: thresholds are only of interest to
+  /// a page that draws the flags. Null leaves the shipped defaults in state,
+  /// which nothing then compares anything against.
+  final WatchOverrunSettings? _watchOverrunSettings;
+
+  /// Follows the reader's own thresholds, and whether they want warnings at all.
+  ///
+  /// Watched rather than read once: turning the warnings off has to clear the
+  /// borders already on screen, not wait for the page to be opened again.
+  Future<void> _onSettingsRequested(
+    SpendingOverviewSettingsRequested event,
+    Emitter<SpendingOverviewState> emit,
+  ) async {
+    final watch = _watchOverrunSettings;
+    if (watch == null) return;
+
+    await emit.forEach<OverrunSettings>(
+      watch(),
+      onData: (settings) => state.copyWith(settings: settings),
+      onError: (error, stackTrace) {
+        log(
+          'Watching the overrun settings failed',
+          error: error,
+          stackTrace: stackTrace,
+        );
+        // Leaves the thresholds that were in force rather than falling back to
+        // defaults the reader may have deliberately changed.
+        return state;
+      },
+    );
+  }
 
   Future<void> _onNetTotalRequested(
     SpendingOverviewNetTotalRequested event,
@@ -53,13 +105,43 @@ class SpendingOverviewBloc
       watch(month: state.month),
       onData: (net) => state.copyWith(netTotalScaled: net),
       onError: (error, stackTrace) {
-        log('Watching the net total failed', error: error,
-            stackTrace: stackTrace);
+        log(
+          'Watching the net total failed',
+          error: error,
+          stackTrace: stackTrace,
+        );
         // Leaves the last known figure rather than showing a wrong zero.
         return state;
       },
     );
   }
+
+  /// Watches what each category usually costs in a month.
+  ///
+  /// A failure here leaves the last known baselines and the page otherwise
+  /// working: the flags are an annotation on figures that are correct without
+  /// them, so losing the annotation is not worth an error screen over.
+  Future<void> _onBaselinesRequested(
+    SpendingOverviewBaselinesRequested event,
+    Emitter<SpendingOverviewState> emit,
+  ) async {
+    final watch = _watchSpendBaselines;
+    if (watch == null) return;
+
+    await emit.forEach<Map<String, SpendBaseline>>(
+      watch(kind, month: state.month),
+      onData: (baselines) => state.copyWith(baselines: baselines),
+      onError: (error, stackTrace) {
+        log(
+          'Watching spend baselines failed',
+          error: error,
+          stackTrace: stackTrace,
+        );
+        return state;
+      },
+    );
+  }
+
   final WatchCategorySpend _watchCategorySpend;
 
   /// Which side of the ledger this instance shows. The spending and income
@@ -67,12 +149,15 @@ class SpendingOverviewBloc
   /// class and differ only in this.
   final CategoryKind kind;
 
-  /// Points both queries at another month and shows it.
+  /// Points every query at another month and shows it.
   ///
   /// The subscriptions are re-requested rather than filtered here: what a month
   /// comes to is a question for the database, and the running streams are for
-  /// the month the user has left behind. Both handlers are restartable, so
+  /// the month the user has left behind. Every handler is restartable, so
   /// re-adding the events cancels those streams instead of stacking on them.
+  ///
+  /// The baselines go with them: they are the months before the one on screen,
+  /// so paging back a month moves the window they average as well.
   void _onMonthChanged(
     SpendingOverviewMonthChanged event,
     Emitter<SpendingOverviewState> emit,
@@ -82,6 +167,7 @@ class SpendingOverviewBloc
     emit(state.copyWith(month: event.month));
     add(const SpendingOverviewSubscriptionRequested());
     add(const SpendingOverviewNetTotalRequested());
+    add(const SpendingOverviewBaselinesRequested());
   }
 
   Future<void> _onSubscriptionRequested(

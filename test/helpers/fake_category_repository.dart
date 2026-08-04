@@ -6,6 +6,7 @@ import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/entities/category_spend.dart';
 import 'package:my_pnl/features/spending/domain/entities/ledger_entry.dart';
 import 'package:my_pnl/features/spending/domain/entities/monthly_pnl.dart';
+import 'package:my_pnl/features/spending/domain/entities/spend_baseline.dart';
 import 'package:my_pnl/features/spending/domain/entities/spend_entry.dart';
 import 'package:my_pnl/features/spending/domain/repositories/category_repository.dart';
 import 'package:my_pnl/features/spending/domain/repositories/transaction_repository.dart';
@@ -20,10 +21,21 @@ import 'package:my_pnl/features/spending/domain/repositories/transaction_reposit
 /// a database. That is the point of the layering.
 class FakeCategoryRepository
     implements CategoryRepository, TransactionRepository {
-  FakeCategoryRepository({List<CategorySpend> initial = const []})
-    : _spend = List.of(initial);
+  FakeCategoryRepository({
+    List<CategorySpend> initial = const [],
+    Map<String, SpendBaseline> baselines = const {},
+  }) : _spend = List.of(initial),
+       baselines = Map.of(baselines);
 
   final List<CategorySpend> _spend;
+
+  /// What each category usually costs in a month, keyed by category id.
+  ///
+  /// Seeded rather than derived from the recorded entries: averaging months is
+  /// the drift query's work and is covered against a real database in the data
+  /// source tests. What a caller can check here is what the pages do with a
+  /// baseline once they have one.
+  final Map<String, SpendBaseline> baselines;
   final _controller = StreamController<List<CategorySpend>>.broadcast();
   final _history = <String, List<SpendEntry>>{};
   final _historyController = StreamController<String>.broadcast();
@@ -53,6 +65,39 @@ class FakeCategoryRepository
 
     yield ofKind(_spend);
     yield* _controller.stream.map(ofKind);
+  }
+
+  /// The month each baseline watch was opened for, oldest first.
+  final requestedBaselineMonths = <CalendarMonth>[];
+
+  /// The lookback each baseline watch asked for, oldest first.
+  final requestedLookbacks = <int>[];
+
+  @override
+  Stream<Map<String, SpendBaseline>> watchSpendBaselines(
+    CategoryKind kind, {
+    required CalendarMonth month,
+    int lookbackMonths = SpendBaseline.lookbackMonths,
+  }) async* {
+    requestedBaselineMonths.add(month);
+    requestedLookbacks.add(lookbackMonths);
+
+    Map<String, SpendBaseline> ofKind() {
+      final scoped = <String, SpendBaseline>{};
+
+      for (final entry in _spend) {
+        if (entry.category.kind != kind) continue;
+        final baseline = baselines[entry.category.id];
+        if (baseline != null) scoped[entry.category.id] = baseline;
+      }
+
+      return Map.unmodifiable(scoped);
+    }
+
+    yield ofKind();
+    // A recorded amount does not change a seeded baseline, but a category
+    // added or removed changes which ones are in scope.
+    yield* _controller.stream.map((_) => ofKind());
   }
 
   /// Recurrence generation belongs to the drift query; the fake exists to let
@@ -157,7 +202,9 @@ class FakeCategoryRepository
       }
 
       final sorted = totals.keys.toList()
-        ..sort((a, b) => a.$1 == b.$1 ? b.$2.compareTo(a.$2) : b.$1.compareTo(a.$1));
+        ..sort(
+          (a, b) => a.$1 == b.$1 ? b.$2.compareTo(a.$2) : b.$1.compareTo(a.$1),
+        );
 
       return List.unmodifiable([
         for (final key in sorted)

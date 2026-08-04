@@ -8,10 +8,25 @@ final class SpendingOverviewState extends Equatable {
     this.status = SpendingOverviewStatus.initial,
     this.categories = const [],
     this.netTotalScaled = 0,
+    this.baselines = const {},
+    this.settings = OverrunSettings.defaults,
   });
 
   final SpendingOverviewStatus status;
   final List<CategorySpend> categories;
+
+  /// What each category usually costs in a month, keyed by category id.
+  ///
+  /// Empty until the baselines arrive, and empty for good on a page that does
+  /// not ask for them — [overrunFor] then reports nothing unusual, which is
+  /// what a page with no history to compare against should say.
+  final Map<String, SpendBaseline> baselines;
+
+  /// When to warn that a month has run past the usual — and whether to at all.
+  ///
+  /// The shipped defaults until the reader's own settings arrive, so the first
+  /// frame flags what a later one would rather than changing its mind.
+  final OverrunSettings settings;
 
   /// Which month every figure here is for.
   ///
@@ -32,20 +47,42 @@ final class SpendingOverviewState extends Equatable {
   int get totalScaled =>
       categories.fold(0, (sum, entry) => sum + entry.totalScaled);
 
+  /// How far past its usual month [spend] has gone.
+  ///
+  /// Answered here rather than in the widgets because all three parts of the
+  /// comparison live on this state — the figure, the months before it and the
+  /// thresholds — and a figure compared against the wrong month's baseline
+  /// would be wrong in a way nothing on screen could show.
+  SpendOverrun overrunFor(CategorySpend spend) => settings.overrunFor(
+    spend.totalScaled,
+    against: baselines[spend.category.id],
+  );
+
   SpendingOverviewState copyWith({
     SpendingOverviewStatus? status,
     List<CategorySpend>? categories,
     CalendarMonth? month,
     int? netTotalScaled,
+    Map<String, SpendBaseline>? baselines,
+    OverrunSettings? settings,
   }) {
     return SpendingOverviewState(
       status: status ?? this.status,
       categories: categories ?? this.categories,
       month: month ?? this.month,
       netTotalScaled: netTotalScaled ?? this.netTotalScaled,
+      baselines: baselines ?? this.baselines,
+      settings: settings ?? this.settings,
     );
   }
 
   @override
-  List<Object?> get props => [status, categories, month, netTotalScaled];
+  List<Object?> get props => [
+    status,
+    categories,
+    month,
+    netTotalScaled,
+    baselines,
+    settings,
+  ];
 }

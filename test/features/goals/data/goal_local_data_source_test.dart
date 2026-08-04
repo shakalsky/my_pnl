@@ -31,8 +31,10 @@ void main() {
 
       expect(saved.id, hasLength(36));
       expect(saved.targetAmountScaled, 500000);
-      expect((await dataSource.watchGoal(owner).first)?.targetAmountScaled,
-          500000);
+      expect(
+        (await dataSource.watchGoal(owner).first)?.targetAmountScaled,
+        500000,
+      );
     });
 
     test('saving again edits the goal rather than adding a second', () async {

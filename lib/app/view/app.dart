@@ -13,6 +13,7 @@ import 'package:my_pnl/features/currencies/domain/repositories/display_currency_
 import 'package:my_pnl/features/debts/domain/repositories/debt_repository.dart';
 import 'package:my_pnl/features/goals/domain/repositories/goal_repository.dart';
 import 'package:my_pnl/features/spending/domain/repositories/category_repository.dart';
+import 'package:my_pnl/features/spending/domain/repositories/overrun_settings_store.dart';
 import 'package:my_pnl/features/spending/domain/repositories/transaction_repository.dart';
 import 'package:my_pnl/features/sync/domain/repositories/sync_repository.dart';
 
@@ -26,6 +27,7 @@ class App extends StatefulWidget {
     required this.displayCurrencyStore,
     required this.debtRepository,
     required this.goalRepository,
+    required this.overrunSettingsStore,
     required this.transactionRepository,
     required this.syncRepository,
     this.router,
@@ -43,6 +45,7 @@ class App extends StatefulWidget {
   final DisplayCurrencyStore displayCurrencyStore;
   final DebtRepository debtRepository;
   final GoalRepository goalRepository;
+  final OverrunSettingsStore overrunSettingsStore;
   final TransactionRepository transactionRepository;
   final SyncRepository syncRepository;
 
@@ -94,6 +97,7 @@ class _AppState extends State<App> {
         RepositoryProvider.value(value: widget.displayCurrencyStore),
         RepositoryProvider.value(value: widget.debtRepository),
         RepositoryProvider.value(value: widget.goalRepository),
+        RepositoryProvider.value(value: widget.overrunSettingsStore),
         RepositoryProvider.value(value: widget.transactionRepository),
         RepositoryProvider.value(value: widget.syncRepository),
       ],

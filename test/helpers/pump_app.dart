@@ -9,11 +9,13 @@ import 'package:my_pnl/features/currencies/domain/repositories/display_currency_
 import 'package:my_pnl/features/debts/domain/repositories/debt_repository.dart';
 import 'package:my_pnl/features/goals/domain/repositories/goal_repository.dart';
 import 'package:my_pnl/features/spending/domain/repositories/category_repository.dart';
+import 'package:my_pnl/features/spending/domain/repositories/overrun_settings_store.dart';
 import 'package:my_pnl/features/spending/domain/repositories/transaction_repository.dart';
 import 'package:my_pnl/features/sync/domain/repositories/sync_repository.dart';
 
 import 'fake_auth_repository.dart';
 import 'fake_display_currency_store.dart';
+import 'fake_overrun_settings_store.dart';
 import 'fake_sync_repository.dart';
 
 extension PumpApp on WidgetTester {
@@ -31,6 +33,7 @@ extension PumpApp on WidgetTester {
     DisplayCurrencyStore? displayCurrencyStore,
     DebtRepository? debtRepository,
     GoalRepository? goalRepository,
+    OverrunSettingsStore? overrunSettingsStore,
     TransactionRepository? transactionRepository,
     SyncRepository? syncRepository,
   }) {
@@ -41,6 +44,10 @@ extension PumpApp on WidgetTester {
     // Likewise: every page showing a total reads which currency to show it in,
     // and an empty store is the ordinary case of never having chosen.
     final displayCurrency = displayCurrencyStore ?? FakeDisplayCurrencyStore();
+    // And likewise: the spending page reads when to warn about an unusual
+    // month, and an untouched store is the ordinary case of never having
+    // changed the thresholds.
+    final overrunSettings = overrunSettingsStore ?? FakeOverrunSettingsStore();
 
     // Providers sit ABOVE MaterialApp, exactly as they do in App. Below it
     // they would also sit below the Navigator, and anything pushed as a route
@@ -56,6 +63,9 @@ extension PumpApp on WidgetTester {
           RepositoryProvider<SyncRepository>.value(value: sync),
           RepositoryProvider<DisplayCurrencyStore>.value(
             value: displayCurrency,
+          ),
+          RepositoryProvider<OverrunSettingsStore>.value(
+            value: overrunSettings,
           ),
           if (categoryRepository != null)
             RepositoryProvider<CategoryRepository>.value(

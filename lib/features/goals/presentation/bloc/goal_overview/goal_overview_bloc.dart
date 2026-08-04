@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:bloc/bloc.dart';
 import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'package:equatable/equatable.dart';
+import 'package:my_pnl/features/goals/domain/entities/investment_projection.dart';
 import 'package:my_pnl/features/goals/domain/entities/savings_goal.dart';
 import 'package:my_pnl/features/goals/domain/usecases/clear_goal.dart';
 import 'package:my_pnl/features/goals/domain/usecases/watch_goal.dart';
@@ -37,6 +38,8 @@ class GoalOverviewBloc extends Bloc<GoalOverviewEvent, GoalOverviewState> {
       transformer: restartable(),
     );
     on<GoalCleared>(_onCleared);
+    on<GoalReturnRateChanged>(_onReturnRateChanged);
+    on<GoalProjectionYearsChanged>(_onProjectionYearsChanged);
   }
 
   final WatchMonthlyPnl _watchMonthlyPnl;
@@ -57,7 +60,11 @@ class GoalOverviewBloc extends Bloc<GoalOverviewEvent, GoalOverviewState> {
         clearError: true,
       ),
       onError: (error, stackTrace) {
-        log('Watching monthly P&L failed', error: error, stackTrace: stackTrace);
+        log(
+          'Watching monthly P&L failed',
+          error: error,
+          stackTrace: stackTrace,
+        );
         return state.copyWith(status: GoalOverviewStatus.failure);
       },
     );
@@ -71,8 +78,9 @@ class GoalOverviewBloc extends Bloc<GoalOverviewEvent, GoalOverviewState> {
   ) async {
     await emit.forEach<SavingsGoal?>(
       _watchGoal(),
-      onData: (goal) =>
-          goal == null ? state.copyWith(clearGoal: true) : state.copyWith(goal: goal),
+      onData: (goal) => goal == null
+          ? state.copyWith(clearGoal: true)
+          : state.copyWith(goal: goal),
       onError: (error, stackTrace) {
         log('Watching the goal failed', error: error, stackTrace: stackTrace);
         return state.copyWith(errorMessage: 'Could not load your goal');
@@ -92,5 +100,31 @@ class GoalOverviewBloc extends Bloc<GoalOverviewEvent, GoalOverviewState> {
       log('Clearing the goal failed', error: e, stackTrace: s);
       emit(state.copyWith(errorMessage: 'Could not remove your goal'));
     }
+  }
+
+  /// Nothing to write: the projection is a lens on the saved total, so it lives
+  /// as long as the page does and touches no repository.
+  void _onReturnRateChanged(
+    GoalReturnRateChanged event,
+    Emitter<GoalOverviewState> emit,
+  ) {
+    emit(
+      state.copyWith(
+        projection: state.projection
+            .copyWith(annualPercent: event.annualPercent)
+            .normalized,
+      ),
+    );
+  }
+
+  void _onProjectionYearsChanged(
+    GoalProjectionYearsChanged event,
+    Emitter<GoalOverviewState> emit,
+  ) {
+    emit(
+      state.copyWith(
+        projection: state.projection.copyWith(years: event.years).normalized,
+      ),
+    );
   }
 }

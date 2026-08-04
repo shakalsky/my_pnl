@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:my_pnl/core/money/amount_format.dart';
 import 'package:my_pnl/core/money/scales.dart';
 import 'package:my_pnl/features/spending/domain/entities/category_spend.dart';
+import 'package:my_pnl/features/spending/domain/entities/spend_baseline.dart';
 import 'package:my_pnl/features/spending/presentation/theme/category_style.dart';
+import 'package:my_pnl/features/spending/presentation/theme/overrun_style.dart';
 
 /// One cell of the category grid.
 class CategoryTile extends StatelessWidget {
@@ -13,10 +15,18 @@ class CategoryTile extends StatelessWidget {
     required this.onEdit,
     this.totalScaled,
     this.currencyLabel = baseCurrencySymbol,
+    this.overrun = SpendOverrun.none,
     super.key,
   });
 
   final CategorySpend spend;
+
+  /// How far past its usual month this category has gone, which is what the
+  /// tile's border shows.
+  ///
+  /// Passed in rather than worked out here: the comparison needs the months
+  /// before the one on screen, which a tile has no way to see.
+  final SpendOverrun overrun;
 
   /// What to show for the total, when it is not the figure on [spend] itself.
   ///
@@ -47,92 +57,106 @@ class CategoryTile extends StatelessWidget {
     final amountStyle = theme.textTheme.labelLarge!.copyWith(
       fontWeight: FontWeight.w600,
     );
+    final flagColor = overrunBorderColor(overrun);
 
-    return Material(
-      color: theme.colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onAddAmount,
-        onLongPress: onEdit,
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Color(category.colorArgb),
-                    ),
-                    child: Icon(
-                      iconForKey(category.iconKey),
-                      color: Colors.white,
-                      size: 17,
-                    ),
-                  ),
-                  const Spacer(),
-                  // Sits inside the tile's InkWell, so it needs its own hit
-                  // target to keep the tap from opening the amount modal.
-                  _HistoryButton(
-                    onPressed: onShowHistory,
-                    semanticLabel: '${category.name} history',
-                  ),
-                ],
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Two lines' worth of height whether the name needs them or
-                  // not: the grid is read down its columns, and a one-word name
-                  // next to a two-word one would otherwise sit its amount at a
-                  // different height.
-                  SizedBox(
-                    height: _lineBoxHeight(context, nameStyle, 2),
-                    child: Text(
-                      category.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: nameStyle,
-                      strutStyle: StrutStyle.fromTextStyle(
-                        nameStyle,
-                        forceStrutHeight: true,
+    return Semantics(
+      // Read out with the tile, ahead of its name and amount: the border says
+      // "unusual" to anyone who can see it, and a colour on its own says nothing
+      // to anyone who cannot. Null on a normal month, which adds nothing.
+      label: overrunSemanticLabel(overrun),
+      child: Material(
+        color: theme.colorScheme.surfaceContainerHighest,
+        // A shape rather than a radius, because the two cannot both be given and
+        // the border is what marks a month that has run past the usual.
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: flagColor == null
+              ? BorderSide.none
+              : BorderSide(color: flagColor, width: overrunBorderWidth),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onAddAmount,
+          onLongPress: onEdit,
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Color(category.colorArgb),
+                      ),
+                      child: Icon(
+                        iconForKey(category.iconKey),
+                        color: Colors.white,
+                        size: 17,
                       ),
                     ),
-                  ),
-                  // Four to a row leaves little width, so long amounts shrink
-                  // rather than get truncated — the number is the point of the
-                  // tile. The height stays that of an unshrunk line, so a tile
-                  // holding a long figure keeps its baseline with the rest.
-                  SizedBox(
-                    height: _lineBoxHeight(context, amountStyle, 1),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
+                    const Spacer(),
+                    // Sits inside the tile's InkWell, so it needs its own hit
+                    // target to keep the tap from opening the amount modal.
+                    _HistoryButton(
+                      onPressed: onShowHistory,
+                      semanticLabel: '${category.name} history',
+                    ),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Two lines' worth of height whether the name needs them or
+                    // not: the grid is read down its columns, and a one-word name
+                    // next to a two-word one would otherwise sit its amount at a
+                    // different height.
+                    SizedBox(
+                      height: _lineBoxHeight(context, nameStyle, 2),
                       child: Text(
-                        formatAmountIn(
-                          totalScaled ?? spend.totalScaled,
-                          currencyLabel,
-                        ),
-                        maxLines: 1,
-                        style: amountStyle,
+                        category.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: nameStyle,
                         strutStyle: StrutStyle.fromTextStyle(
-                          amountStyle,
+                          nameStyle,
                           forceStrutHeight: true,
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                    // Four to a row leaves little width, so long amounts shrink
+                    // rather than get truncated — the number is the point of the
+                    // tile. The height stays that of an unshrunk line, so a tile
+                    // holding a long figure keeps its baseline with the rest.
+                    SizedBox(
+                      height: _lineBoxHeight(context, amountStyle, 1),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          formatAmountIn(
+                            totalScaled ?? spend.totalScaled,
+                            currencyLabel,
+                          ),
+                          maxLines: 1,
+                          style: amountStyle,
+                          strutStyle: StrutStyle.fromTextStyle(
+                            amountStyle,
+                            forceStrutHeight: true,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

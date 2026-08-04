@@ -3,9 +3,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:my_pnl/features/spending/domain/entities/calendar_month.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/entities/category_spend.dart';
+import 'package:my_pnl/features/spending/domain/entities/spend_baseline.dart';
 import 'package:my_pnl/features/spending/domain/repositories/category_repository.dart';
 import 'package:my_pnl/features/spending/domain/usecases/watch_category_spend.dart';
 import 'package:my_pnl/features/spending/domain/usecases/watch_net_total.dart';
+import 'package:my_pnl/features/spending/domain/usecases/watch_spend_baselines.dart';
 import 'package:my_pnl/features/spending/presentation/bloc/spending_overview/spending_overview_bloc.dart';
 
 import '../../../../../helpers/helpers.dart';
@@ -31,6 +33,13 @@ class _FailingRepository implements CategoryRepository {
     CategoryKind kind, {
     CalendarMonth? month,
   }) => Stream.error(Exception('nope'));
+
+  @override
+  Stream<Map<String, SpendBaseline>> watchSpendBaselines(
+    CategoryKind kind, {
+    required CalendarMonth month,
+    int lookbackMonths = SpendBaseline.lookbackMonths,
+  }) => Stream.error(Exception('nope either'));
 
   @override
   Future<int> generateDueRecurringIncome({DateTime? now}) async =>
@@ -181,6 +190,108 @@ void main() {
 
     test('totalScaled is zero with no categories', () {
       expect(const SpendingOverviewState(month: _march).totalScaled, 0);
+    });
+
+    group('flagging a month past the usual', () {
+      /// Groceries usually costs 20.00 a month; this month it came to 42.35.
+      FakeCategoryRepository seeded() => FakeCategoryRepository(
+        initial: const [_groceries],
+        baselines: const {
+          'a': SpendBaseline(averageScaled: 2000, months: 4),
+        },
+      );
+
+      blocTest<SpendingOverviewBloc, SpendingOverviewState>(
+        'flags a category against the months before this one',
+        build: () {
+          repository = seeded();
+          return SpendingOverviewBloc(
+            watchCategorySpend: WatchCategorySpend(repository),
+            watchSpendBaselines: WatchSpendBaselines(repository),
+            initialMonth: _march,
+          );
+        },
+        act: (bloc) => bloc
+          ..add(const SpendingOverviewSubscriptionRequested())
+          ..add(const SpendingOverviewBaselinesRequested()),
+        verify: (bloc) {
+          // 42.35 against a usual 20.00 — twice over.
+          expect(bloc.state.overrunFor(_groceries), SpendOverrun.severe);
+        },
+      );
+
+      blocTest<SpendingOverviewBloc, SpendingOverviewState>(
+        're-reads the baselines for the month it is moved to',
+        build: () {
+          repository = seeded();
+          return SpendingOverviewBloc(
+            watchCategorySpend: WatchCategorySpend(repository),
+            watchSpendBaselines: WatchSpendBaselines(repository),
+            initialMonth: _march,
+          );
+        },
+        act: (bloc) async {
+          bloc.add(const SpendingOverviewBaselinesRequested());
+          await Future<void>.delayed(Duration.zero);
+          bloc.add(const SpendingOverviewMonthChanged(CalendarMonth(2026, 2)));
+        },
+        verify: (bloc) {
+          // The window is the months before the one on screen, so paging back
+          // has to move it as well or February would be judged against a
+          // baseline that includes February.
+          expect(repository.requestedBaselineMonths, [
+            _march,
+            const CalendarMonth(2026, 2),
+          ]);
+        },
+      );
+
+      blocTest<SpendingOverviewBloc, SpendingOverviewState>(
+        'flags nothing on a page that asks for no baselines',
+        build: () {
+          repository = seeded();
+          return SpendingOverviewBloc(
+            watchCategorySpend: WatchCategorySpend(repository),
+            initialMonth: _march,
+          );
+        },
+        act: (bloc) => bloc
+          ..add(const SpendingOverviewSubscriptionRequested())
+          ..add(const SpendingOverviewBaselinesRequested()),
+        verify: (bloc) {
+          expect(bloc.state.baselines, isEmpty);
+          expect(bloc.state.overrunFor(_groceries), SpendOverrun.none);
+          // No query opened for figures nothing on the page renders.
+          expect(repository.requestedBaselineMonths, isEmpty);
+        },
+      );
+
+      blocTest<SpendingOverviewBloc, SpendingOverviewState>(
+        'keeps the grid when the baselines fail',
+        build: () => SpendingOverviewBloc(
+          watchCategorySpend: WatchCategorySpend(
+            FakeCategoryRepository(initial: const [_groceries]),
+          ),
+          watchSpendBaselines: WatchSpendBaselines(_FailingRepository()),
+          initialMonth: _march,
+        ),
+        act: (bloc) => bloc
+          ..add(const SpendingOverviewSubscriptionRequested())
+          ..add(const SpendingOverviewBaselinesRequested()),
+        // The flags annotate figures that are right without them, so losing
+        // them is not worth an error screen over.
+        expect: () => const <SpendingOverviewState>[
+          SpendingOverviewState(
+            month: _march,
+            status: SpendingOverviewStatus.loading,
+          ),
+          SpendingOverviewState(
+            month: _march,
+            status: SpendingOverviewStatus.success,
+            categories: [_groceries],
+          ),
+        ],
+      );
     });
   });
 }

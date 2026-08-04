@@ -3,6 +3,7 @@ import 'package:my_pnl/features/spending/data/datasources/category_local_data_so
 import 'package:my_pnl/features/spending/domain/entities/calendar_month.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/entities/category_spend.dart';
+import 'package:my_pnl/features/spending/domain/entities/spend_baseline.dart';
 import 'package:my_pnl/features/spending/domain/repositories/category_repository.dart';
 
 /// Binds the local data source to the domain contract.
@@ -25,6 +26,18 @@ class CategoryRepositoryImpl implements CategoryRepository {
     CategoryKind kind, {
     CalendarMonth? month,
   }) => _local.watchCategorySpend(_owner.id, kind, month: month);
+
+  @override
+  Stream<Map<String, SpendBaseline>> watchSpendBaselines(
+    CategoryKind kind, {
+    required CalendarMonth month,
+    int lookbackMonths = SpendBaseline.lookbackMonths,
+  }) => _local.watchSpendBaselines(
+    _owner.id,
+    kind,
+    month: month,
+    lookbackMonths: lookbackMonths,
+  );
 
   @override
   Future<int> generateDueRecurringIncome({DateTime? now}) =>

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:my_pnl/core/money/amount_format.dart';
+import 'package:my_pnl/features/goals/domain/entities/investment_projection.dart';
 import 'package:my_pnl/features/goals/domain/repositories/goal_repository.dart';
 import 'package:my_pnl/features/goals/domain/usecases/clear_goal.dart';
 import 'package:my_pnl/features/goals/domain/usecases/watch_goal.dart';
@@ -23,10 +24,10 @@ class GoalPage extends StatelessWidget {
     return BlocProvider(
       create: (_) =>
           GoalOverviewBloc(
-            watchMonthlyPnl: WatchMonthlyPnl(transactions),
-            watchGoal: WatchGoal(goals),
-            clearGoal: ClearGoal(goals),
-          )
+              watchMonthlyPnl: WatchMonthlyPnl(transactions),
+              watchGoal: WatchGoal(goals),
+              clearGoal: ClearGoal(goals),
+            )
             ..add(const GoalOverviewSubscriptionRequested())
             ..add(const GoalTargetSubscriptionRequested()),
       child: const GoalView(),
@@ -125,6 +126,12 @@ class _GoalBody extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         _ProgressCard(state: state),
+        // Nothing saved is nothing to project: a card of zeroes with a slider
+        // that cannot move them off zero only reads as broken.
+        if (state.savedScaled > 0) ...[
+          const SizedBox(height: 12),
+          _IfInvestedCard(state: state),
+        ],
         const SizedBox(height: 24),
         _MonthsHeader(count: state.positiveMonths.length),
         if (state.positiveMonths.isEmpty)
@@ -234,6 +241,177 @@ class _ProgressCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// What the saved total would earn a day if it were invested, and what it would
+/// come to over the years.
+///
+/// Its own card rather than a line in the progress card: the figure above is
+/// money that exists, and this one is a what-if at assumptions the reader
+/// picked. Putting them in one box would blur which is which.
+class _IfInvestedCard extends StatelessWidget {
+  const _IfInvestedCard({required this.state});
+
+  final GoalOverviewState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final bloc = context.read<GoalOverviewBloc>();
+    final projection = state.projection;
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'If invested',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.savings_outlined,
+                  size: 18,
+                  color: colors.onSurfaceVariant,
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(
+                  formatAmount(state.dailyProfitLaterScaled),
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: colors.tertiary,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'a day',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              // Which day that is, and what has happened by then. Compounding
+              // is the whole reason the figure is worth reading: the day's rate
+              // never changes, but by then it applies to a much larger balance.
+              // Kept to one line — the months below are what the page is for.
+              '${_years(projection.years)} on, with '
+              '${formatAmount(state.totalLaterScaled)} in the pot',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _AssumptionSlider(
+              label: 'Return',
+              value: '${projection.annualPercent}% a year',
+              current: projection.annualPercent,
+              min: InvestmentProjection.minPercent,
+              max: InvestmentProjection.maxPercent,
+              onChanged: (percent) => bloc.add(GoalReturnRateChanged(percent)),
+            ),
+            _AssumptionSlider(
+              label: 'Left alone for',
+              value: _years(projection.years),
+              current: projection.years,
+              min: InvestmentProjection.minYears,
+              max: InvestmentProjection.maxYears,
+              onChanged: (years) => bloc.add(GoalProjectionYearsChanged(years)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _years(int years) => years == 1 ? '1 year' : '$years years';
+}
+
+/// One assumption behind the projection: what it is worth now, and a track to
+/// move it along.
+///
+/// The figure sits above the track rather than only in the slider's own bubble,
+/// which is only visible mid-drag — the reader needs to know what is assumed
+/// without touching anything.
+class _AssumptionSlider extends StatelessWidget {
+  const _AssumptionSlider({
+    required this.label,
+    required this.value,
+    required this.current,
+    required this.min,
+    required this.max,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String value;
+  final int current;
+  final int min;
+  final int max;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              value,
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        // Trimmed padding: the default slider pads itself out to a 48px row, and
+        // two of those turn this card into a screenful on a small phone. The
+        // track and thumb keep their own sizes, so it is still easy to hit.
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+          ),
+          child: Slider(
+            value: current.toDouble(),
+            min: min.toDouble(),
+            max: max.toDouble(),
+            // Whole steps, so the figure above is one someone could have meant
+            // rather than 7.4% or 22.6 years.
+            divisions: max - min,
+            label: value,
+            onChanged: (moved) => onChanged(moved.round()),
+          ),
+        ),
+      ],
     );
   }
 }

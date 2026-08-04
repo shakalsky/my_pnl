@@ -1,6 +1,7 @@
 import 'package:my_pnl/features/spending/domain/entities/calendar_month.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/entities/category_spend.dart';
+import 'package:my_pnl/features/spending/domain/entities/spend_baseline.dart';
 
 /// Raised when a category cannot be saved for a reason worth showing.
 class CategoryFailure implements Exception {
@@ -25,6 +26,24 @@ abstract interface class CategoryRepository {
   Stream<List<CategorySpend>> watchCategorySpend(
     CategoryKind kind, {
     CalendarMonth? month,
+  });
+
+  /// What each category of one [kind] usually costs in a month, keyed by
+  /// category id, re-emitted whenever the underlying rows change.
+  ///
+  /// The average is over the [lookbackMonths] months *before* [month], so the
+  /// month being looked at is never part of its own baseline — comparing a
+  /// figure against an average it is inside of would flatten exactly the spike
+  /// the comparison is for.
+  ///
+  /// A category with nothing booked in the window is absent rather than
+  /// present with a zero average: "no usual month on record" and "usually
+  /// costs nothing" are different answers, and only the second one could
+  /// sensibly flag anything.
+  Stream<Map<String, SpendBaseline>> watchSpendBaselines(
+    CategoryKind kind, {
+    required CalendarMonth month,
+    int lookbackMonths = SpendBaseline.lookbackMonths,
   });
 
   /// Books any recurring income that has come due since the last run.

@@ -24,10 +24,12 @@ import 'package:my_pnl/features/goals/data/datasources/goal_local_data_source.da
 import 'package:my_pnl/features/goals/data/repositories/goal_repository_impl.dart';
 import 'package:my_pnl/features/goals/domain/repositories/goal_repository.dart';
 import 'package:my_pnl/features/spending/data/datasources/category_local_data_source.dart';
+import 'package:my_pnl/features/spending/data/datasources/preferences_overrun_settings_store.dart';
 import 'package:my_pnl/features/spending/data/datasources/transaction_local_data_source.dart';
 import 'package:my_pnl/features/spending/data/repositories/category_repository_impl.dart';
 import 'package:my_pnl/features/spending/data/repositories/transaction_repository_impl.dart';
 import 'package:my_pnl/features/spending/domain/repositories/category_repository.dart';
+import 'package:my_pnl/features/spending/domain/repositories/overrun_settings_store.dart';
 import 'package:my_pnl/features/spending/domain/repositories/transaction_repository.dart';
 import 'package:my_pnl/features/sync/data/repositories/powersync_sync_repository.dart';
 import 'package:my_pnl/features/sync/domain/repositories/sync_repository.dart';
@@ -48,6 +50,7 @@ class AppDependencies {
     required this.displayCurrencyStore,
     required this.debtRepository,
     required this.goalRepository,
+    required this.overrunSettingsStore,
     required this.transactionRepository,
     required this.syncRepository,
   });
@@ -69,6 +72,10 @@ class AppDependencies {
   final DisplayCurrencyStore displayCurrencyStore;
   final DebtRepository debtRepository;
   final GoalRepository goalRepository;
+
+  /// When to warn that a month has run past what a category usually costs.
+  /// A device preference, like the display currency above.
+  final OverrunSettingsStore overrunSettingsStore;
   final TransactionRepository transactionRepository;
   final SyncRepository syncRepository;
 }
@@ -116,6 +123,7 @@ Future<AppDependencies> initializeDependencies() async {
       localDataSource: GoalLocalDataSource(database),
       sessionOwner: sessionOwner,
     ),
+    overrunSettingsStore: PreferencesOverrunSettingsStore(),
     transactionRepository: TransactionRepositoryImpl(
       localDataSource: TransactionLocalDataSource(database),
       sessionOwner: sessionOwner,

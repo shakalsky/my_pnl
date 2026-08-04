@@ -7,6 +7,7 @@ final class GoalOverviewState extends Equatable {
     this.status = GoalOverviewStatus.initial,
     this.months = const [],
     this.goal,
+    this.projection = const InvestmentProjection.opening(),
     this.errorMessage,
   });
 
@@ -17,6 +18,10 @@ final class GoalOverviewState extends Equatable {
 
   /// Null until a goal is set.
   final SavingsGoal? goal;
+
+  /// The return and stretch of time the reader is assuming for the what-if
+  /// figures. Not saved anywhere: a way of reading the total, not part of it.
+  final InvestmentProjection projection;
 
   /// A failed write or a goal that would not load. Separate from [status] so a
   /// transient error shows over the page rather than replacing it.
@@ -50,6 +55,16 @@ final class GoalOverviewState extends Equatable {
 
   bool get isReached => goal?.isReachedBy(savedScaled) ?? false;
 
+  /// What the saved total would earn in a day once [projection]'s years have
+  /// passed — the day's rate on the balance by then, not on today's.
+  int get dailyProfitLaterScaled => projection.dailyProfitAfterOn(savedScaled);
+
+  /// What it would earn across the whole of those years.
+  int get longRunProfitScaled => projection.profitOn(savedScaled);
+
+  /// What it would be worth by then, earnings included.
+  int get totalLaterScaled => projection.totalAfterOn(savedScaled);
+
   int _sum(List<MonthlyPnl> months) =>
       months.fold(0, (total, month) => total + month.netScaled);
 
@@ -57,6 +72,7 @@ final class GoalOverviewState extends Equatable {
     GoalOverviewStatus? status,
     List<MonthlyPnl>? months,
     SavingsGoal? goal,
+    InvestmentProjection? projection,
     String? errorMessage,
     bool clearGoal = false,
     bool clearError = false,
@@ -65,10 +81,11 @@ final class GoalOverviewState extends Equatable {
       status: status ?? this.status,
       months: months ?? this.months,
       goal: clearGoal ? null : goal ?? this.goal,
+      projection: projection ?? this.projection,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
     );
   }
 
   @override
-  List<Object?> get props => [status, months, goal, errorMessage];
+  List<Object?> get props => [status, months, goal, projection, errorMessage];
 }

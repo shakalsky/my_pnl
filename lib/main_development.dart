@@ -14,6 +14,7 @@ Future<void> main() async {
       displayCurrencyStore: dependencies.displayCurrencyStore,
       debtRepository: dependencies.debtRepository,
       goalRepository: dependencies.goalRepository,
+      overrunSettingsStore: dependencies.overrunSettingsStore,
       transactionRepository: dependencies.transactionRepository,
       syncRepository: dependencies.syncRepository,
     );

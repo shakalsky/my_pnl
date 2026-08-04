@@ -34,12 +34,17 @@ class CalendarMonth extends Equatable {
   /// The first instant of the month, for formatting.
   DateTime get startsOn => DateTime(year, month);
 
-  bool isAfter(CalendarMonth other) => _ordinal > other._ordinal;
+  bool isAfter(CalendarMonth other) => ordinal > other.ordinal;
 
-  bool isBefore(CalendarMonth other) => _ordinal < other._ordinal;
+  bool isBefore(CalendarMonth other) => ordinal < other.ordinal;
 
   /// Months since year zero, so two of them can be compared as numbers.
-  int get _ordinal => year * 12 + month;
+  ///
+  /// Public because SQL has to reach the same figure to compare a range of
+  /// months: `year * 12 + month` over the stored timestamp is this arithmetic,
+  /// and having one definition of it is what keeps a window computed here and
+  /// applied there from disagreeing at a year boundary.
+  int get ordinal => year * 12 + month;
 
   @override
   List<Object?> get props => [year, month];

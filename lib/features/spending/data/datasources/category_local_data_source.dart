@@ -5,6 +5,7 @@ import 'package:my_pnl/features/spending/data/mappers/category_mapper.dart';
 import 'package:my_pnl/features/spending/domain/entities/calendar_month.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/entities/category_spend.dart';
+import 'package:my_pnl/features/spending/domain/entities/spend_baseline.dart';
 import 'package:my_pnl/features/spending/domain/repositories/category_repository.dart';
 
 /// Drift queries behind the category repository.
@@ -178,6 +179,83 @@ class CategoryLocalDataSource {
           )
           .toList(),
     );
+  }
+
+  /// What each category usually costs in a month, keyed by category id.
+  ///
+  /// Averages the [lookbackMonths] months ending with the one before [month].
+  /// The month being looked at is left out of its own baseline on purpose: an
+  /// average a figure is inside of moves with that figure, which is the one
+  /// thing a comparison against it must not do.
+  ///
+  /// Grouped per category and month in the database, then averaged here. The
+  /// division cannot go into the SQL because which months count is not a
+  /// property of a row: only months with something booked in them do, and a
+  /// month a category did not exist in is absent from the result rather than
+  /// present as a zero. `AVG` over the rows would divide by the wrong number.
+  Stream<Map<String, SpendBaseline>> watchSpendBaselines(
+    String ownerId,
+    CategoryKind kind, {
+    required CalendarMonth month,
+    int lookbackMonths = SpendBaseline.lookbackMonths,
+  }) {
+    // Same cast as `watchCategorySpend`, and for the same reason: the column is
+    // stored as ISO-8601 text, and the date functions read it as it stands.
+    final executedAt = _db.transactions.executedAt.dartCast<DateTime>();
+    // Months since year zero, exactly as `CalendarMonth.ordinal` counts them,
+    // so a window that crosses a year boundary needs no special case.
+    final ordinal = executedAt.year * const Constant(12) + executedAt.month;
+    final categoryId = _db.transactions.categoryId;
+    final total = _db.transactions.amountScaled.sum();
+
+    // The month before the one asked about, back through the window.
+    final newest = month.ordinal - 1;
+    final oldest = month.ordinal - lookbackMonths;
+
+    final query =
+        _db.selectOnly(_db.transactions).join([
+            // Inner: a baseline is per category, so an entry whose category was
+            // deleted has nothing here to be the usual month of.
+            innerJoin(
+              _db.categories,
+              _db.categories.id.equalsExp(categoryId) &
+                  _db.categories.ownerId.equals(ownerId) &
+                  _db.categories.deletedAt.isNull() &
+                  _kindMatches(kind),
+            ),
+          ])
+          ..addColumns([categoryId, ordinal, total])
+          ..where(
+            _db.transactions.ownerId.equals(ownerId) &
+                _db.transactions.deletedAt.isNull() &
+                ordinal.isBetweenValues(oldest, newest),
+          )
+          ..groupBy([categoryId, ordinal]);
+
+    return query.watch().map((rows) {
+      final booked = <String, List<int>>{};
+
+      for (final row in rows) {
+        final id = row.read(categoryId);
+        final monthTotal = row.read(total) ?? 0;
+        // Magnitudes: spending is stored negative, and a baseline is compared
+        // against either side of the ledger. A month that came to exactly zero
+        // — a spend and its refund — is no evidence of a usual month, so it is
+        // not counted as one.
+        if (id == null || monthTotal == 0) continue;
+        (booked[id] ??= []).add(monthTotal.abs());
+      }
+
+      return {
+        for (final entry in booked.entries)
+          entry.key: SpendBaseline(
+            averageScaled:
+                entry.value.reduce((sum, amount) => sum + amount) ~/
+                entry.value.length,
+            months: entry.value.length,
+          ),
+      };
+    });
   }
 
   /// Matches a transaction booked in [month] — or every transaction, when no

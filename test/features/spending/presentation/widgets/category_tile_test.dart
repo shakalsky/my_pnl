@@ -3,6 +3,8 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/entities/category_spend.dart';
+import 'package:my_pnl/features/spending/domain/entities/spend_baseline.dart';
+import 'package:my_pnl/features/spending/presentation/theme/overrun_style.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/category_tile.dart';
 
 import '../../../../helpers/helpers.dart';
@@ -22,7 +24,10 @@ CategorySpend _spend(String name, int totalScaled) => CategorySpend(
 );
 
 extension on WidgetTester {
-  Future<void> pumpTile(CategorySpend spend) async {
+  Future<void> pumpTile(
+    CategorySpend spend, {
+    SpendOverrun overrun = SpendOverrun.none,
+  }) async {
     await pumpApp(
       Scaffold(
         body: Center(
@@ -31,6 +36,7 @@ extension on WidgetTester {
             height: _cellHeight,
             child: CategoryTile(
               spend: spend,
+              overrun: overrun,
               onAddAmount: () {},
               onShowHistory: () {},
               onEdit: () {},
@@ -39,6 +45,12 @@ extension on WidgetTester {
         ),
       ),
     );
+  }
+
+  /// The outline the tile is currently drawn with.
+  BorderSide tileBorder() {
+    final material = widget<Material>(find.byType(Material).last);
+    return (material.shape! as RoundedRectangleBorder).side;
   }
 
   /// How many lines the paragraph showing [text] settled on.
@@ -96,6 +108,62 @@ void main() {
       await tester.pumpTile(_spend('Groceries and household', -123456789));
 
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('leaves a usual month unoutlined', (tester) async {
+      await tester.pumpTile(_spend('Rent', -4235));
+
+      // An outline on every tile would make the flagged ones merely a different
+      // colour rather than a standout.
+      expect(tester.tileBorder(), BorderSide.none);
+    });
+
+    testWidgets('outlines a flagged month in the colour of its level', (
+      tester,
+    ) async {
+      for (final overrun in SpendOverrun.values.where((o) => o.isFlagged)) {
+        await tester.pumpTile(_spend('Rent', -4235), overrun: overrun);
+        final border = tester.tileBorder();
+
+        expect(border.color, overrunBorderColor(overrun));
+        expect(border.width, overrunBorderWidth);
+      }
+    });
+
+    testWidgets('draws each level a different colour', (tester) async {
+      final colors = {
+        for (final overrun in SpendOverrun.values) overrunBorderColor(overrun),
+      };
+
+      // Three flagged levels plus the null of an unflagged one: a level that
+      // shared a colour with another could not be told apart on screen.
+      expect(colors, hasLength(SpendOverrun.values.length));
+    });
+
+    testWidgets('says out loud what the colour shows', (tester) async {
+      final semantics = tester.ensureSemantics();
+
+      await tester.pumpTile(
+        _spend('Rent', -4235),
+        overrun: SpendOverrun.severe,
+      );
+
+      // The border carries the level for anyone who can see it; this carries it
+      // for anyone who cannot. Matched loosely because the warning is read out
+      // as part of the tile, ahead of the name and the amount.
+      expect(
+        find.bySemanticsLabel(
+          RegExp(overrunSemanticLabel(SpendOverrun.severe)!),
+        ),
+        findsOne,
+      );
+
+      await tester.pumpTile(_spend('Rent', -4235));
+      expect(find.bySemanticsLabel(RegExp('usual month')), findsNothing);
+
+      // Disposed here rather than in a tear-down: the framework checks for a
+      // live handle before tear-downs run.
+      semantics.dispose();
     });
   });
 }

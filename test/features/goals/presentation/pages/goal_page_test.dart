@@ -94,11 +94,10 @@ void main() {
       expect(find.text(r'+$2,000.00'), findsOneWidget);
       // April ended down, so it is not in the list...
       expect(find.text('April 2026'), findsNothing);
-      // ...but it is not hidden either.
-      expect(
-        find.textContaining(r'1 month ended down, $400.00'),
-        findsOneWidget,
-      );
+      // ...but it is not hidden either, further down the page.
+      final note = find.textContaining(r'1 month ended down, $400.00');
+      await tester.scrollUntilVisible(note, 200);
+      expect(note, findsOneWidget);
     });
 
     testWidgets('adds up the positive months as the saved figure', (
@@ -118,7 +117,10 @@ void main() {
 
       expect(find.text(r'$4,000.00'), findsOneWidget);
       expect(find.text('May 2026'), findsOneWidget);
-      expect(find.text('March 2026'), findsOneWidget);
+      // Further down the page, under the projection card.
+      final march = find.text('March 2026');
+      await tester.scrollUntilVisible(march, 200);
+      expect(march, findsOneWidget);
     });
 
     testWidgets('says when no month has finished up', (tester) async {
@@ -129,7 +131,10 @@ void main() {
       );
       await openPage(tester);
 
-      expect(find.textContaining('No month has finished up yet'), findsOneWidget);
+      expect(
+        find.textContaining('No month has finished up yet'),
+        findsOneWidget,
+      );
       expect(find.text(r'$0.00'), findsOneWidget);
     });
 
@@ -239,6 +244,78 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(await goals.watchGoal().first, isNotNull);
+    });
+
+    testWidgets('projects what the saved total would earn invested', (
+      tester,
+    ) async {
+      await bookAMixOfMonths();
+      await openPage(tester);
+
+      // 2000 saved at the opening 5% over 10 years grows to 3,257.79, and a day
+      // at that point earns 44 cents — not the 27 it earns today.
+      expect(find.text('If invested'), findsOneWidget);
+      expect(find.text(r'$0.44'), findsOneWidget);
+      expect(find.text('5% a year'), findsOneWidget);
+      expect(
+        find.text(r'10 years on, with $3,257.79 in the pot'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('reprojects as the rate slider moves', (tester) async {
+      await bookAMixOfMonths();
+      await openPage(tester);
+
+      // Dragging to the far end of the track picks up the maximum rate.
+      await tester.drag(find.byType(Slider).first, const Offset(500, 0));
+      await tester.pumpAndSettle();
+
+      expect(find.text('20% a year'), findsOneWidget);
+      // 2000 at 20% grows to 12,383.47 over ten years, and a day of that earns
+      // 6.19 where today it earns a dollar.
+      expect(find.text(r'$6.19'), findsOneWidget);
+      expect(
+        find.text(r'10 years on, with $12,383.47 in the pot'),
+        findsOneWidget,
+      );
+      // The saved figure itself is unchanged by the what-if.
+      expect(find.text(r'$2,000.00'), findsOneWidget);
+    });
+
+    testWidgets('reprojects as the years slider moves', (tester) async {
+      await bookAMixOfMonths();
+      await openPage(tester);
+
+      // Back to the near end of the years track: one year.
+      await tester.drag(find.byType(Slider).last, const Offset(-500, 0));
+      await tester.pumpAndSettle();
+
+      // One year at 5% adds the plain percentage of 2000...
+      expect(
+        find.text(r'1 year on, with $2,100.00 in the pot'),
+        findsOneWidget,
+      );
+      // ...and a day at the end of that one year earns 28 cents, well short of
+      // the 44 a day ten years in.
+      expect(find.text(r'$0.28'), findsOneWidget);
+    });
+
+    testWidgets('the sliders stay inside 3 to 20 percent and 1 to 50 years', (
+      tester,
+    ) async {
+      await bookAMixOfMonths();
+      await openPage(tester);
+
+      final rate = tester.widget<Slider>(find.byType(Slider).first);
+      expect(rate.min, 3);
+      expect(rate.max, 20);
+      expect(rate.value, 5);
+
+      final years = tester.widget<Slider>(find.byType(Slider).last);
+      expect(years.min, 1);
+      expect(years.max, 50);
+      expect(years.value, 10);
     });
 
     testWidgets('reports a goal that could not be saved', (tester) async {

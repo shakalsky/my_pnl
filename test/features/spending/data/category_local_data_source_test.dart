@@ -6,6 +6,7 @@ import 'package:my_pnl/database/database.dart';
 import 'package:my_pnl/features/spending/data/datasources/category_local_data_source.dart';
 import 'package:my_pnl/features/spending/domain/entities/calendar_month.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
+import 'package:my_pnl/features/spending/domain/entities/spend_baseline.dart';
 import 'package:my_pnl/features/spending/domain/repositories/category_repository.dart';
 
 void main() {
@@ -475,6 +476,312 @@ void main() {
 
         expect(await totalFor(const CalendarMonth(2026, 4)), 500);
         expect(await totalFor(const CalendarMonth(2026, 3)), 0);
+      });
+    });
+
+    group('what a month usually costs', () {
+      const june = CalendarMonth(2026, 6);
+
+      /// Books [amounts] against [categoryId], one per month, starting in
+      /// [from] and stepping forward a month at a time.
+      Future<void> bookMonthly({
+        required String accountId,
+        required String categoryId,
+        required CalendarMonth from,
+        required List<int> amounts,
+      }) async {
+        var month = from;
+
+        for (final amount in amounts) {
+          if (amount != 0) {
+            await insertTransaction(
+              accountId: accountId,
+              categoryId: categoryId,
+              amountScaled: amount,
+              executedAt: DateTime.utc(month.year, month.month, 10),
+            );
+          }
+          month = month.next;
+        }
+      }
+
+      Future<Map<String, SpendBaseline>> baselines({
+        CalendarMonth month = june,
+        int lookbackMonths = SpendBaseline.lookbackMonths,
+      }) => dataSource
+          .watchSpendBaselines(
+            owner,
+            CategoryKind.expense,
+            month: month,
+            lookbackMonths: lookbackMonths,
+          )
+          .first;
+
+      test('averages the months before the one asked about', () async {
+        final accountId = await insertAccount();
+        final groceries = await dataSource.createCategory(
+          const NewCategory(name: 'Groceries', colorArgb: 1, iconKey: 'g'),
+          owner,
+        );
+
+        // March, April, May: 100, 200, 300 — and 900 in June itself, which is
+        // the month being asked about.
+        await bookMonthly(
+          accountId: accountId,
+          categoryId: groceries.id,
+          from: const CalendarMonth(2026, 3),
+          amounts: [-10000, -20000, -30000, -90000],
+        );
+
+        final baseline = (await baselines())[groceries.id]!;
+
+        // 200, not 375: a month inside its own average moves that average, and
+        // the spike would flatten itself.
+        expect(baseline.averageScaled, 20000);
+        expect(baseline.months, 3);
+      });
+
+      test('averages magnitudes, whichever way the ledger stores them',
+          () async {
+        final accountId = await insertAccount();
+        final salary = await dataSource.createCategory(
+          const NewCategory(
+            name: 'Salary',
+            colorArgb: 1,
+            iconKey: 'home',
+            kind: CategoryKind.income,
+          ),
+          owner,
+        );
+
+        await bookMonthly(
+          accountId: accountId,
+          categoryId: salary.id,
+          from: const CalendarMonth(2026, 4),
+          amounts: [300000, 300000],
+        );
+
+        final found = await dataSource
+            .watchSpendBaselines(owner, CategoryKind.income, month: june)
+            .first;
+
+        expect(found[salary.id]?.averageScaled, 300000);
+      });
+
+      test('counts only the months something was booked in', () async {
+        final accountId = await insertAccount();
+        final travel = await dataSource.createCategory(
+          const NewCategory(name: 'Travel', colorArgb: 1, iconKey: 'travel'),
+          owner,
+        );
+
+        // Nothing in April: a month the category was quiet is not a month it
+        // cost nothing, and averaging it in as zero would make an ordinary
+        // month look like a spike.
+        await bookMonthly(
+          accountId: accountId,
+          categoryId: travel.id,
+          from: const CalendarMonth(2026, 3),
+          amounts: [-10000, 0, -20000],
+        );
+
+        final baseline = (await baselines())[travel.id]!;
+
+        expect(baseline.averageScaled, 15000);
+        expect(baseline.months, 2);
+      });
+
+      test('adds up everything booked within one month', () async {
+        final accountId = await insertAccount();
+        final dining = await dataSource.createCategory(
+          const NewCategory(name: 'Dining', colorArgb: 1, iconKey: 'dining'),
+          owner,
+        );
+
+        for (final day in [3, 14, 28]) {
+          await insertTransaction(
+            accountId: accountId,
+            categoryId: dining.id,
+            amountScaled: -1000,
+            executedAt: DateTime.utc(2026, 4, day),
+          );
+        }
+        await insertTransaction(
+          accountId: accountId,
+          categoryId: dining.id,
+          amountScaled: -6000,
+          executedAt: DateTime.utc(2026, 5, 9),
+        );
+
+        final baseline = (await baselines())[dining.id]!;
+
+        // Two months of 30 and 60, not five entries averaged one by one.
+        expect(baseline.months, 2);
+        expect(baseline.averageScaled, 4500);
+      });
+
+      test('reaches back no further than the lookback', () async {
+        final accountId = await insertAccount();
+        final rent = await dataSource.createCategory(
+          const NewCategory(name: 'Rent', colorArgb: 1, iconKey: 'home'),
+          owner,
+        );
+
+        // January through May, with January far out of line. A two-month
+        // lookback sees April and May only.
+        await bookMonthly(
+          accountId: accountId,
+          categoryId: rent.id,
+          from: const CalendarMonth(2026, 1),
+          amounts: [-500000, -10000, -10000, -10000, -10000],
+        );
+
+        final near = (await baselines(lookbackMonths: 2))[rent.id]!;
+        expect(near.months, 2);
+        expect(near.averageScaled, 10000);
+
+        // Five months back reaches January, and the outlier is in the average.
+        final far = (await baselines(lookbackMonths: 5))[rent.id]!;
+        expect(far.months, 5);
+        expect(far.averageScaled, greaterThan(near.averageScaled));
+      });
+
+      test('crosses a year boundary without losing a month', () async {
+        final accountId = await insertAccount();
+        final utilities = await dataSource.createCategory(
+          const NewCategory(name: 'Utilities', colorArgb: 1, iconKey: 'build'),
+          owner,
+        );
+
+        // November, December, January — the window for February 2027 spans the
+        // turn of the year.
+        await bookMonthly(
+          accountId: accountId,
+          categoryId: utilities.id,
+          from: const CalendarMonth(2026, 11),
+          amounts: [-10000, -20000, -30000],
+        );
+
+        final baseline =
+            (await baselines(month: const CalendarMonth(2027, 2)))[utilities
+                .id]!;
+
+        expect(baseline.months, 3);
+        expect(baseline.averageScaled, 20000);
+      });
+
+      test('leaves out a category with nothing booked in the window', () async {
+        await insertAccount();
+        final fun = await dataSource.createCategory(
+          const NewCategory(name: 'Fun', colorArgb: 1, iconKey: 'fun'),
+          owner,
+        );
+
+        // Absent rather than present with a zero average: "no usual month on
+        // record" and "usually costs nothing" are different answers.
+        expect(await baselines(), isNot(contains(fun.id)));
+      });
+
+      test('keeps one owner out of another’s usual month', () async {
+        final accountId = await insertAccount();
+        final mine = await dataSource.createCategory(
+          const NewCategory(name: 'Groceries', colorArgb: 1, iconKey: 'g'),
+          owner,
+        );
+
+        await bookMonthly(
+          accountId: accountId,
+          categoryId: mine.id,
+          from: const CalendarMonth(2026, 4),
+          amounts: [-10000, -10000],
+        );
+        // Booked against the same category by someone else — impossible through
+        // the repository, which is why the query has to refuse it here.
+        await insertTransaction(
+          accountId: accountId,
+          categoryId: mine.id,
+          amountScaled: -900000,
+          ownerId: other,
+          executedAt: DateTime.utc(2026, 5, 20),
+        );
+
+        expect((await baselines())[mine.id]?.averageScaled, 10000);
+      });
+
+      test('leaves out a deleted entry', () async {
+        final accountId = await insertAccount();
+        final health = await dataSource.createCategory(
+          const NewCategory(name: 'Health', colorArgb: 1, iconKey: 'health'),
+          owner,
+        );
+
+        await bookMonthly(
+          accountId: accountId,
+          categoryId: health.id,
+          from: const CalendarMonth(2026, 4),
+          amounts: [-10000, -10000],
+        );
+        await insertTransaction(
+          accountId: accountId,
+          categoryId: health.id,
+          amountScaled: -50000,
+          executedAt: DateTime.utc(2026, 5, 21),
+        );
+        await (db.update(db.transactions)..where(
+              (row) => row.amountScaled.equals(-50000),
+            ))
+            .write(TransactionsCompanion(deletedAt: Value(DateTime.utc(2026))));
+
+        expect((await baselines())[health.id]?.averageScaled, 10000);
+      });
+
+      test('shows the other side of the ledger nothing of this one', () async {
+        final accountId = await insertAccount();
+        final groceries = await dataSource.createCategory(
+          const NewCategory(name: 'Groceries', colorArgb: 1, iconKey: 'g'),
+          owner,
+        );
+
+        await bookMonthly(
+          accountId: accountId,
+          categoryId: groceries.id,
+          from: const CalendarMonth(2026, 4),
+          amounts: [-10000, -10000],
+        );
+
+        final income = await dataSource
+            .watchSpendBaselines(owner, CategoryKind.income, month: june)
+            .first;
+
+        expect(income, isEmpty);
+      });
+
+      test('re-emits when an entry in the window changes', () async {
+        final accountId = await insertAccount();
+        final groceries = await dataSource.createCategory(
+          const NewCategory(name: 'Groceries', colorArgb: 1, iconKey: 'g'),
+          owner,
+        );
+
+        final stream = dataSource
+            .watchSpendBaselines(owner, CategoryKind.expense, month: june)
+            .distinct();
+        final seen = expectLater(
+          stream,
+          emitsInOrder(<Object>[
+            isEmpty,
+            {groceries.id: const SpendBaseline(averageScaled: 10000, months: 2)},
+          ]),
+        );
+
+        await bookMonthly(
+          accountId: accountId,
+          categoryId: groceries.id,
+          from: const CalendarMonth(2026, 4),
+          amounts: [-10000, -10000],
+        );
+
+        await seen;
       });
     });
   });

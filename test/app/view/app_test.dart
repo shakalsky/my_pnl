@@ -1,4 +1,5 @@
 import 'package:drift/native.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_pnl/app/app.dart';
 import 'package:my_pnl/database/database.dart';
@@ -7,6 +8,7 @@ import 'package:my_pnl/features/app_update/domain/entities/update_requirement.da
 import 'package:my_pnl/features/app_update/presentation/pages/required_update_page.dart';
 import 'package:my_pnl/features/auth/domain/entities/auth_user.dart';
 import 'package:my_pnl/features/auth/presentation/pages/sign_in_page.dart';
+import 'package:my_pnl/features/spending/presentation/pages/income_overview_page.dart';
 import 'package:my_pnl/features/spending/presentation/pages/spending_overview_page.dart';
 
 import '../../helpers/helpers.dart';
@@ -52,6 +54,7 @@ void main() {
           displayCurrencyStore: FakeDisplayCurrencyStore(),
           debtRepository: debts,
           goalRepository: goals,
+          overrunSettingsStore: FakeOverrunSettingsStore(),
           transactionRepository: spending,
           syncRepository: FakeSyncRepository(),
         ),
@@ -174,6 +177,97 @@ void main() {
         await pumpAppWith(tester, auth);
 
         expect(find.byType(SpendingOverviewPage), findsOneWidget);
+      });
+    });
+
+    group('the overview pager', () {
+      /// A signed-in session sitting on the overview.
+      Future<void> openOverview(WidgetTester tester) async {
+        final auth = FakeAuthRepository(
+          initialUser: const AuthUser(id: 'user-1', email: 'a@b.com'),
+        );
+        addTearDown(auth.close);
+
+        await pumpAppWith(tester, auth);
+      }
+
+      /// Both pages stay built — they are peers in a pager, not one on top of
+      /// the other — so which is showing is a question of where they sit, not
+      /// of what exists. The one off screen is offstage, hence `skipOffstage`.
+      void expectShowing(WidgetTester tester, Type page) {
+        for (final type in [SpendingOverviewPage, IncomeOverviewPage]) {
+          final finder = find.byType(type, skipOffstage: false);
+          expect(finder, findsOneWidget, reason: '$type is built either way');
+          expect(
+            tester.getTopLeft(finder).dx,
+            type == page ? 0 : isNot(0),
+            reason: '$type ${type == page ? 'should' : 'should not'} be showing',
+          );
+        }
+      }
+
+      /// A flick across the middle of whichever page is showing.
+      Future<void> flick(WidgetTester tester, double dx) async {
+        await tester.fling(find.byType(PageView), Offset(dx, 0), 1000);
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('opens on spending, with income alongside', (tester) async {
+        await openOverview(tester);
+
+        expectShowing(tester, SpendingOverviewPage);
+      });
+
+      testWidgets('swiping right shows income', (tester) async {
+        await openOverview(tester);
+
+        await flick(tester, 300);
+
+        expectShowing(tester, IncomeOverviewPage);
+      });
+
+      testWidgets('swiping left again shows spending', (tester) async {
+        await openOverview(tester);
+
+        await flick(tester, 300);
+        expectShowing(tester, IncomeOverviewPage);
+
+        await flick(tester, -300);
+
+        expectShowing(tester, SpendingOverviewPage);
+      });
+
+      testWidgets('neither page is pushed over the other', (tester) async {
+        await openOverview(tester);
+        await flick(tester, 300);
+
+        // Nothing to pop: income is beside spending rather than over it, so
+        // both are the one route and there is no back stack to unwind.
+        expect(find.byTooltip('Back'), findsNothing);
+        expect(
+          Navigator.of(tester.element(find.byType(PageView))).canPop(),
+          isFalse,
+        );
+      });
+
+      testWidgets('the income icon slides across', (tester) async {
+        await openOverview(tester);
+
+        await tester.tap(find.byTooltip('Income'));
+        await tester.pumpAndSettle();
+
+        expectShowing(tester, IncomeOverviewPage);
+      });
+
+      testWidgets('and the arrow on income slides back', (tester) async {
+        await openOverview(tester);
+        await tester.tap(find.byTooltip('Income'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byTooltip('Spending'));
+        await tester.pumpAndSettle();
+
+        expectShowing(tester, SpendingOverviewPage);
       });
     });
 

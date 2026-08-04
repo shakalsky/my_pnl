@@ -4,7 +4,9 @@ import 'package:intl/intl.dart';
 import 'package:my_pnl/features/spending/domain/entities/calendar_month.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/entities/category_spend.dart';
+import 'package:my_pnl/features/spending/domain/entities/spend_baseline.dart';
 import 'package:my_pnl/features/spending/presentation/pages/spending_overview_page.dart';
+import 'package:my_pnl/features/spending/presentation/theme/overrun_style.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/category_tile.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/total_circle.dart';
 
@@ -356,6 +358,73 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(repository.requestedMonths, [CalendarMonth.now().previous]);
+      });
+    });
+
+    group('unusual months', () {
+      /// The outline the tile showing [name] is drawn with.
+      BorderSide borderOf(WidgetTester tester, String name) {
+        final tile = find.ancestor(
+          of: find.text(name),
+          matching: find.byType(CategoryTile),
+        );
+        final material = tester.widget<Material>(
+          find.descendant(of: tile, matching: find.byType(Material)).first,
+        );
+
+        return (material.shape! as RoundedRectangleBorder).side;
+      }
+
+      /// The same two categories, with a usual month on record for each.
+      Future<void> seedBaselines() async {
+        await repository.close();
+        repository = FakeCategoryRepository(
+          initial: const [_groceries, _rent],
+          baselines: const {
+            // Groceries usually costs 20.00 a month, and came to 42.35.
+            'category-1': SpendBaseline(averageScaled: 2000, months: 4),
+            // Rent usually costs 1200.00, which is what it came to.
+            'category-2': SpendBaseline(averageScaled: 120000, months: 4),
+          },
+        );
+      }
+
+      testWidgets('outlines the category that ran past its usual month', (
+        tester,
+      ) async {
+        await seedBaselines();
+        await pumpPage(tester);
+
+        expect(
+          borderOf(tester, 'Groceries').color,
+          overrunBorderColor(SpendOverrun.severe),
+        );
+        // A month that came in at the usual is left alone.
+        expect(borderOf(tester, 'Rent'), BorderSide.none);
+      });
+
+      testWidgets('asks for the baselines of the month it moves to', (
+        tester,
+      ) async {
+        await seedBaselines();
+        await pumpPage(tester);
+        repository.requestedBaselineMonths.clear();
+
+        await tester.tap(find.byTooltip('Previous month'));
+        await tester.pumpAndSettle();
+
+        expect(repository.requestedBaselineMonths, [
+          CalendarMonth.now().previous,
+        ]);
+      });
+
+      testWidgets('outlines nothing with no usual month on record', (
+        tester,
+      ) async {
+        await pumpPage(tester);
+
+        expect(borderOf(tester, 'Groceries'), BorderSide.none);
+        expect(borderOf(tester, 'Rent'), BorderSide.none);
       });
     });
   });

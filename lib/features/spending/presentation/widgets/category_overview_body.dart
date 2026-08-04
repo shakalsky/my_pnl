@@ -160,6 +160,11 @@ class CategoryOverviewBody extends StatelessWidget {
                           spend: spend,
                           totalScaled: currency.convert(spend.totalScaled),
                           currencyLabel: currency.label,
+                          // Worked out from the unconverted figures: a rate
+                          // applies to both sides of the comparison and cancels
+                          // out, so converting first could only introduce
+                          // rounding into which colour the border gets.
+                          overrun: state.overrunFor(spend),
                           onAddAmount: () =>
                               AmountEntrySheet.show(context, spend.category),
                           onShowHistory: () => TransactionHistorySheet.show(

@@ -7,16 +7,17 @@ import 'package:my_pnl/features/auth/domain/repositories/auth_repository.dart';
 import 'package:my_pnl/features/auth/presentation/pages/sign_in_page.dart';
 import 'package:my_pnl/features/debts/presentation/pages/debts_page.dart';
 import 'package:my_pnl/features/goals/presentation/pages/goal_page.dart';
-import 'package:my_pnl/features/spending/presentation/pages/income_overview_page.dart';
-import 'package:my_pnl/features/spending/presentation/pages/spending_overview_page.dart';
+import 'package:my_pnl/features/spending/presentation/pages/overview_pager_page.dart';
 
 /// Every route in the app.
 ///
 /// Navigate by name (`context.goNamed(AppRoute.spending.name)`) rather than by
 /// path string, so a path change is a one-line edit here.
 enum AppRoute {
+  /// Spending and income both, as one pager. No route of its own for income:
+  /// the two are peers on one screen, and a second path to half of it could
+  /// only land somewhere the swipe could not get back from.
   spending('/'),
-  income('/income'),
   debts('/debts'),
   goal('/goal'),
   signIn('/sign-in'),
@@ -68,12 +69,7 @@ GoRouter createAppRouter({
       GoRoute(
         path: AppRoute.spending.path,
         name: AppRoute.spending.name,
-        builder: (context, state) => const SpendingOverviewPage(),
-      ),
-      GoRoute(
-        path: AppRoute.income.path,
-        name: AppRoute.income.name,
-        builder: (context, state) => const IncomeOverviewPage(),
+        builder: (context, state) => const OverviewPagerPage(),
       ),
       GoRoute(
         path: AppRoute.debts.path,
