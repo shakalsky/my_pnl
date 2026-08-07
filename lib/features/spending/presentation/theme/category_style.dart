@@ -24,6 +24,9 @@ IconData iconForKey(String key) =>
     categoryIcons[key] ?? Icons.category_outlined;
 
 /// The colors a category can be given, as packed ARGB.
+///
+/// Kept at a similar muted lightness so no swatch shouts over the others in a
+/// list, and ordered so neighbouring entries sit in different hue families.
 const categoryColors = <int>[
   0xFF3B7A57,
   0xFF4A5D8A,
@@ -33,4 +36,12 @@ const categoryColors = <int>[
   0xFF7A5EA8,
   0xFFB08A2E,
   0xFF56606B,
+  0xFF6E8B3D,
+  0xFF2F6F9E,
+  0xFF9A4B45,
+  0xFFA05298,
+  0xFF2E7D6E,
+  0xFF5B4E9C,
+  0xFF8C6E5A,
+  0xFF6B7F8A,
 ];

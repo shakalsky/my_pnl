@@ -47,7 +47,7 @@ class SaveCurrency {
       throw const CurrencyFailure('Enter a ticker');
     }
     if (ticker == baseCurrency) {
-      throw const CurrencyFailure('$baseCurrency is the base currency');
+      throw CurrencyFailure('$baseCurrency is the base currency');
     }
     if (!RegExp(r'^[A-Z0-9]{2,10}$').hasMatch(ticker)) {
       throw const CurrencyFailure(

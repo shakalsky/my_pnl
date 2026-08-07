@@ -9,6 +9,7 @@ Future<void> main() async {
       database: dependencies.database,
       appUpdateRepository: dependencies.appUpdateRepository,
       authRepository: dependencies.authRepository,
+      baseCurrencyStore: dependencies.baseCurrencyStore,
       categoryRepository: dependencies.categoryRepository,
       currencyRepository: dependencies.currencyRepository,
       displayCurrencyStore: dependencies.displayCurrencyStore,

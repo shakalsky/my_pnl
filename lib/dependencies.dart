@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer';
 
 import 'package:flutter/foundation.dart';
+import 'package:my_pnl/core/money/base_currency.dart';
 import 'package:my_pnl/core/session/session_owner.dart';
 import 'package:my_pnl/database/database.dart';
 import 'package:my_pnl/database/powersync/powersync_service.dart';
@@ -13,8 +14,10 @@ import 'package:my_pnl/features/auth/data/repositories/local_only_auth_repositor
 import 'package:my_pnl/features/auth/data/repositories/supabase_auth_repository.dart';
 import 'package:my_pnl/features/auth/domain/repositories/auth_repository.dart';
 import 'package:my_pnl/features/currencies/data/datasources/currency_local_data_source.dart';
+import 'package:my_pnl/features/currencies/data/datasources/preferences_base_currency_store.dart';
 import 'package:my_pnl/features/currencies/data/datasources/preferences_display_currency_store.dart';
 import 'package:my_pnl/features/currencies/data/repositories/currency_repository_impl.dart';
+import 'package:my_pnl/features/currencies/domain/repositories/base_currency_store.dart';
 import 'package:my_pnl/features/currencies/domain/repositories/currency_repository.dart';
 import 'package:my_pnl/features/currencies/domain/repositories/display_currency_store.dart';
 import 'package:my_pnl/features/debts/data/datasources/debt_local_data_source.dart';
@@ -45,6 +48,7 @@ class AppDependencies {
     required this.database,
     required this.appUpdateRepository,
     required this.authRepository,
+    required this.baseCurrencyStore,
     required this.categoryRepository,
     required this.currencyRepository,
     required this.displayCurrencyStore,
@@ -64,6 +68,10 @@ class AppDependencies {
   final AppUpdateRepository appUpdateRepository;
 
   final AuthRepository authRepository;
+
+  /// Which currency amounts are recorded and shown in. A device preference, so
+  /// it is not one of the synced repositories above.
+  final BaseCurrencyStore baseCurrencyStore;
   final CategoryRepository categoryRepository;
   final CurrencyRepository currencyRepository;
 
@@ -102,10 +110,17 @@ Future<AppDependencies> initializeDependencies() async {
     hasBackend: hasBackend,
   );
 
+  // Awaited, unlike the repair passes below: every figure in the app is labelled
+  // with the base currency, and applying it after the first frame would open the
+  // app in dollars and then relabel it in front of the reader.
+  final baseCurrencyStore = PreferencesBaseCurrencyStore();
+  setActiveBaseCurrency(await baseCurrencyStore.read());
+
   final dependencies = AppDependencies(
     database: database,
     appUpdateRepository: appUpdateRepository,
     authRepository: authRepository,
+    baseCurrencyStore: baseCurrencyStore,
     categoryRepository: CategoryRepositoryImpl(
       localDataSource: CategoryLocalDataSource(database),
       sessionOwner: sessionOwner,

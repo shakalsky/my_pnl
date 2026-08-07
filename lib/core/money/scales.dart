@@ -5,6 +5,8 @@
 /// scaled integers so SQLite can still `SUM` and `GROUP BY` them.
 library;
 
+import 'package:my_pnl/core/money/base_currency.dart';
+
 /// Amounts are stored scaled by this factor, i.e. with two decimal places.
 ///
 /// This is the minor unit of most currencies — cents in USD/EUR. Always pair a
@@ -15,10 +17,14 @@ const int amountScale = 100;
 
 /// The currency every amount is understood to be in, and that exchange rates
 /// are quoted against.
-const String baseCurrency = 'USD';
+///
+/// Not a constant any more: the reader chooses it in the currencies sheet, and
+/// `BaseCurrencyStore` is what remembers the choice. Reads the value the app
+/// shell has set for this run — `BaseCurrency.usd` until something sets another.
+String get baseCurrency => activeBaseCurrency.ticker;
 
 /// What [baseCurrency] is written as in front of a figure.
-const String baseCurrencySymbol = r'$';
+String get baseCurrencySymbol => activeBaseCurrency.symbol;
 
 /// Exchange rates are stored scaled by this factor, i.e. with six decimal
 /// places.

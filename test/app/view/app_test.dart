@@ -2,16 +2,27 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_pnl/app/app.dart';
+import 'package:my_pnl/core/money/base_currency.dart';
 import 'package:my_pnl/database/database.dart';
 import 'package:my_pnl/features/app_update/domain/entities/app_version.dart';
 import 'package:my_pnl/features/app_update/domain/entities/update_requirement.dart';
 import 'package:my_pnl/features/app_update/presentation/pages/required_update_page.dart';
 import 'package:my_pnl/features/auth/domain/entities/auth_user.dart';
 import 'package:my_pnl/features/auth/presentation/pages/sign_in_page.dart';
+import 'package:my_pnl/features/currencies/domain/entities/currency.dart';
+import 'package:my_pnl/features/currencies/presentation/widgets/base_currency_sheet.dart';
 import 'package:my_pnl/features/spending/presentation/pages/income_overview_page.dart';
 import 'package:my_pnl/features/spending/presentation/pages/spending_overview_page.dart';
 
 import '../../helpers/helpers.dart';
+
+/// One the reader added, quoted against the dollar.
+const _euro = Currency(
+  id: 'currency-1',
+  ticker: 'EUR',
+  icon: '€',
+  exchangeRateScaled: 1080000,
+);
 
 void main() {
   group('App', () {
@@ -21,9 +32,11 @@ void main() {
     late FakeDebtRepository debts;
     late FakeGoalRepository goals;
     late FakeAppUpdateRepository updates;
+    late FakeBaseCurrencyStore baseCurrency;
 
     setUp(() {
       database = AppDatabase.forTesting(NativeDatabase.memory());
+      baseCurrency = FakeBaseCurrencyStore();
       spending = FakeCategoryRepository();
       currencies = FakeCurrencyRepository();
       debts = FakeDebtRepository();
@@ -32,6 +45,10 @@ void main() {
     });
 
     tearDown(() async {
+      await baseCurrency.close();
+      // The base is one value for the whole process, and this is the shell that
+      // applies it. Put back, or the next test opens in whatever was chosen here.
+      setActiveBaseCurrency(BaseCurrency.usd);
       await updates.close();
       await goals.close();
       await debts.close();
@@ -49,6 +66,7 @@ void main() {
           database: database,
           appUpdateRepository: updates,
           authRepository: auth,
+          baseCurrencyStore: baseCurrency,
           categoryRepository: spending,
           currencyRepository: currencies,
           displayCurrencyStore: FakeDisplayCurrencyStore(),
@@ -201,7 +219,8 @@ void main() {
           expect(
             tester.getTopLeft(finder).dx,
             type == page ? 0 : isNot(0),
-            reason: '$type ${type == page ? 'should' : 'should not'} be showing',
+            reason:
+                '$type ${type == page ? 'should' : 'should not'} be showing',
           );
         }
       }
@@ -268,6 +287,83 @@ void main() {
         await tester.pumpAndSettle();
 
         expectShowing(tester, SpendingOverviewPage);
+      });
+    });
+
+    group('the base currency', () {
+      /// A signed-in session sitting on the overview, where a total is showing.
+      Future<void> openOverview(WidgetTester tester) async {
+        final auth = FakeAuthRepository(
+          initialUser: const AuthUser(id: 'user-1', email: 'a@b.com'),
+        );
+        addTearDown(auth.close);
+
+        await pumpAppWith(tester, auth);
+      }
+
+      testWidgets('labels figures with the currency stored for the device', (
+        tester,
+      ) async {
+        baseCurrency = FakeBaseCurrencyStore(
+          initial: const BaseCurrency(ticker: 'PLN', symbol: 'zł'),
+        );
+
+        await openOverview(tester);
+
+        // Applied before anything was drawn, rather than in dollars first.
+        expect(find.text('zł0.00'), findsWidgets);
+        expect(find.text(r'$0.00'), findsNothing);
+      });
+
+      testWidgets('relabels what is on screen when the choice changes', (
+        tester,
+      ) async {
+        await openOverview(tester);
+        expect(find.text(r'$0.00'), findsWidgets);
+
+        // What the sheet does, once the reader has agreed to it.
+        await baseCurrency.write(
+          const BaseCurrency(ticker: 'PLN', symbol: 'zł'),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('zł0.00'), findsWidgets);
+        expect(find.text(r'$0.00'), findsNothing);
+      });
+
+      testWidgets('is changed from the currencies sheet, rates and all', (
+        tester,
+      ) async {
+        currencies = FakeCurrencyRepository(initial: const [_euro]);
+
+        await openOverview(tester);
+        await tester.tap(find.byTooltip('Currencies'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Base currency'));
+        await tester.pumpAndSettle();
+
+        // First on offer, as one the reader added.
+        await tester.tap(
+          find.descendant(
+            of: find.byType(BaseCurrencySheet),
+            matching: find.widgetWithText(ListTile, 'EUR'),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(FilledButton, 'Switch to EUR'));
+        await tester.pumpAndSettle();
+
+        expect(baseCurrency.writes, [
+          const BaseCurrency(ticker: 'EUR', symbol: '€'),
+        ]);
+        expect(
+          await currencies.watchCurrencies().first,
+          isEmpty,
+          reason: 'their rate was quoted against the dollar',
+        );
+        // Both sheets are gone and the figures behind them read in the euro.
+        expect(find.byType(BaseCurrencySheet), findsNothing);
+        expect(find.text('€0.00'), findsWidgets);
       });
     });
 

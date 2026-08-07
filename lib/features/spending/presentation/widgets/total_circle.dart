@@ -107,7 +107,7 @@ class TotalCircle extends StatelessWidget {
     required this.totalScaled,
     this.segments = const [],
     this.label = 'Total spent',
-    this.currencyLabel = baseCurrencySymbol,
+    this.currencyLabel,
     this.onTap,
     super.key,
   });
@@ -118,8 +118,12 @@ class TotalCircle extends StatelessWidget {
 
   final String label;
 
-  /// The symbol or ticker beside the figure.
-  final String currencyLabel;
+  /// The symbol or ticker beside the figure. Null falls back to the base
+  /// currency's sign, which is what the figure is recorded in.
+  ///
+  /// Nullable rather than defaulted to it: the base is a choice the reader can
+  /// change, so it is not a constant a default value could name.
+  final String? currencyLabel;
 
   /// Called when the circle is tapped. Null leaves it inert, with no ink to
   /// suggest otherwise.
@@ -169,7 +173,10 @@ class TotalCircle extends StatelessWidget {
                   const SizedBox(height: 4),
                   FittedBox(
                     child: Text(
-                      formatAmountIn(totalScaled, currencyLabel),
+                      formatAmountIn(
+                        totalScaled,
+                        currencyLabel ?? baseCurrencySymbol,
+                      ),
                       style: theme.textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: colors.onSurface,
@@ -219,7 +226,13 @@ class _RingPainter extends CustomPainter {
 
     final rect = Rect.fromCircle(center: center, radius: radius);
     for (final arc in arcs) {
-      canvas.drawArc(rect, arc.start, arc.sweep, false, paint..color = arc.color);
+      canvas.drawArc(
+        rect,
+        arc.start,
+        arc.sweep,
+        false,
+        paint..color = arc.color,
+      );
     }
   }
 

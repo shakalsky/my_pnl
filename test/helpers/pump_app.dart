@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:my_pnl/features/app_update/domain/repositories/app_update_repository.dart';
 import 'package:my_pnl/features/auth/domain/repositories/auth_repository.dart';
 import 'package:my_pnl/features/auth/presentation/bloc/auth/auth_bloc.dart';
+import 'package:my_pnl/features/currencies/domain/repositories/base_currency_store.dart';
 import 'package:my_pnl/features/currencies/domain/repositories/currency_repository.dart';
 import 'package:my_pnl/features/currencies/domain/repositories/display_currency_store.dart';
 import 'package:my_pnl/features/debts/domain/repositories/debt_repository.dart';
@@ -14,6 +15,7 @@ import 'package:my_pnl/features/spending/domain/repositories/transaction_reposit
 import 'package:my_pnl/features/sync/domain/repositories/sync_repository.dart';
 
 import 'fake_auth_repository.dart';
+import 'fake_base_currency_store.dart';
 import 'fake_display_currency_store.dart';
 import 'fake_overrun_settings_store.dart';
 import 'fake_sync_repository.dart';
@@ -28,6 +30,7 @@ extension PumpApp on WidgetTester {
     Widget widget, {
     AppUpdateRepository? appUpdateRepository,
     AuthRepository? authRepository,
+    BaseCurrencyStore? baseCurrencyStore,
     CategoryRepository? categoryRepository,
     CurrencyRepository? currencyRepository,
     DisplayCurrencyStore? displayCurrencyStore,
@@ -48,6 +51,10 @@ extension PumpApp on WidgetTester {
     // month, and an untouched store is the ordinary case of never having
     // changed the thresholds.
     final overrunSettings = overrunSettingsStore ?? FakeOverrunSettingsStore();
+    // And likewise: the currencies sheet reads which currency everything is
+    // recorded in, and an untouched store is the ordinary case of never having
+    // changed it.
+    final baseCurrency = baseCurrencyStore ?? FakeBaseCurrencyStore();
 
     // Providers sit ABOVE MaterialApp, exactly as they do in App. Below it
     // they would also sit below the Navigator, and anything pushed as a route
@@ -64,6 +71,7 @@ extension PumpApp on WidgetTester {
           RepositoryProvider<DisplayCurrencyStore>.value(
             value: displayCurrency,
           ),
+          RepositoryProvider<BaseCurrencyStore>.value(value: baseCurrency),
           RepositoryProvider<OverrunSettingsStore>.value(
             value: overrunSettings,
           ),

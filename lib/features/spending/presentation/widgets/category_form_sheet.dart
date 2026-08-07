@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -271,17 +273,30 @@ class _CategoryFormState extends State<_CategoryForm> {
             const SizedBox(height: 20),
             Text('Color', style: theme.textTheme.labelLarge),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                for (final color in categoryColors)
-                  _ColorSwatch(
-                    colorArgb: color,
-                    selected: color == state.colorArgb,
-                    onTap: () => bloc.add(CategoryFormColorSelected(color)),
-                  ),
-              ],
+            // Sized from the available width rather than fixed, so the row
+            // always holds exactly eight swatches even on narrow phones.
+            LayoutBuilder(
+              builder: (context, constraints) {
+                const perRow = 8;
+                const spacing = 10.0;
+                final size = math.min<double>(
+                  36,
+                  (constraints.maxWidth - spacing * (perRow - 1)) / perRow,
+                );
+                return Wrap(
+                  spacing: spacing,
+                  runSpacing: spacing,
+                  children: [
+                    for (final color in categoryColors)
+                      _ColorSwatch(
+                        colorArgb: color,
+                        size: size,
+                        selected: color == state.colorArgb,
+                        onTap: () => bloc.add(CategoryFormColorSelected(color)),
+                      ),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 20),
             Text('Icon', style: theme.textTheme.labelLarge),
@@ -386,11 +401,13 @@ class _CategoryFormState extends State<_CategoryForm> {
 class _ColorSwatch extends StatelessWidget {
   const _ColorSwatch({
     required this.colorArgb,
+    required this.size,
     required this.selected,
     required this.onTap,
   });
 
   final int colorArgb;
+  final double size;
   final bool selected;
   final VoidCallback onTap;
 
@@ -403,8 +420,8 @@ class _ColorSwatch extends StatelessWidget {
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: Container(
-          width: 36,
-          height: 36,
+          width: size,
+          height: size,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: Color(colorArgb),
@@ -416,7 +433,7 @@ class _ColorSwatch extends StatelessWidget {
                 : null,
           ),
           child: selected
-              ? const Icon(Icons.check, color: Colors.white, size: 18)
+              ? Icon(Icons.check, color: Colors.white, size: size / 2)
               : null,
         ),
       ),

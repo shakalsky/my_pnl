@@ -14,7 +14,7 @@ class CategoryTile extends StatelessWidget {
     required this.onShowHistory,
     required this.onEdit,
     this.totalScaled,
-    this.currencyLabel = baseCurrencySymbol,
+    this.currencyLabel,
     this.overrun = SpendOverrun.none,
     super.key,
   });
@@ -35,8 +35,12 @@ class CategoryTile extends StatelessWidget {
   /// grid, or they would disagree.
   final int? totalScaled;
 
-  /// The sign or ticker beside the total.
-  final String currencyLabel;
+  /// The sign or ticker beside the total. Null falls back to the base
+  /// currency's sign, which is what the total is recorded in.
+  ///
+  /// Nullable rather than defaulted to it: the base is a choice the reader can
+  /// change, so it is not a constant a default value could name.
+  final String? currencyLabel;
 
   /// Tap books an amount — the frequent action gets the primary gesture.
   final VoidCallback onAddAmount;
@@ -142,7 +146,7 @@ class CategoryTile extends StatelessWidget {
                         child: Text(
                           formatAmountIn(
                             totalScaled ?? spend.totalScaled,
-                            currencyLabel,
+                            currencyLabel ?? baseCurrencySymbol,
                           ),
                           maxLines: 1,
                           style: amountStyle,

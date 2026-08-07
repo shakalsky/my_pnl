@@ -15,8 +15,13 @@ class FakeCurrencyRepository implements CurrencyRepository {
   /// Set to have any write fail.
   Exception? writeError;
 
+  /// Set to have the watch stream fail instead of emitting.
+  Exception? watchError;
+
   @override
   Stream<List<Currency>> watchCurrencies() async* {
+    if (watchError case final error?) throw error;
+
     yield _sorted();
     yield* _controller.stream;
   }

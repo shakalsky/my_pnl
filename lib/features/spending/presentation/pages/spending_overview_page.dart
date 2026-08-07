@@ -10,7 +10,6 @@ import 'package:my_pnl/features/spending/domain/usecases/watch_category_spend.da
 import 'package:my_pnl/features/spending/domain/usecases/watch_overrun_settings.dart';
 import 'package:my_pnl/features/spending/domain/usecases/watch_spend_baselines.dart';
 import 'package:my_pnl/features/spending/presentation/bloc/spending_overview/spending_overview_bloc.dart';
-import 'package:my_pnl/features/spending/presentation/pages/overview_pager_page.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/account_button.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/all_transactions_sheet.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/category_overview_body.dart';
@@ -53,9 +52,6 @@ class SpendingOverviewView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Null when this page is shown on its own; the icon then has nowhere to
-    // slide to and stands down rather than doing nothing when tapped.
-    final pager = OverviewPager.maybeOf(context);
 
     return Scaffold(
       body: SafeArea(
@@ -78,13 +74,6 @@ class SpendingOverviewView extends StatelessWidget {
                     tooltip: 'All transactions',
                     visualDensity: VisualDensity.compact,
                   ),
-                  if (pager != null)
-                    IconButton(
-                      onPressed: pager.showIncome,
-                      icon: const Icon(Icons.savings_outlined, size: 20),
-                      tooltip: 'Income',
-                      visualDensity: VisualDensity.compact,
-                    ),
                   IconButton(
                     onPressed: () => context.pushNamed(AppRoute.debts.name),
                     icon: const Icon(Icons.handshake_outlined, size: 20),

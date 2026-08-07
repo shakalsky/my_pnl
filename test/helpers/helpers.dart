@@ -1,5 +1,6 @@
 export 'fake_app_update_repository.dart';
 export 'fake_auth_repository.dart';
+export 'fake_base_currency_store.dart';
 export 'fake_category_repository.dart';
 export 'fake_currency_repository.dart';
 export 'fake_debt_repository.dart';
