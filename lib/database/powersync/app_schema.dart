@@ -32,6 +32,7 @@ const appSchema = Schema([
     Column.text('kind'),
     Column.integer('recurring_day_of_month'),
     Column.integer('recurring_amount_scaled'),
+    Column.integer('sort_order'),
     Column.text('created_at'),
     Column.text('updated_at'),
     Column.text('deleted_at'),

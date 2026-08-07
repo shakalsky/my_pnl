@@ -38,7 +38,6 @@ extension on WidgetTester {
               spend: spend,
               overrun: overrun,
               onAddAmount: () {},
-              onShowHistory: () {},
               onEdit: () {},
             ),
           ),

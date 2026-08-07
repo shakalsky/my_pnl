@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
@@ -65,6 +66,59 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    /// Opens a category's own modal, the one way the grid offers: the settings
+    /// icon in the corner of its tile.
+    Future<void> openSettings(WidgetTester tester, String category) async {
+      await tester.tap(find.bySemanticsLabel('$category settings'));
+      await tester.pumpAndSettle();
+    }
+
+    /// Long-presses the tile showing [category] and drops it on [onto].
+    ///
+    /// Driven by hand rather than with `drag`: the tile is picked up by a long
+    /// press, so the gesture has to be held still long enough to be one before
+    /// it starts moving.
+    Future<void> dragCategory(
+      WidgetTester tester,
+      String category, {
+      required Finder onto,
+    }) async {
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.widgetWithText(CategoryTile, category)),
+      );
+      await tester.pump(kLongPressTimeout + kPressTimeout);
+
+      // Moved in two steps: the first tells the overlay a drag is under way, the
+      // second is what the cell underneath sees arrive.
+      final target = tester.getCenter(onto);
+      await tester.pump(kPressTimeout);
+      await gesture.moveTo(target);
+      await tester.pump();
+      await gesture.moveTo(target);
+      await tester.pump();
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+    }
+
+    /// The names of the tiles in the order the grid lays them out.
+    List<String> gridOrder(WidgetTester tester) {
+      final tiles = tester.widgetList<CategoryTile>(find.byType(CategoryTile));
+      final placed =
+          [
+            for (final (index, tile) in tiles.indexed)
+              (
+                tile.spend.category.name,
+                tester.getTopLeft(find.byType(CategoryTile).at(index)),
+              ),
+          ]..sort((a, b) {
+            final byRow = a.$2.dy.compareTo(b.$2.dy);
+            return byRow != 0 ? byRow : a.$2.dx.compareTo(b.$2.dx);
+          });
+
+      return [for (final tile in placed) tile.$1];
+    }
+
     testWidgets('renders every category and the combined total', (
       tester,
     ) async {
@@ -117,7 +171,7 @@ void main() {
       expect(find.text(r'-$1,250.00'), findsOneWidget, reason: 'new total');
     });
 
-    testWidgets('the history icon lists what has been booked', (tester) async {
+    testWidgets('the settings icon lists what has been booked', (tester) async {
       await pumpPage(tester);
 
       await tester.tap(find.widgetWithText(CategoryTile, 'Groceries'));
@@ -127,7 +181,11 @@ void main() {
       await tester.tap(find.text('Save amount'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.bySemanticsLabel('Groceries history'));
+      // Two steps in now: the tile's icon opens the category's settings, and
+      // the history hangs off that.
+      await tester.tap(find.bySemanticsLabel('Groceries settings'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Transactions'));
       await tester.pumpAndSettle();
 
       expect(find.text('History'), findsOneWidget);
@@ -141,7 +199,9 @@ void main() {
     ) async {
       await pumpPage(tester);
 
-      await tester.tap(find.bySemanticsLabel('Rent history'));
+      await tester.tap(find.bySemanticsLabel('Rent settings'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Transactions'));
       await tester.pumpAndSettle();
 
       expect(find.text('Nothing booked here yet'), findsOneWidget);
@@ -208,8 +268,7 @@ void main() {
     ) async {
       await pumpPage(tester);
 
-      await tester.longPress(find.widgetWithText(CategoryTile, 'Groceries'));
-      await tester.pumpAndSettle();
+      await openSettings(tester, 'Groceries');
 
       await tester.tap(find.text('Delete category'));
       await tester.pumpAndSettle();
@@ -241,8 +300,7 @@ void main() {
     ) async {
       await pumpPage(tester);
 
-      await tester.longPress(find.widgetWithText(CategoryTile, 'Groceries'));
-      await tester.pumpAndSettle();
+      await openSettings(tester, 'Groceries');
       await tester.tap(find.text('Delete category'));
       await tester.pumpAndSettle();
 
@@ -257,8 +315,7 @@ void main() {
     testWidgets('cancelling keeps the category', (tester) async {
       await pumpPage(tester);
 
-      await tester.longPress(find.widgetWithText(CategoryTile, 'Groceries'));
-      await tester.pumpAndSettle();
+      await openSettings(tester, 'Groceries');
 
       await tester.tap(find.text('Delete category'));
       await tester.pumpAndSettle();
@@ -272,15 +329,12 @@ void main() {
       expect(find.text('Edit category'), findsOneWidget);
     });
 
-    testWidgets('long-pressing a category opens it for editing', (
+    testWidgets('the settings icon opens the category for editing', (
       tester,
     ) async {
       await pumpPage(tester);
 
-      await tester.longPress(
-        find.widgetWithText(CategoryTile, 'Groceries'),
-      );
-      await tester.pumpAndSettle();
+      await openSettings(tester, 'Groceries');
 
       expect(find.text('Edit category'), findsOneWidget);
       // Seeded with the current values.
@@ -296,6 +350,69 @@ void main() {
       expect(find.text('Groceries'), findsNothing);
       // Editing must not create a second category.
       expect(find.byType(CategoryTile), findsNWidgets(2));
+    });
+
+    group('rearranging the grid', () {
+      testWidgets('a category dropped on another takes its place', (
+        tester,
+      ) async {
+        await pumpPage(tester);
+        expect(gridOrder(tester), ['Groceries', 'Rent']);
+
+        await dragCategory(
+          tester,
+          'Groceries',
+          onto: find.widgetWithText(CategoryTile, 'Rent'),
+        );
+
+        expect(gridOrder(tester), ['Rent', 'Groceries']);
+        // Saved, not only redrawn: the arrangement has to survive the page and
+        // reach the reader's other devices.
+        expect(repository.savedOrders.last, ['category-2', 'category-1']);
+      });
+
+      testWidgets('dropping on the add tile sends it to the end', (
+        tester,
+      ) async {
+        await pumpPage(tester);
+
+        await dragCategory(
+          tester,
+          'Groceries',
+          onto: find.byType(AddCategoryTile),
+        );
+
+        expect(gridOrder(tester), ['Rent', 'Groceries']);
+      });
+
+      testWidgets('the order survives the page being rebuilt', (tester) async {
+        await pumpPage(tester);
+        await dragCategory(
+          tester,
+          'Groceries',
+          onto: find.widgetWithText(CategoryTile, 'Rent'),
+        );
+
+        // A fresh page over the same repository: what it opens with is the
+        // stored order rather than anything the last one was holding.
+        await pumpPage(tester);
+
+        expect(gridOrder(tester), ['Rent', 'Groceries']);
+      });
+
+      testWidgets('a long press no longer opens the category modal', (
+        tester,
+      ) async {
+        await pumpPage(tester);
+
+        await tester.longPress(find.widgetWithText(CategoryTile, 'Groceries'));
+        await tester.pumpAndSettle();
+
+        // The press lifts the tile for a drag; letting go where it started
+        // changes nothing and must not leave a modal behind.
+        expect(find.text('Edit category'), findsNothing);
+        expect(gridOrder(tester), ['Groceries', 'Rent']);
+      });
     });
 
     group('month switching', () {

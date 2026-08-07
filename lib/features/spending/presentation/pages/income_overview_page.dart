@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/repositories/category_repository.dart';
 import 'package:my_pnl/features/spending/domain/usecases/generate_due_recurring_income.dart';
+import 'package:my_pnl/features/spending/domain/usecases/reorder_categories.dart';
 import 'package:my_pnl/features/spending/domain/usecases/watch_category_spend.dart';
 import 'package:my_pnl/features/spending/presentation/bloc/spending_overview/spending_overview_bloc.dart';
 import 'package:my_pnl/features/spending/presentation/pages/overview_pager_page.dart';
@@ -30,6 +31,7 @@ class IncomeOverviewPage extends StatelessWidget {
 
         return SpendingOverviewBloc(
           watchCategorySpend: WatchCategorySpend(repository),
+          reorderCategories: ReorderCategories(repository),
           kind: CategoryKind.income,
         )..add(const SpendingOverviewSubscriptionRequested());
       },

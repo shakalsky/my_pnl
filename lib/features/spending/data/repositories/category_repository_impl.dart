@@ -55,6 +55,10 @@ class CategoryRepositoryImpl implements CategoryRepository {
       _local.updateCategory(category, _owner.id);
 
   @override
+  Future<void> reorderCategories(List<String> orderedIds) =>
+      _local.reorderCategories(ownerId: _owner.id, orderedIds: orderedIds);
+
+  @override
   Future<void> deleteCategory(String id, CategoryDeletion mode) =>
       _local.deleteCategory(ownerId: _owner.id, id: id, mode: mode);
 }

@@ -8,6 +8,7 @@ import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/entities/category_spend.dart';
 import 'package:my_pnl/features/spending/domain/entities/overrun_settings.dart';
 import 'package:my_pnl/features/spending/domain/entities/spend_baseline.dart';
+import 'package:my_pnl/features/spending/domain/usecases/reorder_categories.dart';
 import 'package:my_pnl/features/spending/domain/usecases/watch_category_spend.dart';
 import 'package:my_pnl/features/spending/domain/usecases/watch_net_total.dart';
 import 'package:my_pnl/features/spending/domain/usecases/watch_overrun_settings.dart';
@@ -24,12 +25,14 @@ class SpendingOverviewBloc
     WatchNetTotal? watchNetTotal,
     WatchSpendBaselines? watchSpendBaselines,
     WatchOverrunSettings? watchOverrunSettings,
+    ReorderCategories? reorderCategories,
     this.kind = CategoryKind.expense,
     CalendarMonth? initialMonth,
   }) : _watchCategorySpend = watchCategorySpend,
        _watchNetTotal = watchNetTotal,
        _watchSpendBaselines = watchSpendBaselines,
        _watchOverrunSettings = watchOverrunSettings,
+       _reorderCategories = reorderCategories,
        super(
          SpendingOverviewState(month: initialMonth ?? CalendarMonth.now()),
        ) {
@@ -52,6 +55,12 @@ class SpendingOverviewBloc
       transformer: restartable(),
     );
     on<SpendingOverviewMonthChanged>(_onMonthChanged);
+    // Sequential: two quick drags are two writes of the whole arrangement, and
+    // letting them overlap would leave whichever finished last in charge.
+    on<SpendingOverviewCategoryMoved>(
+      _onCategoryMoved,
+      transformer: sequential(),
+    );
   }
 
   /// Null on pages that do not show a net figure, so they open no second
@@ -61,6 +70,11 @@ class SpendingOverviewBloc
   /// Null on pages that do not flag unusual months — the income page, where a
   /// month above the usual is good news and marking it red would be a lie.
   final WatchSpendBaselines? _watchSpendBaselines;
+
+  /// Null where the grid is read-only, which is nowhere yet — the pages both
+  /// pass it. Nullable all the same, so a bloc built for a test that never
+  /// drags anything does not have to supply it.
+  final ReorderCategories? _reorderCategories;
 
   /// Null alongside [_watchSpendBaselines]: thresholds are only of interest to
   /// a page that draws the flags. Null leaves the shipped defaults in state,
@@ -168,6 +182,50 @@ class SpendingOverviewBloc
     add(const SpendingOverviewSubscriptionRequested());
     add(const SpendingOverviewNetTotalRequested());
     add(const SpendingOverviewBaselinesRequested());
+  }
+
+  /// Moves a category and saves where the grid now stands.
+  ///
+  /// The new order is emitted before the write, not after it: the tile has to
+  /// land where it was dropped, and waiting on storage would show it snap back
+  /// for a frame first. The watch stream re-emits the saved order a moment
+  /// later, which is also what puts the grid right if the write fails.
+  Future<void> _onCategoryMoved(
+    SpendingOverviewCategoryMoved event,
+    Emitter<SpendingOverviewState> emit,
+  ) async {
+    final reorder = _reorderCategories;
+    final categories = [...state.categories];
+
+    final from = event.oldIndex;
+    final to = event.newIndex;
+    // A drop can name a cell the list no longer has: the grid is drawn from a
+    // stream, and a category can be removed on another device between the lift
+    // and the release.
+    if (from == to ||
+        from < 0 ||
+        to < 0 ||
+        from >= categories.length ||
+        to >= categories.length) {
+      return;
+    }
+
+    categories.insert(to, categories.removeAt(from));
+    emit(state.copyWith(categories: categories));
+
+    if (reorder == null) return;
+
+    try {
+      await reorder([for (final spend in categories) spend.category.id]);
+    } on Exception catch (error, stackTrace) {
+      // Nothing on screen to correct: the stream still holds the saved order
+      // and re-emits it over this one.
+      log(
+        'Saving the category order failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   Future<void> _onSubscriptionRequested(

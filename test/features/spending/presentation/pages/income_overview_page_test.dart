@@ -58,6 +58,13 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    /// Opens a category's own modal, the one way the grid offers: the settings
+    /// icon in the corner of its tile.
+    Future<void> openSettings(WidgetTester tester, String category) async {
+      await tester.tap(find.bySemanticsLabel('$category settings'));
+      await tester.pumpAndSettle();
+    }
+
     testWidgets('lists income and leaves spending on the other page', (
       tester,
     ) async {
@@ -156,8 +163,7 @@ void main() {
       await tester.tap(find.text('Create'));
       await tester.pumpAndSettle();
 
-      await tester.longPress(find.widgetWithText(CategoryTile, 'Freelance'));
-      await tester.pumpAndSettle();
+      await openSettings(tester, 'Freelance');
 
       expect(find.text('Edit income'), findsOneWidget);
       expect(find.widgetWithText(TextField, '15'), findsOneWidget);
@@ -167,8 +173,7 @@ void main() {
     testWidgets('an existing schedule is seeded into the form', (tester) async {
       await pumpPage(tester);
 
-      await tester.longPress(find.widgetWithText(CategoryTile, 'Salary'));
-      await tester.pumpAndSettle();
+      await openSettings(tester, 'Salary');
 
       expect(find.widgetWithText(TextField, '25'), findsOneWidget);
       expect(find.widgetWithText(TextField, '3500.00'), findsOneWidget);

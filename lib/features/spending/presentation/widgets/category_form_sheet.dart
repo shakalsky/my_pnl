@@ -10,6 +10,7 @@ import 'package:my_pnl/features/spending/domain/usecases/delete_category.dart';
 import 'package:my_pnl/features/spending/domain/usecases/update_category.dart';
 import 'package:my_pnl/features/spending/presentation/bloc/category_form/category_form_bloc.dart';
 import 'package:my_pnl/features/spending/presentation/theme/category_style.dart';
+import 'package:my_pnl/features/spending/presentation/widgets/transaction_history_sheet.dart';
 
 /// Modal form for creating or editing a category.
 ///
@@ -17,7 +18,14 @@ import 'package:my_pnl/features/spending/presentation/theme/category_style.dart'
 /// the bloc reaching [CategoryFormStatus.success], so the write completes
 /// before the modal goes away.
 class CategoryFormSheet extends StatelessWidget {
-  const CategoryFormSheet({super.key});
+  const CategoryFormSheet({this.category, super.key});
+
+  /// The category being edited, or null while creating one.
+  ///
+  /// Carried alongside the bloc rather than read out of its state: the only
+  /// thing it is for is opening the history, which wants the saved category as
+  /// it stands and not the half-edited form.
+  final Category? category;
 
   /// Opens the modal with an empty form for a category of [kind].
   static Future<void> showCreate(
@@ -40,6 +48,13 @@ class CategoryFormSheet extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
+      // The income form is the tall one — a recurring schedule on top of the
+      // colour and icon grids — and left alone it fills the screen. Capped
+      // short of the top so the page behind stays in view and the sheet still
+      // reads as a sheet; the form scrolls for whatever does not fit.
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+      ),
       builder: (_) => BlocProvider(
         create: (_) => CategoryFormBloc(
           createCategory: CreateCategory(repository),
@@ -50,7 +65,7 @@ class CategoryFormSheet extends StatelessWidget {
           kind: kind,
           initial: initial,
         ),
-        child: const CategoryFormSheet(),
+        child: CategoryFormSheet(category: initial),
       ),
     );
   }
@@ -77,13 +92,15 @@ class CategoryFormSheet extends StatelessWidget {
             break;
         }
       },
-      child: const _CategoryForm(),
+      child: _CategoryForm(category: category),
     );
   }
 }
 
 class _CategoryForm extends StatefulWidget {
-  const _CategoryForm();
+  const _CategoryForm({this.category});
+
+  final Category? category;
 
   @override
   State<_CategoryForm> createState() => _CategoryFormState();
@@ -136,14 +153,30 @@ class _CategoryFormState extends State<_CategoryForm> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              switch ((state.isEditing, state.isIncome)) {
-                (true, true) => 'Edit income',
-                (true, false) => 'Edit category',
-                (false, true) => 'New income',
-                (false, false) => 'New category',
-              },
-              style: theme.textTheme.titleLarge,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    switch ((state.isEditing, state.isIncome)) {
+                      (true, true) => 'Edit income',
+                      (true, false) => 'Edit category',
+                      (false, true) => 'New income',
+                      (false, false) => 'New category',
+                    },
+                    style: theme.textTheme.titleLarge,
+                  ),
+                ),
+                // A category with no id has no entries to list, so the button
+                // only exists on the editing form.
+                if (widget.category case final category?)
+                  IconButton(
+                    onPressed: () =>
+                        TransactionHistorySheet.show(context, category),
+                    icon: const Icon(Icons.receipt_long_outlined),
+                    tooltip: 'Transactions',
+                    visualDensity: VisualDensity.compact,
+                  ),
+              ],
             ),
             const SizedBox(height: 16),
             Row(

@@ -62,6 +62,13 @@ abstract interface class CategoryRepository {
   /// Throws [CategoryFailure] if the new name is taken by another category.
   Future<Category> updateCategory(Category category);
 
+  /// Stores the order the categories are shown in: [orderedIds] first to last.
+  ///
+  /// The whole list is passed rather than "this one moved there", because the
+  /// order is a property of the list and a single move only means anything
+  /// against the arrangement it came from.
+  Future<void> reorderCategories(List<String> orderedIds);
+
   /// Removes a category, and does [mode] with its transactions.
   ///
   /// A soft delete either way, so the removal syncs.

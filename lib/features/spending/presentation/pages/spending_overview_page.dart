@@ -6,6 +6,7 @@ import 'package:my_pnl/features/currencies/presentation/widgets/currency_list_sh
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/repositories/category_repository.dart';
 import 'package:my_pnl/features/spending/domain/repositories/overrun_settings_store.dart';
+import 'package:my_pnl/features/spending/domain/usecases/reorder_categories.dart';
 import 'package:my_pnl/features/spending/domain/usecases/watch_category_spend.dart';
 import 'package:my_pnl/features/spending/domain/usecases/watch_overrun_settings.dart';
 import 'package:my_pnl/features/spending/domain/usecases/watch_spend_baselines.dart';
@@ -35,6 +36,9 @@ class SpendingOverviewPage extends StatelessWidget {
               ),
               watchOverrunSettings: WatchOverrunSettings(
                 context.read<OverrunSettingsStore>(),
+              ),
+              reorderCategories: ReorderCategories(
+                context.read<CategoryRepository>(),
               ),
             )
             // No net total: the headline is what this page's own categories add

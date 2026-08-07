@@ -11,7 +11,6 @@ class CategoryTile extends StatelessWidget {
   const CategoryTile({
     required this.spend,
     required this.onAddAmount,
-    required this.onShowHistory,
     required this.onEdit,
     this.totalScaled,
     this.currencyLabel,
@@ -45,10 +44,9 @@ class CategoryTile extends StatelessWidget {
   /// Tap books an amount — the frequent action gets the primary gesture.
   final VoidCallback onAddAmount;
 
-  /// The history icon, top-right.
-  final VoidCallback onShowHistory;
-
-  /// Long-press edits the category itself.
+  /// The settings icon, top-right: it edits the category itself. Its history is
+  /// reached from that same modal, one step in rather than off a second icon
+  /// competing for a quarter of a phone's width.
   final VoidCallback onEdit;
 
   @override
@@ -81,7 +79,9 @@ class CategoryTile extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onAddAmount,
-          onLongPress: onEdit,
+          // No long-press: it belongs to the drag that rearranges the grid, and
+          // a gesture that both lifts a tile and opens a modal would fire the
+          // modal every time a drag was thought better of.
           child: Padding(
             padding: const EdgeInsets.all(8),
             child: Column(
@@ -107,9 +107,9 @@ class CategoryTile extends StatelessWidget {
                     const Spacer(),
                     // Sits inside the tile's InkWell, so it needs its own hit
                     // target to keep the tap from opening the amount modal.
-                    _HistoryButton(
-                      onPressed: onShowHistory,
-                      semanticLabel: '${category.name} history',
+                    _SettingsButton(
+                      onPressed: onEdit,
+                      semanticLabel: '${category.name} settings',
                     ),
                   ],
                 ),
@@ -189,8 +189,8 @@ double _lineBoxHeight(BuildContext context, TextStyle style, int lines) {
   return height * lines;
 }
 
-class _HistoryButton extends StatelessWidget {
-  const _HistoryButton({required this.onPressed, required this.semanticLabel});
+class _SettingsButton extends StatelessWidget {
+  const _SettingsButton({required this.onPressed, required this.semanticLabel});
 
   final VoidCallback onPressed;
   final String semanticLabel;
@@ -208,7 +208,7 @@ class _HistoryButton extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(2),
           child: Icon(
-            Icons.receipt_long_outlined,
+            Icons.settings_outlined,
             size: 18,
             color: colors.onSurfaceVariant,
           ),

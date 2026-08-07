@@ -54,6 +54,10 @@ class _FailingRepository implements CategoryRepository {
       throw UnimplementedError();
 
   @override
+  Future<void> reorderCategories(List<String> orderedIds) async =>
+      throw UnimplementedError();
+
+  @override
   Future<void> deleteCategory(String id, CategoryDeletion mode) async =>
       throw UnimplementedError();
 }

@@ -34,4 +34,12 @@ class Categories extends Table with SyncedTable {
 
   /// Amount generated on each occurrence, scaled by `amountScale`.
   IntColumn get recurringAmountScaled => integer().nullable()();
+
+  /// Where the category sits in the grid, low first.
+  ///
+  /// Nullable, and null means "not arranged": rows written before this column
+  /// existed, and every category created since the last drag, have no value.
+  /// Reads sort those after the arranged ones by age, so a new category lands
+  /// at the end of the grid rather than at the front.
+  IntColumn get sortOrder => integer().nullable()();
 }

@@ -378,6 +378,109 @@ void main() {
       expect(emissions, [0, 1]);
     });
 
+    group('the order of the grid', () {
+      /// Three categories, oldest first, as an untouched grid shows them.
+      Future<List<Category>> seedThree() async {
+        final created = <Category>[];
+
+        for (final name in ['Groceries', 'Rent', 'Fun']) {
+          created.add(
+            await dataSource.createCategory(
+              NewCategory(name: name, colorArgb: 1, iconKey: 'g'),
+              owner,
+            ),
+          );
+        }
+
+        return created;
+      }
+
+      Future<List<String>> names() async {
+        final spend = await dataSource
+            .watchCategorySpend(owner, CategoryKind.expense)
+            .first;
+        return [for (final entry in spend) entry.category.name];
+      }
+
+      test('lists never-arranged categories oldest first', () async {
+        await seedThree();
+
+        expect(await names(), ['Groceries', 'Rent', 'Fun']);
+      });
+
+      test('lists them in the order last saved', () async {
+        final created = await seedThree();
+
+        await dataSource.reorderCategories(
+          ownerId: owner,
+          orderedIds: [created[2].id, created[0].id, created[1].id],
+        );
+
+        expect(await names(), ['Fun', 'Groceries', 'Rent']);
+      });
+
+      test('puts a category created since the last drag at the end', () async {
+        final created = await seedThree();
+        await dataSource.reorderCategories(
+          ownerId: owner,
+          orderedIds: [created[2].id, created[1].id, created[0].id],
+        );
+
+        await dataSource.createCategory(
+          const NewCategory(name: 'Travel', colorArgb: 1, iconKey: 'g'),
+          owner,
+        );
+
+        // Behind the arranged three rather than in front of them, which is
+        // where an unset order sorts if nothing coalesces it.
+        expect(await names(), ['Fun', 'Rent', 'Groceries', 'Travel']);
+      });
+
+      test("leaves another owner's categories where they were", () async {
+        final created = await seedThree();
+        final theirs = await dataSource.createCategory(
+          const NewCategory(name: 'Groceries', colorArgb: 1, iconKey: 'g'),
+          other,
+        );
+
+        // Names an id the caller does not own: it must be skipped, and the rest
+        // of the arrangement still saved.
+        await dataSource.reorderCategories(
+          ownerId: owner,
+          orderedIds: [theirs.id, created[1].id, created[0].id],
+        );
+
+        final row = await (db.select(
+          db.categories,
+        )..where((r) => r.id.equals(theirs.id))).getSingle();
+
+        expect(row.sortOrder, isNull);
+        expect(await names(), ['Rent', 'Groceries', 'Fun']);
+      });
+
+      test('re-emits the new order to a running watch', () async {
+        final created = await seedThree();
+        final emissions = <List<String>>[];
+        final subscription = dataSource
+            .watchCategorySpend(owner, CategoryKind.expense)
+            .listen(
+              (spend) => emissions.add([
+                for (final entry in spend) entry.category.name,
+              ]),
+            );
+
+        await pumpEventQueue();
+        await dataSource.reorderCategories(
+          ownerId: owner,
+          orderedIds: [created[1].id, created[0].id, created[2].id],
+        );
+        await pumpEventQueue();
+        await subscription.cancel();
+
+        expect(emissions.last, ['Rent', 'Groceries', 'Fun']);
+      });
+    });
+
     group('one month at a time', () {
       /// Groceries with 12.50 booked in March and 30.00 in April, plus a Fun
       /// category that was never used.
@@ -541,32 +644,34 @@ void main() {
         expect(baseline.months, 3);
       });
 
-      test('averages magnitudes, whichever way the ledger stores them',
-          () async {
-        final accountId = await insertAccount();
-        final salary = await dataSource.createCategory(
-          const NewCategory(
-            name: 'Salary',
-            colorArgb: 1,
-            iconKey: 'home',
-            kind: CategoryKind.income,
-          ),
-          owner,
-        );
+      test(
+        'averages magnitudes, whichever way the ledger stores them',
+        () async {
+          final accountId = await insertAccount();
+          final salary = await dataSource.createCategory(
+            const NewCategory(
+              name: 'Salary',
+              colorArgb: 1,
+              iconKey: 'home',
+              kind: CategoryKind.income,
+            ),
+            owner,
+          );
 
-        await bookMonthly(
-          accountId: accountId,
-          categoryId: salary.id,
-          from: const CalendarMonth(2026, 4),
-          amounts: [300000, 300000],
-        );
+          await bookMonthly(
+            accountId: accountId,
+            categoryId: salary.id,
+            from: const CalendarMonth(2026, 4),
+            amounts: [300000, 300000],
+          );
 
-        final found = await dataSource
-            .watchSpendBaselines(owner, CategoryKind.income, month: june)
-            .first;
+          final found = await dataSource
+              .watchSpendBaselines(owner, CategoryKind.income, month: june)
+              .first;
 
-        expect(found[salary.id]?.averageScaled, 300000);
-      });
+          expect(found[salary.id]?.averageScaled, 300000);
+        },
+      );
 
       test('counts only the months something was booked in', () async {
         final accountId = await insertAccount();
@@ -662,9 +767,9 @@ void main() {
           amounts: [-10000, -20000, -30000],
         );
 
-        final baseline =
-            (await baselines(month: const CalendarMonth(2027, 2)))[utilities
-                .id]!;
+        final baseline = (await baselines(
+          month: const CalendarMonth(2027, 2),
+        ))[utilities.id]!;
 
         expect(baseline.months, 3);
         expect(baseline.averageScaled, 20000);
@@ -770,7 +875,12 @@ void main() {
           stream,
           emitsInOrder(<Object>[
             isEmpty,
-            {groceries.id: const SpendBaseline(averageScaled: 10000, months: 2)},
+            {
+              groceries.id: const SpendBaseline(
+                averageScaled: 10000,
+                months: 2,
+              ),
+            },
           ]),
         );
 

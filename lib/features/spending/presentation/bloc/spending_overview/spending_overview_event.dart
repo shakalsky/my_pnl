@@ -37,6 +37,26 @@ final class SpendingOverviewSettingsRequested extends SpendingOverviewEvent {
   const SpendingOverviewSettingsRequested();
 }
 
+/// Moves the category at [oldIndex] to [newIndex] and stores the arrangement.
+///
+/// Indices into the list on screen rather than ids: a drop lands on a cell, and
+/// which category that cell is showing is the grid's own business.
+final class SpendingOverviewCategoryMoved extends SpendingOverviewEvent {
+  const SpendingOverviewCategoryMoved({
+    required this.oldIndex,
+    required this.newIndex,
+  });
+
+  final int oldIndex;
+
+  /// Where the category ends up once it has been lifted out — so dropping it on
+  /// a cell gives it that cell's place, whichever direction it came from.
+  final int newIndex;
+
+  @override
+  List<Object?> get props => [oldIndex, newIndex];
+}
+
 /// Shows another month. Both totals are re-read for it.
 final class SpendingOverviewMonthChanged extends SpendingOverviewEvent {
   const SpendingOverviewMonthChanged(this.month);

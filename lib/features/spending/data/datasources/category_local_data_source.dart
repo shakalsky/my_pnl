@@ -20,6 +20,12 @@ class CategoryLocalDataSource {
 
   AccountLocalDataSource get _accounts => AccountLocalDataSource(_db);
 
+  /// The rank a category with no [Categories.sortOrder] sorts at.
+  ///
+  /// Past any order a drag can write — the arranged rows take 0…n — so an
+  /// unarranged category lands after them however many there are.
+  static const int _unarrangedSortOrder = 1 << 30;
+
   /// How far back a first run will reach when catching up.
   ///
   /// Without a bound, a category dated years ago would generate a wall of
@@ -166,7 +172,19 @@ class CategoryLocalDataSource {
           )
           ..addColumns([total])
           ..groupBy([_db.categories.id])
-          ..orderBy([OrderingTerm.asc(_db.categories.createdAt)]);
+          ..orderBy([
+            // Arranged categories first, in the order they were dragged into.
+            // A plain `ASC` on the column would put every unarranged row at the
+            // front, because SQLite sorts NULL below any number — so the
+            // never-dragged ones are coalesced past the arranged ones instead.
+            OrderingTerm.asc(
+              coalesce([
+                _db.categories.sortOrder,
+                const Constant(_unarrangedSortOrder),
+              ]),
+            ),
+            OrderingTerm.asc(_db.categories.createdAt),
+          ]);
 
     return query.watch().map(
       (rows) => rows
@@ -337,6 +355,41 @@ class CategoryLocalDataSource {
         );
 
     return (await _requireOwned(category.id, ownerId)).toEntity();
+  }
+
+  /// Writes the grid's arrangement: [orderedIds] front to back.
+  ///
+  /// Every id is stamped, not only the ones that moved, so one drag leaves the
+  /// whole list holding 0…n — a gap-free run is what keeps a later insertion
+  /// from having to guess where a null belongs.
+  ///
+  /// One transaction, because a half-written arrangement is an order nobody
+  /// chose. Ids not owned by [ownerId], or already deleted, match nothing and
+  /// are skipped rather than throwing: a list built from a stream can name a
+  /// category another device removed a moment ago, and losing that race is no
+  /// reason to abandon the rest of the arrangement.
+  Future<void> reorderCategories({
+    required String ownerId,
+    required List<String> orderedIds,
+  }) async {
+    final now = DateTime.now().toUtc();
+
+    await _db.transaction(() async {
+      for (var position = 0; position < orderedIds.length; position++) {
+        await (_db.update(_db.categories)..where(
+              (row) =>
+                  row.id.equals(orderedIds[position]) &
+                  row.ownerId.equals(ownerId) &
+                  row.deletedAt.isNull(),
+            ))
+            .write(
+              CategoriesCompanion(
+                sortOrder: Value(position),
+                updatedAt: Value(now),
+              ),
+            );
+      }
+    });
   }
 
   /// Throws if the owner already has a live category by this name.

@@ -582,6 +582,17 @@ class $CategoriesTable extends Categories
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _sortOrderMeta = const VerificationMeta(
+    'sortOrder',
+  );
+  @override
+  late final GeneratedColumn<int> sortOrder = GeneratedColumn<int>(
+    'sort_order',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -595,6 +606,7 @@ class $CategoriesTable extends Categories
     kind,
     recurringDayOfMonth,
     recurringAmountScaled,
+    sortOrder,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -667,6 +679,12 @@ class $CategoriesTable extends Categories
         ),
       );
     }
+    if (data.containsKey('sort_order')) {
+      context.handle(
+        _sortOrderMeta,
+        sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
+      );
+    }
     return context;
   }
 
@@ -726,6 +744,10 @@ class $CategoriesTable extends Categories
         DriftSqlType.int,
         data['${effectivePrefix}recurring_amount_scaled'],
       ),
+      sortOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sort_order'],
+      ),
     );
   }
 
@@ -779,6 +801,14 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
 
   /// Amount generated on each occurrence, scaled by `amountScale`.
   final int? recurringAmountScaled;
+
+  /// Where the category sits in the grid, low first.
+  ///
+  /// Nullable, and null means "not arranged": rows written before this column
+  /// existed, and every category created since the last drag, have no value.
+  /// Reads sort those after the arranged ones by age, so a new category lands
+  /// at the end of the grid rather than at the front.
+  final int? sortOrder;
   const CategoryRow({
     required this.id,
     required this.createdAt,
@@ -791,6 +821,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     this.kind,
     this.recurringDayOfMonth,
     this.recurringAmountScaled,
+    this.sortOrder,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -824,6 +855,9 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     if (!nullToAbsent || recurringAmountScaled != null) {
       map['recurring_amount_scaled'] = Variable<int>(recurringAmountScaled);
     }
+    if (!nullToAbsent || sortOrder != null) {
+      map['sort_order'] = Variable<int>(sortOrder);
+    }
     return map;
   }
 
@@ -846,6 +880,9 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
       recurringAmountScaled: recurringAmountScaled == null && nullToAbsent
           ? const Value.absent()
           : Value(recurringAmountScaled),
+      sortOrder: sortOrder == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sortOrder),
     );
   }
 
@@ -870,6 +907,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
       recurringAmountScaled: serializer.fromJson<int?>(
         json['recurringAmountScaled'],
       ),
+      sortOrder: serializer.fromJson<int?>(json['sortOrder']),
     );
   }
   @override
@@ -887,6 +925,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
       'kind': serializer.toJson<String?>(kind),
       'recurringDayOfMonth': serializer.toJson<int?>(recurringDayOfMonth),
       'recurringAmountScaled': serializer.toJson<int?>(recurringAmountScaled),
+      'sortOrder': serializer.toJson<int?>(sortOrder),
     };
   }
 
@@ -902,6 +941,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     Value<String?> kind = const Value.absent(),
     Value<int?> recurringDayOfMonth = const Value.absent(),
     Value<int?> recurringAmountScaled = const Value.absent(),
+    Value<int?> sortOrder = const Value.absent(),
   }) => CategoryRow(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -918,6 +958,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     recurringAmountScaled: recurringAmountScaled.present
         ? recurringAmountScaled.value
         : this.recurringAmountScaled,
+    sortOrder: sortOrder.present ? sortOrder.value : this.sortOrder,
   );
   CategoryRow copyWithCompanion(CategoriesCompanion data) {
     return CategoryRow(
@@ -936,6 +977,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
       recurringAmountScaled: data.recurringAmountScaled.present
           ? data.recurringAmountScaled.value
           : this.recurringAmountScaled,
+      sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
     );
   }
 
@@ -952,7 +994,8 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
           ..write('iconKey: $iconKey, ')
           ..write('kind: $kind, ')
           ..write('recurringDayOfMonth: $recurringDayOfMonth, ')
-          ..write('recurringAmountScaled: $recurringAmountScaled')
+          ..write('recurringAmountScaled: $recurringAmountScaled, ')
+          ..write('sortOrder: $sortOrder')
           ..write(')'))
         .toString();
   }
@@ -970,6 +1013,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     kind,
     recurringDayOfMonth,
     recurringAmountScaled,
+    sortOrder,
   );
   @override
   bool operator ==(Object other) =>
@@ -985,7 +1029,8 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
           other.iconKey == this.iconKey &&
           other.kind == this.kind &&
           other.recurringDayOfMonth == this.recurringDayOfMonth &&
-          other.recurringAmountScaled == this.recurringAmountScaled);
+          other.recurringAmountScaled == this.recurringAmountScaled &&
+          other.sortOrder == this.sortOrder);
 }
 
 class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
@@ -1000,6 +1045,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
   final Value<String?> kind;
   final Value<int?> recurringDayOfMonth;
   final Value<int?> recurringAmountScaled;
+  final Value<int?> sortOrder;
   final Value<int> rowid;
   const CategoriesCompanion({
     this.id = const Value.absent(),
@@ -1013,6 +1059,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     this.kind = const Value.absent(),
     this.recurringDayOfMonth = const Value.absent(),
     this.recurringAmountScaled = const Value.absent(),
+    this.sortOrder = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   CategoriesCompanion.insert({
@@ -1027,6 +1074,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     this.kind = const Value.absent(),
     this.recurringDayOfMonth = const Value.absent(),
     this.recurringAmountScaled = const Value.absent(),
+    this.sortOrder = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : ownerId = Value(ownerId),
        name = Value(name),
@@ -1044,6 +1092,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     Expression<String>? kind,
     Expression<int>? recurringDayOfMonth,
     Expression<int>? recurringAmountScaled,
+    Expression<int>? sortOrder,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1060,6 +1109,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
         'recurring_day_of_month': recurringDayOfMonth,
       if (recurringAmountScaled != null)
         'recurring_amount_scaled': recurringAmountScaled,
+      if (sortOrder != null) 'sort_order': sortOrder,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1076,6 +1126,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     Value<String?>? kind,
     Value<int?>? recurringDayOfMonth,
     Value<int?>? recurringAmountScaled,
+    Value<int?>? sortOrder,
     Value<int>? rowid,
   }) {
     return CategoriesCompanion(
@@ -1091,6 +1142,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
       recurringDayOfMonth: recurringDayOfMonth ?? this.recurringDayOfMonth,
       recurringAmountScaled:
           recurringAmountScaled ?? this.recurringAmountScaled,
+      sortOrder: sortOrder ?? this.sortOrder,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1139,6 +1191,9 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
         recurringAmountScaled.value,
       );
     }
+    if (sortOrder.present) {
+      map['sort_order'] = Variable<int>(sortOrder.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1159,6 +1214,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
           ..write('kind: $kind, ')
           ..write('recurringDayOfMonth: $recurringDayOfMonth, ')
           ..write('recurringAmountScaled: $recurringAmountScaled, ')
+          ..write('sortOrder: $sortOrder, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3814,6 +3870,7 @@ typedef $$CategoriesTableCreateCompanionBuilder =
       Value<String?> kind,
       Value<int?> recurringDayOfMonth,
       Value<int?> recurringAmountScaled,
+      Value<int?> sortOrder,
       Value<int> rowid,
     });
 typedef $$CategoriesTableUpdateCompanionBuilder =
@@ -3829,6 +3886,7 @@ typedef $$CategoriesTableUpdateCompanionBuilder =
       Value<String?> kind,
       Value<int?> recurringDayOfMonth,
       Value<int?> recurringAmountScaled,
+      Value<int?> sortOrder,
       Value<int> rowid,
     });
 
@@ -3898,6 +3956,11 @@ class $$CategoriesTableFilterComposer
     column: $table.recurringAmountScaled,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$CategoriesTableOrderingComposer
@@ -3963,6 +4026,11 @@ class $$CategoriesTableOrderingComposer
     column: $table.recurringAmountScaled,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$CategoriesTableAnnotationComposer
@@ -4010,6 +4078,9 @@ class $$CategoriesTableAnnotationComposer
     column: $table.recurringAmountScaled,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get sortOrder =>
+      $composableBuilder(column: $table.sortOrder, builder: (column) => column);
 }
 
 class $$CategoriesTableTableManager
@@ -4054,6 +4125,7 @@ class $$CategoriesTableTableManager
                 Value<String?> kind = const Value.absent(),
                 Value<int?> recurringDayOfMonth = const Value.absent(),
                 Value<int?> recurringAmountScaled = const Value.absent(),
+                Value<int?> sortOrder = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CategoriesCompanion(
                 id: id,
@@ -4067,6 +4139,7 @@ class $$CategoriesTableTableManager
                 kind: kind,
                 recurringDayOfMonth: recurringDayOfMonth,
                 recurringAmountScaled: recurringAmountScaled,
+                sortOrder: sortOrder,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -4082,6 +4155,7 @@ class $$CategoriesTableTableManager
                 Value<String?> kind = const Value.absent(),
                 Value<int?> recurringDayOfMonth = const Value.absent(),
                 Value<int?> recurringAmountScaled = const Value.absent(),
+                Value<int?> sortOrder = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CategoriesCompanion.insert(
                 id: id,
@@ -4095,6 +4169,7 @@ class $$CategoriesTableTableManager
                 kind: kind,
                 recurringDayOfMonth: recurringDayOfMonth,
                 recurringAmountScaled: recurringAmountScaled,
+                sortOrder: sortOrder,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

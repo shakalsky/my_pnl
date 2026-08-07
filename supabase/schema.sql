@@ -41,7 +41,10 @@ alter table public.categories
   add column if not exists recurring_day_of_month int
     check (recurring_day_of_month between 1 and 31),
   add column if not exists recurring_amount_scaled bigint
-    check (recurring_amount_scaled > 0);
+    check (recurring_amount_scaled > 0),
+  -- Where the category sits in the grid, low first. Null on a row nobody has
+  -- dragged yet, which the client sorts after the arranged ones by age.
+  add column if not exists sort_order int;
 
 -- One live category name per owner, case-insensitive. Partial, so a deleted
 -- category does not block reusing its name.

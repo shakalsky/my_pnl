@@ -140,6 +140,28 @@ class FakeCategoryRepository
     return category;
   }
 
+  /// The arrangement each reorder was asked to save, oldest first.
+  final savedOrders = <List<String>>[];
+
+  @override
+  Future<void> reorderCategories(List<String> orderedIds) async {
+    if (writeError case final error?) throw error;
+
+    savedOrders.add(List.unmodifiable(orderedIds));
+
+    // Applied to the list the watch stream reads, the way the real ordered
+    // query does: a page that only redrew from its own optimistic state would
+    // look right here whether the write landed or not. Ids the fake does not
+    // hold are ignored rather than fatal — the same race the data source skips.
+    final byId = {for (final spend in _spend) spend.category.id: spend};
+    final arranged = [for (final id in orderedIds) ?byId[id]];
+
+    _spend
+      ..removeWhere(arranged.contains)
+      ..insertAll(0, arranged);
+    _emit();
+  }
+
   @override
   Future<void> deleteCategory(String id, CategoryDeletion mode) async {
     if (writeError case final error?) throw error;
