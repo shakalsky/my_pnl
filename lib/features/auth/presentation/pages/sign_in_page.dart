@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:my_pnl/features/app_update/domain/repositories/app_update_repository.dart';
 import 'package:my_pnl/features/auth/domain/repositories/auth_repository.dart';
 import 'package:my_pnl/features/auth/presentation/bloc/sign_in_form/sign_in_form_bloc.dart';
 
@@ -25,6 +26,9 @@ class SignInView extends StatelessWidget {
     final theme = Theme.of(context);
     final bloc = context.read<SignInFormBloc>();
     final state = context.watch<SignInFormBloc>().state;
+    // Read rather than fetched: startup already asked the platform for this to
+    // run the update gate, so the sign-in page has nothing left to await.
+    final version = context.read<AppUpdateRepository>().status.currentVersion;
 
     return Scaffold(
       body: SafeArea(
@@ -117,6 +121,17 @@ class SignInView extends StatelessWidget {
                           ? 'I already have an account'
                           : 'Create an account',
                     ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Here rather than behind a settings screen: this is the one
+                  // page a user can reach before signing in, which is where a
+                  // bug report starts when they cannot get in at all.
+                  Text(
+                    'Version ${version.label} (${version.build})',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),

@@ -269,19 +269,10 @@ void main() {
         );
       });
 
-      testWidgets('the income icon slides across', (tester) async {
+      testWidgets('the arrow on income slides back', (tester) async {
         await openOverview(tester);
-
-        await tester.tap(find.byTooltip('Income'));
-        await tester.pumpAndSettle();
-
+        await flick(tester, 300);
         expectShowing(tester, IncomeOverviewPage);
-      });
-
-      testWidgets('and the arrow on income slides back', (tester) async {
-        await openOverview(tester);
-        await tester.tap(find.byTooltip('Income'));
-        await tester.pumpAndSettle();
 
         await tester.tap(find.byTooltip('Spending'));
         await tester.pumpAndSettle();

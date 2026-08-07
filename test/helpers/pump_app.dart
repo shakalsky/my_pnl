@@ -14,6 +14,7 @@ import 'package:my_pnl/features/spending/domain/repositories/overrun_settings_st
 import 'package:my_pnl/features/spending/domain/repositories/transaction_repository.dart';
 import 'package:my_pnl/features/sync/domain/repositories/sync_repository.dart';
 
+import 'fake_app_update_repository.dart';
 import 'fake_auth_repository.dart';
 import 'fake_base_currency_store.dart';
 import 'fake_display_currency_store.dart';
@@ -55,6 +56,9 @@ extension PumpApp on WidgetTester {
     // recorded in, and an untouched store is the ordinary case of never having
     // changed it.
     final baseCurrency = baseCurrencyStore ?? FakeBaseCurrencyStore();
+    // And likewise: the sign-in page prints the running version, and a build
+    // nobody set a version on is the ordinary case in a test.
+    final updates = appUpdateRepository ?? FakeAppUpdateRepository();
 
     // Providers sit ABOVE MaterialApp, exactly as they do in App. Below it
     // they would also sit below the Navigator, and anything pushed as a route
@@ -63,10 +67,7 @@ extension PumpApp on WidgetTester {
       MultiRepositoryProvider(
         providers: [
           RepositoryProvider<AuthRepository>.value(value: auth),
-          if (appUpdateRepository != null)
-            RepositoryProvider<AppUpdateRepository>.value(
-              value: appUpdateRepository,
-            ),
+          RepositoryProvider<AppUpdateRepository>.value(value: updates),
           RepositoryProvider<SyncRepository>.value(value: sync),
           RepositoryProvider<DisplayCurrencyStore>.value(
             value: displayCurrency,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:my_pnl/features/app_update/domain/entities/app_version.dart';
 import 'package:my_pnl/features/auth/domain/repositories/auth_repository.dart';
 import 'package:my_pnl/features/auth/presentation/pages/sign_in_page.dart';
 
@@ -78,6 +79,23 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Check your inbox'), findsOneWidget);
+    });
+
+    testWidgets('prints the running version and build', (tester) async {
+      await tester.pumpApp(
+        const SignInPage(),
+        authRepository: auth,
+        appUpdateRepository: FakeAppUpdateRepository(
+          currentVersion: const AppVersion(
+            major: 2,
+            minor: 3,
+            patch: 4,
+            build: 57,
+          ),
+        ),
+      );
+
+      expect(find.text('Version 2.3.4 (57)'), findsOneWidget);
     });
 
     testWidgets('shows why a sign-in was rejected', (tester) async {
