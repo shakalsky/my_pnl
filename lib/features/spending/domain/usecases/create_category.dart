@@ -22,7 +22,6 @@ class CreateCategory {
         colorArgb: category.colorArgb,
         iconKey: category.iconKey,
         kind: category.kind,
-        description: category.description,
         recurring: category.recurring,
       ),
     );

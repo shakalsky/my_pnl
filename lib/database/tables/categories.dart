@@ -26,9 +26,6 @@ class Categories extends Table with SyncedTable {
   /// tracked at the time.
   TextColumn get kind => text().nullable()();
 
-  /// Note copied onto transactions booked against this category.
-  TextColumn get description => text().nullable()();
-
   /// Day of the month a recurring income lands on, 1–31.
   ///
   /// Set together with [recurringAmountScaled] or not at all: both null means

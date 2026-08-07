@@ -562,17 +562,6 @@ class $CategoriesTable extends Categories
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
-  static const VerificationMeta _descriptionMeta = const VerificationMeta(
-    'description',
-  );
-  @override
-  late final GeneratedColumn<String> description = GeneratedColumn<String>(
-    'description',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
   static const VerificationMeta _recurringDayOfMonthMeta =
       const VerificationMeta('recurringDayOfMonth');
   @override
@@ -604,7 +593,6 @@ class $CategoriesTable extends Categories
     colorArgb,
     iconKey,
     kind,
-    description,
     recurringDayOfMonth,
     recurringAmountScaled,
   ];
@@ -659,15 +647,6 @@ class $CategoriesTable extends Categories
       context.handle(
         _kindMeta,
         kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
-      );
-    }
-    if (data.containsKey('description')) {
-      context.handle(
-        _descriptionMeta,
-        description.isAcceptableOrUnknown(
-          data['description']!,
-          _descriptionMeta,
-        ),
       );
     }
     if (data.containsKey('recurring_day_of_month')) {
@@ -739,10 +718,6 @@ class $CategoriesTable extends Categories
         DriftSqlType.string,
         data['${effectivePrefix}kind'],
       ),
-      description: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}description'],
-      ),
       recurringDayOfMonth: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}recurring_day_of_month'],
@@ -796,9 +771,6 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
   /// tracked at the time.
   final String? kind;
 
-  /// Note copied onto transactions booked against this category.
-  final String? description;
-
   /// Day of the month a recurring income lands on, 1–31.
   ///
   /// Set together with [recurringAmountScaled] or not at all: both null means
@@ -817,7 +789,6 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     required this.colorArgb,
     required this.iconKey,
     this.kind,
-    this.description,
     this.recurringDayOfMonth,
     this.recurringAmountScaled,
   });
@@ -847,9 +818,6 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     if (!nullToAbsent || kind != null) {
       map['kind'] = Variable<String>(kind);
     }
-    if (!nullToAbsent || description != null) {
-      map['description'] = Variable<String>(description);
-    }
     if (!nullToAbsent || recurringDayOfMonth != null) {
       map['recurring_day_of_month'] = Variable<int>(recurringDayOfMonth);
     }
@@ -872,9 +840,6 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
       colorArgb: Value(colorArgb),
       iconKey: Value(iconKey),
       kind: kind == null && nullToAbsent ? const Value.absent() : Value(kind),
-      description: description == null && nullToAbsent
-          ? const Value.absent()
-          : Value(description),
       recurringDayOfMonth: recurringDayOfMonth == null && nullToAbsent
           ? const Value.absent()
           : Value(recurringDayOfMonth),
@@ -899,7 +864,6 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
       colorArgb: serializer.fromJson<int>(json['colorArgb']),
       iconKey: serializer.fromJson<String>(json['iconKey']),
       kind: serializer.fromJson<String?>(json['kind']),
-      description: serializer.fromJson<String?>(json['description']),
       recurringDayOfMonth: serializer.fromJson<int?>(
         json['recurringDayOfMonth'],
       ),
@@ -921,7 +885,6 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
       'colorArgb': serializer.toJson<int>(colorArgb),
       'iconKey': serializer.toJson<String>(iconKey),
       'kind': serializer.toJson<String?>(kind),
-      'description': serializer.toJson<String?>(description),
       'recurringDayOfMonth': serializer.toJson<int?>(recurringDayOfMonth),
       'recurringAmountScaled': serializer.toJson<int?>(recurringAmountScaled),
     };
@@ -937,7 +900,6 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     int? colorArgb,
     String? iconKey,
     Value<String?> kind = const Value.absent(),
-    Value<String?> description = const Value.absent(),
     Value<int?> recurringDayOfMonth = const Value.absent(),
     Value<int?> recurringAmountScaled = const Value.absent(),
   }) => CategoryRow(
@@ -950,7 +912,6 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     colorArgb: colorArgb ?? this.colorArgb,
     iconKey: iconKey ?? this.iconKey,
     kind: kind.present ? kind.value : this.kind,
-    description: description.present ? description.value : this.description,
     recurringDayOfMonth: recurringDayOfMonth.present
         ? recurringDayOfMonth.value
         : this.recurringDayOfMonth,
@@ -969,9 +930,6 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
       colorArgb: data.colorArgb.present ? data.colorArgb.value : this.colorArgb,
       iconKey: data.iconKey.present ? data.iconKey.value : this.iconKey,
       kind: data.kind.present ? data.kind.value : this.kind,
-      description: data.description.present
-          ? data.description.value
-          : this.description,
       recurringDayOfMonth: data.recurringDayOfMonth.present
           ? data.recurringDayOfMonth.value
           : this.recurringDayOfMonth,
@@ -993,7 +951,6 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
           ..write('colorArgb: $colorArgb, ')
           ..write('iconKey: $iconKey, ')
           ..write('kind: $kind, ')
-          ..write('description: $description, ')
           ..write('recurringDayOfMonth: $recurringDayOfMonth, ')
           ..write('recurringAmountScaled: $recurringAmountScaled')
           ..write(')'))
@@ -1011,7 +968,6 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     colorArgb,
     iconKey,
     kind,
-    description,
     recurringDayOfMonth,
     recurringAmountScaled,
   );
@@ -1028,7 +984,6 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
           other.colorArgb == this.colorArgb &&
           other.iconKey == this.iconKey &&
           other.kind == this.kind &&
-          other.description == this.description &&
           other.recurringDayOfMonth == this.recurringDayOfMonth &&
           other.recurringAmountScaled == this.recurringAmountScaled);
 }
@@ -1043,7 +998,6 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
   final Value<int> colorArgb;
   final Value<String> iconKey;
   final Value<String?> kind;
-  final Value<String?> description;
   final Value<int?> recurringDayOfMonth;
   final Value<int?> recurringAmountScaled;
   final Value<int> rowid;
@@ -1057,7 +1011,6 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     this.colorArgb = const Value.absent(),
     this.iconKey = const Value.absent(),
     this.kind = const Value.absent(),
-    this.description = const Value.absent(),
     this.recurringDayOfMonth = const Value.absent(),
     this.recurringAmountScaled = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1072,7 +1025,6 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     required int colorArgb,
     required String iconKey,
     this.kind = const Value.absent(),
-    this.description = const Value.absent(),
     this.recurringDayOfMonth = const Value.absent(),
     this.recurringAmountScaled = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1090,7 +1042,6 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     Expression<int>? colorArgb,
     Expression<String>? iconKey,
     Expression<String>? kind,
-    Expression<String>? description,
     Expression<int>? recurringDayOfMonth,
     Expression<int>? recurringAmountScaled,
     Expression<int>? rowid,
@@ -1105,7 +1056,6 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
       if (colorArgb != null) 'color_argb': colorArgb,
       if (iconKey != null) 'icon_key': iconKey,
       if (kind != null) 'kind': kind,
-      if (description != null) 'description': description,
       if (recurringDayOfMonth != null)
         'recurring_day_of_month': recurringDayOfMonth,
       if (recurringAmountScaled != null)
@@ -1124,7 +1074,6 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     Value<int>? colorArgb,
     Value<String>? iconKey,
     Value<String?>? kind,
-    Value<String?>? description,
     Value<int?>? recurringDayOfMonth,
     Value<int?>? recurringAmountScaled,
     Value<int>? rowid,
@@ -1139,7 +1088,6 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
       colorArgb: colorArgb ?? this.colorArgb,
       iconKey: iconKey ?? this.iconKey,
       kind: kind ?? this.kind,
-      description: description ?? this.description,
       recurringDayOfMonth: recurringDayOfMonth ?? this.recurringDayOfMonth,
       recurringAmountScaled:
           recurringAmountScaled ?? this.recurringAmountScaled,
@@ -1183,9 +1131,6 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     if (kind.present) {
       map['kind'] = Variable<String>(kind.value);
     }
-    if (description.present) {
-      map['description'] = Variable<String>(description.value);
-    }
     if (recurringDayOfMonth.present) {
       map['recurring_day_of_month'] = Variable<int>(recurringDayOfMonth.value);
     }
@@ -1212,7 +1157,6 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
           ..write('colorArgb: $colorArgb, ')
           ..write('iconKey: $iconKey, ')
           ..write('kind: $kind, ')
-          ..write('description: $description, ')
           ..write('recurringDayOfMonth: $recurringDayOfMonth, ')
           ..write('recurringAmountScaled: $recurringAmountScaled, ')
           ..write('rowid: $rowid')
@@ -3868,7 +3812,6 @@ typedef $$CategoriesTableCreateCompanionBuilder =
       required int colorArgb,
       required String iconKey,
       Value<String?> kind,
-      Value<String?> description,
       Value<int?> recurringDayOfMonth,
       Value<int?> recurringAmountScaled,
       Value<int> rowid,
@@ -3884,7 +3827,6 @@ typedef $$CategoriesTableUpdateCompanionBuilder =
       Value<int> colorArgb,
       Value<String> iconKey,
       Value<String?> kind,
-      Value<String?> description,
       Value<int?> recurringDayOfMonth,
       Value<int?> recurringAmountScaled,
       Value<int> rowid,
@@ -3944,11 +3886,6 @@ class $$CategoriesTableFilterComposer
 
   ColumnFilters<String> get kind => $composableBuilder(
     column: $table.kind,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get description => $composableBuilder(
-    column: $table.description,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4017,11 +3954,6 @@ class $$CategoriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get description => $composableBuilder(
-    column: $table.description,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<int> get recurringDayOfMonth => $composableBuilder(
     column: $table.recurringDayOfMonth,
     builder: (column) => ColumnOrderings(column),
@@ -4068,11 +4000,6 @@ class $$CategoriesTableAnnotationComposer
 
   GeneratedColumn<String> get kind =>
       $composableBuilder(column: $table.kind, builder: (column) => column);
-
-  GeneratedColumn<String> get description => $composableBuilder(
-    column: $table.description,
-    builder: (column) => column,
-  );
 
   GeneratedColumn<int> get recurringDayOfMonth => $composableBuilder(
     column: $table.recurringDayOfMonth,
@@ -4125,7 +4052,6 @@ class $$CategoriesTableTableManager
                 Value<int> colorArgb = const Value.absent(),
                 Value<String> iconKey = const Value.absent(),
                 Value<String?> kind = const Value.absent(),
-                Value<String?> description = const Value.absent(),
                 Value<int?> recurringDayOfMonth = const Value.absent(),
                 Value<int?> recurringAmountScaled = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -4139,7 +4065,6 @@ class $$CategoriesTableTableManager
                 colorArgb: colorArgb,
                 iconKey: iconKey,
                 kind: kind,
-                description: description,
                 recurringDayOfMonth: recurringDayOfMonth,
                 recurringAmountScaled: recurringAmountScaled,
                 rowid: rowid,
@@ -4155,7 +4080,6 @@ class $$CategoriesTableTableManager
                 required int colorArgb,
                 required String iconKey,
                 Value<String?> kind = const Value.absent(),
-                Value<String?> description = const Value.absent(),
                 Value<int?> recurringDayOfMonth = const Value.absent(),
                 Value<int?> recurringAmountScaled = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -4169,7 +4093,6 @@ class $$CategoriesTableTableManager
                 colorArgb: colorArgb,
                 iconKey: iconKey,
                 kind: kind,
-                description: description,
                 recurringDayOfMonth: recurringDayOfMonth,
                 recurringAmountScaled: recurringAmountScaled,
                 rowid: rowid,

@@ -120,7 +120,6 @@ class FakeCategoryRepository
       colorArgb: category.colorArgb,
       iconKey: category.iconKey,
       kind: category.kind,
-      description: category.description,
       recurring: category.recurring,
     );
     _spend.add(CategorySpend(category: created, totalScaled: 0));
@@ -227,6 +226,7 @@ class FakeCategoryRepository
     required String categoryId,
     required int amountScaled,
     DateTime? occurredAt,
+    String? note,
   }) async {
     if (writeError case final error?) throw error;
 
@@ -246,6 +246,7 @@ class FakeCategoryRepository
         id: newId(),
         amountScaled: signed,
         occurredAt: (occurredAt ?? DateTime(2026, 3, 14, 9, 30)).toUtc(),
+        note: note,
       ),
     );
     _emit();
@@ -257,6 +258,7 @@ class FakeCategoryRepository
     required String id,
     required int amountScaled,
     DateTime? occurredAt,
+    String? note,
   }) async {
     if (writeError case final error?) throw error;
 
@@ -272,7 +274,9 @@ class FakeCategoryRepository
       id: previous.id,
       amountScaled: signed,
       occurredAt: occurredAt ?? previous.occurredAt,
-      note: previous.note,
+      // Replaced rather than merged, the way the data source writes it: a
+      // cleared field has to be able to empty the note.
+      note: note,
     );
     _applyTotal(categoryId, signed - previous.amountScaled);
     _historyController.add(categoryId);

@@ -9,7 +9,6 @@ final class CategoryFormState extends Equatable {
     this.kind = CategoryKind.expense,
     this.categoryId,
     this.name = '',
-    this.description = '',
     this.isRecurring = false,
     this.recurringDay = '',
     this.recurringAmount = '',
@@ -24,7 +23,6 @@ final class CategoryFormState extends Equatable {
   final CategoryKind kind;
 
   final String name;
-  final String description;
   final int colorArgb;
   final String iconKey;
 
@@ -94,7 +92,6 @@ final class CategoryFormState extends Equatable {
 
   CategoryFormState copyWith({
     String? name,
-    String? description,
     int? colorArgb,
     String? iconKey,
     bool? isRecurring,
@@ -108,7 +105,6 @@ final class CategoryFormState extends Equatable {
       categoryId: categoryId,
       kind: kind,
       name: name ?? this.name,
-      description: description ?? this.description,
       colorArgb: colorArgb ?? this.colorArgb,
       iconKey: iconKey ?? this.iconKey,
       isRecurring: isRecurring ?? this.isRecurring,
@@ -124,7 +120,6 @@ final class CategoryFormState extends Equatable {
     categoryId,
     kind,
     name,
-    description,
     colorArgb,
     iconKey,
     isRecurring,

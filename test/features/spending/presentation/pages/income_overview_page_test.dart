@@ -15,7 +15,6 @@ const _salary = CategorySpend(
     colorArgb: 0xFF3B7A57,
     iconKey: 'groceries',
     kind: CategoryKind.income,
-    description: 'Monthly pay',
     recurring: RecurringIncome(dayOfMonth: 25, amountScaled: 350000),
   ),
   totalScaled: 700000,
@@ -171,7 +170,6 @@ void main() {
       await tester.longPress(find.widgetWithText(CategoryTile, 'Salary'));
       await tester.pumpAndSettle();
 
-      expect(find.widgetWithText(TextField, 'Monthly pay'), findsOneWidget);
       expect(find.widgetWithText(TextField, '25'), findsOneWidget);
       expect(find.widgetWithText(TextField, '3500.00'), findsOneWidget);
     });

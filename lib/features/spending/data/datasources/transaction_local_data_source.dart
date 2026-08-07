@@ -29,6 +29,7 @@ class TransactionLocalDataSource {
     required String categoryId,
     required int amountScaled,
     DateTime? occurredAt,
+    String? note,
   }) async {
     final accountId = await _accounts.defaultAccountId(ownerId);
     final signed = await _signFor(
@@ -48,6 +49,7 @@ class TransactionLocalDataSource {
             amountScaled: signed,
             currency: defaultCurrency,
             executedAt: occurredAt ?? DateTime.now().toUtc(),
+            note: Value(note),
           ),
         );
   }
@@ -241,6 +243,7 @@ class TransactionLocalDataSource {
     required String id,
     required int amountScaled,
     DateTime? occurredAt,
+    String? note,
   }) async {
     final existing = await _requireOwned(id, ownerId);
 
@@ -263,6 +266,10 @@ class TransactionLocalDataSource {
             executedAt: occurredAt == null
                 ? const Value.absent()
                 : Value(occurredAt),
+            // Written unconditionally, unlike the date above: a cleared note is
+            // an edit like any other, and treating null as "leave it alone"
+            // would make the field impossible to empty.
+            note: Value(note),
             updatedAt: Value(DateTime.now().toUtc()),
           ),
         );

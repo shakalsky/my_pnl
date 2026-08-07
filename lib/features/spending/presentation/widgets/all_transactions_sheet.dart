@@ -168,8 +168,16 @@ class _EntryList extends StatelessWidget {
             ),
           ),
           title: Text(category?.name ?? 'Uncategorised'),
-          // Stored in UTC, shown in the reader's zone.
-          subtitle: Text(dateFormat.format(item.entry.occurredAt.toLocal())),
+          // Stored in UTC, shown in the reader's zone. The entry's own note
+          // rides along on the same line — it is what tells two amounts in the
+          // same category apart.
+          subtitle: Text(
+            switch (item.entry.note) {
+              null => dateFormat.format(item.entry.occurredAt.toLocal()),
+              final note =>
+                '${dateFormat.format(item.entry.occurredAt.toLocal())} · $note',
+            },
+          ),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

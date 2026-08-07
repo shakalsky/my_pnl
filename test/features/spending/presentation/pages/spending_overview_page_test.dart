@@ -32,6 +32,11 @@ const _rent = CategorySpend(
   totalScaled: -120000,
 );
 
+/// The amount modal's first field. It carries no label — the sheet's own
+/// heading says what is being typed — so it is found by position, ahead of the
+/// description field under it.
+final Finder _amountField = find.byType(TextField).first;
+
 void main() {
   group('SpendingOverviewPage', () {
     late FakeCategoryRepository repository;
@@ -101,7 +106,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Add an amount'), findsOneWidget);
 
-      await tester.enterText(find.byType(TextField), '7.65');
+      await tester.enterText(_amountField, '7.65');
       await tester.pump();
       await tester.tap(find.text('Save amount'));
       await tester.pumpAndSettle();
@@ -117,7 +122,7 @@ void main() {
 
       await tester.tap(find.widgetWithText(CategoryTile, 'Groceries'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), '7.65');
+      await tester.enterText(_amountField, '7.65');
       await tester.pump();
       await tester.tap(find.text('Save amount'));
       await tester.pumpAndSettle();

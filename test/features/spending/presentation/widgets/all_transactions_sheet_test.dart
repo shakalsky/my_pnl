@@ -106,7 +106,7 @@ void main() {
       // Opens with the magnitude, not the stored negative.
       expect(find.widgetWithText(TextField, '12.50'), findsOneWidget);
 
-      await tester.enterText(find.byType(TextField), '9.99');
+      await tester.enterText(find.byType(TextField).first, '9.99');
       await tester.pump();
       await tester.tap(find.text('Save amount'));
       await tester.pumpAndSettle();

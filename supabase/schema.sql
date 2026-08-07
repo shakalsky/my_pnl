@@ -37,7 +37,6 @@ create table if not exists public.categories (
 alter table public.categories
   add column if not exists kind text not null default 'expense'
     check (kind in ('expense', 'income')),
-  add column if not exists description text,
   -- Day and amount of a recurring income. Both null means it does not recur.
   add column if not exists recurring_day_of_month int
     check (recurring_day_of_month between 1 and 31),

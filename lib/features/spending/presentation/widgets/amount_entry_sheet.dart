@@ -170,20 +170,22 @@ class _AmountEntryForm extends StatefulWidget {
 
 class _AmountEntryFormState extends State<_AmountEntryForm> {
   late final TextEditingController _amount;
+  late final TextEditingController _note;
 
   @override
   void initState() {
     super.initState();
     // Seeded once from the bloc's initial state so editing opens with the
-    // current amount already in the field.
-    _amount = TextEditingController(
-      text: context.read<AmountEntryBloc>().state.input,
-    );
+    // current amount and note already in the fields.
+    final state = context.read<AmountEntryBloc>().state;
+    _amount = TextEditingController(text: state.input);
+    _note = TextEditingController(text: state.note);
   }
 
   @override
   void dispose() {
     _amount.dispose();
+    _note.dispose();
     super.dispose();
   }
 
@@ -280,6 +282,19 @@ class _AmountEntryFormState extends State<_AmountEntryForm> {
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _note,
+              textCapitalization: TextCapitalization.sentences,
+              textInputAction: TextInputAction.done,
+              decoration: const InputDecoration(
+                labelText: 'Description',
+                helperText: 'Optional. What this one was for.',
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (value) => bloc.add(AmountEntryNoteChanged(value)),
+              onSubmitted: (_) => bloc.add(const AmountEntrySubmitted()),
             ),
             const SizedBox(height: 16),
             _DateField(

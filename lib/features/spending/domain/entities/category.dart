@@ -55,7 +55,6 @@ class Category extends Equatable {
     required this.colorArgb,
     required this.iconKey,
     this.kind = CategoryKind.expense,
-    this.description,
     this.recurring,
   });
 
@@ -64,9 +63,6 @@ class Category extends Equatable {
   final int colorArgb;
   final String iconKey;
   final CategoryKind kind;
-
-  /// Note put on transactions booked against this category. Optional.
-  final String? description;
 
   /// Set when income arrives on a monthly schedule. Always null for expense
   /// categories.
@@ -83,7 +79,6 @@ class Category extends Equatable {
     colorArgb,
     iconKey,
     kind,
-    description,
     recurring,
   ];
 }
@@ -95,7 +90,6 @@ class NewCategory extends Equatable {
     required this.colorArgb,
     required this.iconKey,
     this.kind = CategoryKind.expense,
-    this.description,
     this.recurring,
   });
 
@@ -103,16 +97,8 @@ class NewCategory extends Equatable {
   final int colorArgb;
   final String iconKey;
   final CategoryKind kind;
-  final String? description;
   final RecurringIncome? recurring;
 
   @override
-  List<Object?> get props => [
-    name,
-    colorArgb,
-    iconKey,
-    kind,
-    description,
-    recurring,
-  ];
+  List<Object?> get props => [name, colorArgb, iconKey, kind, recurring];
 }

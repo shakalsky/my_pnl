@@ -16,6 +16,12 @@ const categoryIcons = <String, IconData>{
   'education': Icons.school_outlined,
   'pets': Icons.pets_outlined,
   'utilities': Icons.build_outlined,
+  'shopping': Icons.shopping_bag_outlined,
+  'gifts': Icons.card_giftcard_outlined,
+  'subscriptions': Icons.subscriptions_outlined,
+  'fitness': Icons.fitness_center_outlined,
+  'beauty': Icons.spa_outlined,
+  'work': Icons.work_outline,
 };
 
 /// Falls back rather than throwing: a row synced from a newer build of the

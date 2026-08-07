@@ -47,6 +47,7 @@ class _StubTransactions implements TransactionRepository {
     required String categoryId,
     required int amountScaled,
     DateTime? occurredAt,
+    String? note,
   }) async => throw UnimplementedError();
 
   @override
@@ -54,6 +55,7 @@ class _StubTransactions implements TransactionRepository {
     required String id,
     required int amountScaled,
     DateTime? occurredAt,
+    String? note,
   }) async => throw UnimplementedError();
 
   @override

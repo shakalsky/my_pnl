@@ -11,18 +11,25 @@ const allEntriesLimit = 200;
 abstract interface class TransactionRepository {
   /// Books [amountScaled] against a category.
   ///
-  /// [occurredAt] defaults to now. It is stored as UTC either way.
+  /// [occurredAt] defaults to now. It is stored as UTC either way. [note] is
+  /// what the entry is for, in the user's own words; null when they gave none.
   Future<void> recordSpend({
     required String categoryId,
     required int amountScaled,
     DateTime? occurredAt,
+    String? note,
   });
 
   /// Changes an existing entry.
+  ///
+  /// [note] replaces whatever the entry carried, so null clears it — the form
+  /// that calls this always holds the whole note, and an edit that emptied the
+  /// field has to be able to say so.
   Future<void> updateSpend({
     required String id,
     required int amountScaled,
     DateTime? occurredAt,
+    String? note,
   });
 
   /// Removes an entry.

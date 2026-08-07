@@ -36,7 +36,6 @@ class CategoryFormBloc extends Bloc<CategoryFormEvent, CategoryFormState> {
            // takes it from the page that opened the form.
            kind: initial?.kind ?? kind,
            name: initial?.name ?? '',
-           description: initial?.description ?? '',
            colorArgb: initial?.colorArgb ?? defaultColorArgb,
            iconKey: initial?.iconKey ?? defaultIconKey,
            isRecurring: initial?.isRecurring ?? false,
@@ -56,9 +55,6 @@ class CategoryFormBloc extends Bloc<CategoryFormEvent, CategoryFormState> {
     );
     on<CategoryFormIconSelected>(
       (event, emit) => emit(state.copyWith(iconKey: event.iconKey)),
-    );
-    on<CategoryFormDescriptionChanged>(
-      (event, emit) => emit(state.copyWith(description: event.description)),
     );
     on<CategoryFormRecurringToggled>(
       (event, emit) => emit(state.copyWith(isRecurring: event.isRecurring)),
@@ -113,12 +109,6 @@ class CategoryFormBloc extends Bloc<CategoryFormEvent, CategoryFormState> {
     );
 
     try {
-      // Blank means "no description"; storing '' would be a second way to
-      // say the same thing.
-      final description = state.description.trim().isEmpty
-          ? null
-          : state.description.trim();
-
       if (state.categoryId case final id?) {
         await _updateCategory(
           Category(
@@ -127,7 +117,6 @@ class CategoryFormBloc extends Bloc<CategoryFormEvent, CategoryFormState> {
             colorArgb: state.colorArgb,
             iconKey: state.iconKey,
             kind: state.kind,
-            description: description,
             recurring: state.recurring,
           ),
         );
@@ -138,7 +127,6 @@ class CategoryFormBloc extends Bloc<CategoryFormEvent, CategoryFormState> {
             colorArgb: state.colorArgb,
             iconKey: state.iconKey,
             kind: state.kind,
-            description: description,
             recurring: state.recurring,
           ),
         );

@@ -17,6 +17,16 @@ final class AmountEntryChanged extends AmountEntryEvent {
   List<Object?> get props => [input];
 }
 
+final class AmountEntryNoteChanged extends AmountEntryEvent {
+  const AmountEntryNoteChanged(this.note);
+
+  /// Raw text, exactly as typed.
+  final String note;
+
+  @override
+  List<Object?> get props => [note];
+}
+
 final class AmountEntryDateChanged extends AmountEntryEvent {
   const AmountEntryDateChanged(this.occurredAt);
 

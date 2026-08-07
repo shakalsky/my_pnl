@@ -91,7 +91,6 @@ class _CategoryForm extends StatefulWidget {
 
 class _CategoryFormState extends State<_CategoryForm> {
   late final TextEditingController _name;
-  late final TextEditingController _description;
   late final TextEditingController _recurringDay;
   late final TextEditingController _recurringAmount;
 
@@ -102,7 +101,6 @@ class _CategoryFormState extends State<_CategoryForm> {
     // current values already in the fields.
     final state = context.read<CategoryFormBloc>().state;
     _name = TextEditingController(text: state.name);
-    _description = TextEditingController(text: state.description);
     _recurringDay = TextEditingController(text: state.recurringDay);
     _recurringAmount = TextEditingController(text: state.recurringAmount);
   }
@@ -110,7 +108,6 @@ class _CategoryFormState extends State<_CategoryForm> {
   @override
   void dispose() {
     _name.dispose();
-    _description.dispose();
     _recurringDay.dispose();
     _recurringAmount.dispose();
     super.dispose();
@@ -183,18 +180,6 @@ class _CategoryFormState extends State<_CategoryForm> {
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _description,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                labelText: 'Description',
-                helperText: 'Optional. Added as a note on each transaction.',
-                border: OutlineInputBorder(),
-              ),
-              onChanged: (value) =>
-                  bloc.add(CategoryFormDescriptionChanged(value)),
             ),
             if (state.showsRecurring) ...[
               const SizedBox(height: 8),

@@ -5,6 +5,7 @@ import 'package:my_pnl/features/spending/data/datasources/category_local_data_so
 import 'package:my_pnl/features/spending/data/datasources/transaction_local_data_source.dart';
 import 'package:my_pnl/features/spending/domain/entities/calendar_month.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
+import 'package:my_pnl/features/spending/domain/entities/spend_entry.dart';
 
 void main() {
   group('TransactionLocalDataSource', () {
@@ -143,6 +144,34 @@ void main() {
           .watchCategorySpend(owner, CategoryKind.expense)
           .first;
       expect(spend.single.totalScaled, -999);
+    });
+
+    test('the note survives the round trip, and can be cleared', () async {
+      final category = await newCategory();
+      await transactions.recordSpend(
+        ownerId: owner,
+        categoryId: category.id,
+        amountScaled: 1250,
+        note: 'Weekly shop',
+      );
+
+      Future<SpendEntry> only() async =>
+          (await transactions
+                  .watchCategoryHistory(ownerId: owner, categoryId: category.id)
+                  .first)
+              .single;
+
+      expect((await only()).note, 'Weekly shop');
+
+      await transactions.updateSpend(
+        ownerId: owner,
+        id: (await only()).id,
+        amountScaled: 1250,
+      );
+
+      // An edit that carries no note empties it, rather than leaving the old
+      // one behind where the field the user cleared says otherwise.
+      expect((await only()).note, isNull);
     });
 
     test('deleting tombstones the row rather than removing it', () async {

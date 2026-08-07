@@ -7,6 +7,7 @@ final class AmountEntryState extends Equatable {
     required this.category,
     this.entryId,
     this.input = '',
+    this.note = '',
     this.occurredAt,
     this.status = AmountEntryStatus.editing,
   });
@@ -27,9 +28,17 @@ final class AmountEntryState extends Equatable {
   /// What the user typed. Kept as text so the field never fights the cursor.
   final String input;
 
+  /// What the entry is for, in the user's own words. Raw text; blank means the
+  /// entry carries no note.
+  final String note;
+
   final AmountEntryStatus status;
 
   bool get isEditing => entryId != null;
+
+  /// The note to store, or null when the field is blank — storing '' would be
+  /// a second way to say the entry has no note.
+  String? get noteToStore => note.trim().isEmpty ? null : note.trim();
 
   /// The parsed amount, or null while the input is not a valid number.
   int? get amountScaled => parseAmount(input);
@@ -43,6 +52,7 @@ final class AmountEntryState extends Equatable {
 
   AmountEntryState copyWith({
     String? input,
+    String? note,
     DateTime? occurredAt,
     AmountEntryStatus? status,
   }) {
@@ -50,11 +60,19 @@ final class AmountEntryState extends Equatable {
       category: category,
       entryId: entryId,
       input: input ?? this.input,
+      note: note ?? this.note,
       occurredAt: occurredAt ?? this.occurredAt,
       status: status ?? this.status,
     );
   }
 
   @override
-  List<Object?> get props => [category, entryId, input, occurredAt, status];
+  List<Object?> get props => [
+    category,
+    entryId,
+    input,
+    note,
+    occurredAt,
+    status,
+  ];
 }

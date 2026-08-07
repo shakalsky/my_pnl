@@ -34,15 +34,6 @@ final class CategoryFormIconSelected extends CategoryFormEvent {
   List<Object?> get props => [iconKey];
 }
 
-final class CategoryFormDescriptionChanged extends CategoryFormEvent {
-  const CategoryFormDescriptionChanged(this.description);
-
-  final String description;
-
-  @override
-  List<Object?> get props => [description];
-}
-
 /// Toggles the recurring block. Income categories only.
 final class CategoryFormRecurringToggled extends CategoryFormEvent {
   const CategoryFormRecurringToggled({required this.isRecurring});

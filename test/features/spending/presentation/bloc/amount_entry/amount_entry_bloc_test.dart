@@ -76,6 +76,37 @@ void main() {
       },
     );
 
+    blocTest<AmountEntryBloc, AmountEntryState>(
+      'stores the description typed against this one entry',
+      build: build,
+      act: (bloc) => bloc
+        ..add(const AmountEntryChanged('12.50'))
+        ..add(const AmountEntryNoteChanged('  Weekly shop  '))
+        ..add(const AmountEntrySubmitted()),
+      verify: (bloc) async {
+        final history = await repository
+            .watchCategoryHistory(_groceries.id)
+            .first;
+        // Trimmed on the way in: the surrounding spaces are typing, not text.
+        expect(history.single.note, 'Weekly shop');
+      },
+    );
+
+    blocTest<AmountEntryBloc, AmountEntryState>(
+      'leaves an entry with no description rather than an empty one',
+      build: build,
+      act: (bloc) => bloc
+        ..add(const AmountEntryChanged('12.50'))
+        ..add(const AmountEntryNoteChanged('   '))
+        ..add(const AmountEntrySubmitted()),
+      verify: (bloc) async {
+        final history = await repository
+            .watchCategoryHistory(_groceries.id)
+            .first;
+        expect(history.single.note, isNull);
+      },
+    );
+
     group('editing an entry', () {
       late SpendEntry entry;
 
@@ -83,6 +114,7 @@ void main() {
         await repository.recordSpend(
           categoryId: _groceries.id,
           amountScaled: 1250,
+          note: 'Weekly shop',
         );
         entry =
             (await repository.watchCategoryHistory(_groceries.id).first).single;
@@ -95,6 +127,40 @@ void main() {
           expect(bloc.state.isEditing, isTrue);
           expect(bloc.state.input, '12.50');
           expect(bloc.state.isValid, isTrue);
+        },
+      );
+
+      blocTest<AmountEntryBloc, AmountEntryState>(
+        'opens with the description the entry already carries',
+        build: () => build(entry: entry),
+        verify: (bloc) => expect(bloc.state.note, 'Weekly shop'),
+      );
+
+      blocTest<AmountEntryBloc, AmountEntryState>(
+        'empties the description when the field is cleared',
+        build: () => build(entry: entry),
+        act: (bloc) => bloc
+          ..add(const AmountEntryNoteChanged(''))
+          ..add(const AmountEntrySubmitted()),
+        verify: (bloc) async {
+          final history = await repository
+              .watchCategoryHistory(_groceries.id)
+              .first;
+          expect(history.single.note, isNull);
+        },
+      );
+
+      blocTest<AmountEntryBloc, AmountEntryState>(
+        'keeps the description when only the amount is corrected',
+        build: () => build(entry: entry),
+        act: (bloc) => bloc
+          ..add(const AmountEntryChanged('9.99'))
+          ..add(const AmountEntrySubmitted()),
+        verify: (bloc) async {
+          final history = await repository
+              .watchCategoryHistory(_groceries.id)
+              .first;
+          expect(history.single.note, 'Weekly shop');
         },
       );
 

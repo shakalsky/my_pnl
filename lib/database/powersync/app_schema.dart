@@ -30,7 +30,6 @@ const appSchema = Schema([
     Column.integer('color_argb'),
     Column.text('icon_key'),
     Column.text('kind'),
-    Column.text('description'),
     Column.integer('recurring_day_of_month'),
     Column.integer('recurring_amount_scaled'),
     Column.text('created_at'),

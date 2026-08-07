@@ -85,7 +85,6 @@ class CategoryLocalDataSource {
                 amountScaled: recurring.amountScaled,
                 currency: AccountLocalDataSource.defaultCurrency,
                 executedAt: occurrence,
-                note: Value(category.description),
               ),
             );
         created++;
@@ -305,7 +304,6 @@ class CategoryLocalDataSource {
             colorArgb: category.colorArgb,
             iconKey: category.iconKey,
             kind: Value(category.kind.storage),
-            description: Value(category.description),
             recurringDayOfMonth: Value(category.recurring?.dayOfMonth),
             recurringAmountScaled: Value(category.recurring?.amountScaled),
           ),
@@ -332,7 +330,6 @@ class CategoryLocalDataSource {
             colorArgb: Value(category.colorArgb),
             iconKey: Value(category.iconKey),
             kind: Value(category.kind.storage),
-            description: Value(category.description),
             recurringDayOfMonth: Value(category.recurring?.dayOfMonth),
             recurringAmountScaled: Value(category.recurring?.amountScaled),
             updatedAt: Value(DateTime.now().toUtc()),

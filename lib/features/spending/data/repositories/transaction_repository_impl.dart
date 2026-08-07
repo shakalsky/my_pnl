@@ -21,12 +21,14 @@ class TransactionRepositoryImpl implements TransactionRepository {
     required String categoryId,
     required int amountScaled,
     DateTime? occurredAt,
+    String? note,
   }) {
     return _local.recordSpend(
       ownerId: _owner.id,
       categoryId: categoryId,
       amountScaled: amountScaled,
       occurredAt: occurredAt,
+      note: note,
     );
   }
 
@@ -35,12 +37,14 @@ class TransactionRepositoryImpl implements TransactionRepository {
     required String id,
     required int amountScaled,
     DateTime? occurredAt,
+    String? note,
   }) {
     return _local.updateSpend(
       ownerId: _owner.id,
       id: id,
       amountScaled: amountScaled,
       occurredAt: occurredAt,
+      note: note,
     );
   }
 

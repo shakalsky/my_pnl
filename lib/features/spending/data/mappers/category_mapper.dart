@@ -12,7 +12,6 @@ extension CategoryRowMapper on CategoryRow {
     colorArgb: colorArgb,
     iconKey: iconKey,
     kind: CategoryKind.fromStorage(kind),
-    description: description,
     recurring: _recurring,
   );
 

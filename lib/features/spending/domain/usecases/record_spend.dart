@@ -10,6 +10,7 @@ class RecordSpend {
     required String categoryId,
     required int amountScaled,
     DateTime? occurredAt,
+    String? note,
   }) {
     if (amountScaled == 0) {
       throw ArgumentError.value(amountScaled, 'amountScaled', 'must not be 0');
@@ -19,6 +20,7 @@ class RecordSpend {
       categoryId: categoryId,
       amountScaled: amountScaled,
       occurredAt: occurredAt,
+      note: note,
     );
   }
 }

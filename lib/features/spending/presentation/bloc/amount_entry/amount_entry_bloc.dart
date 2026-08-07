@@ -32,6 +32,7 @@ class AmountEntryBloc extends Bloc<AmountEntryEvent, AmountEntryState> {
            input: entry == null
                ? ''
                : formatAmountInput(entry.amountScaled.abs()),
+           note: entry?.note ?? '',
            // A new entry starts with no date at all rather than with now: the
            // clock should read at the moment it is saved, not the moment the
            // sheet opened.
@@ -40,6 +41,9 @@ class AmountEntryBloc extends Bloc<AmountEntryEvent, AmountEntryState> {
        ) {
     on<AmountEntryChanged>(
       (event, emit) => emit(state.copyWith(input: event.input)),
+    );
+    on<AmountEntryNoteChanged>(
+      (event, emit) => emit(state.copyWith(note: event.note)),
     );
     on<AmountEntryDateChanged>(
       // The one place the zone changes hands: the picker deals in the reader's
@@ -70,12 +74,14 @@ class AmountEntryBloc extends Bloc<AmountEntryEvent, AmountEntryState> {
           id: id,
           amountScaled: amount,
           occurredAt: state.occurredAt,
+          note: state.noteToStore,
         );
       } else {
         await _recordSpend(
           categoryId: state.category.id,
           amountScaled: amount,
           occurredAt: state.occurredAt,
+          note: state.noteToStore,
         );
       }
       emit(state.copyWith(status: AmountEntryStatus.success));
