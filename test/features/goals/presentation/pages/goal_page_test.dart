@@ -160,6 +160,32 @@ void main() {
       expect(find.byType(LinearProgressIndicator), findsOneWidget);
     });
 
+    testWidgets('will not take a target past a trillion', (tester) async {
+      await bookAMixOfMonths();
+      await openPage(tester);
+
+      await tester.tap(find.text('Set a goal'));
+      await tester.pumpAndSettle();
+
+      final field = find.widgetWithText(TextField, 'Target');
+      await tester.enterText(field, '1000000000000');
+      await tester.pump();
+      // The last digit is refused rather than the whole figure, so what was
+      // already typed stays put.
+      await tester.enterText(field, '10000000000000');
+      await tester.pump();
+
+      expect(tester.widget<TextField>(field).controller?.text, '1000000000000');
+
+      await tester.tap(find.text('Set goal'));
+      await tester.pumpAndSettle();
+
+      expect(
+        (await goals.watchGoal().first)?.targetAmountScaled,
+        100000000000000,
+      );
+    });
+
     testWidgets('draws the bar at the fraction saved', (tester) async {
       goals = FakeGoalRepository(
         initial: const SavingsGoal(id: 'goal-1', targetAmountScaled: 500000),

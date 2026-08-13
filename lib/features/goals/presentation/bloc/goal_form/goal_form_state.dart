@@ -27,7 +27,7 @@ final class GoalFormState extends Equatable {
 
   /// Enough to enable the button. The use case validates properly.
   bool get isValid => switch (amountScaled) {
-    null || <= 0 => false,
+    null || <= 0 || > maxGoalAmountScaled => false,
     _ => true,
   };
 

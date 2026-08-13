@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_pnl/core/money/amount_format.dart';
+import 'package:my_pnl/core/money/amount_parse.dart';
 import 'package:my_pnl/features/goals/domain/entities/savings_goal.dart';
 import 'package:my_pnl/features/goals/domain/repositories/goal_repository.dart';
 import 'package:my_pnl/features/goals/domain/usecases/save_goal.dart';
@@ -38,6 +39,27 @@ class GoalFormSheet extends StatelessWidget {
       },
       child: const _GoalForm(),
     );
+  }
+}
+
+/// Turns down any edit that would take the field past [maxScaled].
+///
+/// The cap is held at the keystroke rather than only on submit, so the running
+/// total under the field never quotes a figure that would be refused. An edit
+/// the parser cannot read at all is left alone — the filter ahead of this one
+/// has already had its say about those.
+class _MaxAmountFormatter extends TextInputFormatter {
+  const _MaxAmountFormatter(this.maxScaled);
+
+  final int maxScaled;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final scaled = parseAmount(newValue.text);
+    return scaled != null && scaled > maxScaled ? oldValue : newValue;
   }
 }
 
@@ -110,6 +132,7 @@ class _GoalFormState extends State<_GoalForm> {
               // towards a negative figure is not a goal.
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'^\d*[.,]?\d{0,2}')),
+                const _MaxAmountFormatter(maxGoalAmountScaled),
               ],
               style: theme.textTheme.headlineMedium,
               decoration: const InputDecoration(
