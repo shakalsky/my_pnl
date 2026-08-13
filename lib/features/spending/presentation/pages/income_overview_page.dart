@@ -8,7 +8,6 @@ import 'package:my_pnl/features/spending/domain/usecases/generate_due_recurring_
 import 'package:my_pnl/features/spending/domain/usecases/reorder_categories.dart';
 import 'package:my_pnl/features/spending/domain/usecases/watch_category_spend.dart';
 import 'package:my_pnl/features/spending/presentation/bloc/spending_overview/spending_overview_bloc.dart';
-import 'package:my_pnl/features/spending/presentation/pages/overview_pager_page.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/category_overview_body.dart';
 
 /// Income categories and their totals.
@@ -45,23 +44,8 @@ class IncomeOverviewView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pager = OverviewPager.maybeOf(context);
 
     return Scaffold(
-      // Nothing was pushed to get here, so there is no back button of its own.
-      // The arrow is the same move as a flick left, spelled out for anyone who
-      // arrived by tapping the icon rather than swiping. No app bar at all when
-      // the page stands alone: there would be nothing in it.
-      appBar: pager == null
-          ? null
-          : AppBar(
-              title: const Text('Income'),
-              leading: IconButton(
-                onPressed: pager.showSpending,
-                icon: const Icon(Icons.arrow_back),
-                tooltip: 'Spending',
-              ),
-            ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),

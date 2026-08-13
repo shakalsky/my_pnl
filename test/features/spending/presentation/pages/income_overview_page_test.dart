@@ -1,12 +1,13 @@
+
+import '../../../../helpers/helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:my_pnl/core/widgets/text_input/app_input.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/entities/category_spend.dart';
 import 'package:my_pnl/features/spending/presentation/pages/income_overview_page.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/category_tile.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/total_circle.dart';
-
-import '../../../../helpers/helpers.dart';
 
 const _salary = CategorySpend(
   category: Category(
@@ -96,8 +97,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('New income'), findsOneWidget);
 
-      await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Rent');
+      await tester.enterText(find.widgetWithText(AppInput, 'Name'), 'Rent');
       await tester.pump();
+      await tester.ensureVisible(find.text('Create'));
       await tester.tap(find.text('Create'));
       await tester.pumpAndSettle();
 
@@ -115,13 +117,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Recurring'), findsOneWidget);
-      expect(find.widgetWithText(TextField, 'Day'), findsNothing);
+      expect(find.widgetWithText(AppInput, 'Day'), findsNothing);
 
       await tester.tap(find.text('Recurring'));
       await tester.pumpAndSettle();
 
-      expect(find.widgetWithText(TextField, 'Day'), findsOneWidget);
-      expect(find.widgetWithText(TextField, 'Amount'), findsOneWidget);
+      expect(find.widgetWithText(AppInput, 'Day'), findsOneWidget);
+      expect(find.widgetWithText(AppInput, 'Amount'), findsOneWidget);
     });
 
     testWidgets('a ticked schedule has to be filled in', (tester) async {
@@ -130,7 +132,7 @@ void main() {
       await tester.tap(find.text('Add'));
       await tester.pumpAndSettle();
       await tester.enterText(
-        find.widgetWithText(TextField, 'Name'),
+        find.widgetWithText(AppInput, 'Name'),
         'Freelance',
       );
       await tester.tap(find.text('Recurring'));
@@ -148,14 +150,14 @@ void main() {
       await tester.tap(find.text('Add'));
       await tester.pumpAndSettle();
       await tester.enterText(
-        find.widgetWithText(TextField, 'Name'),
+        find.widgetWithText(AppInput, 'Name'),
         'Freelance',
       );
       await tester.tap(find.text('Recurring'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.widgetWithText(TextField, 'Day'), '15');
+      await tester.enterText(find.widgetWithText(AppInput, 'Day'), '15');
       await tester.enterText(
-        find.widgetWithText(TextField, 'Amount'),
+        find.widgetWithText(AppInput, 'Amount'),
         '1200',
       );
       await tester.pump();

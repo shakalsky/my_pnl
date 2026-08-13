@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:my_pnl/core/money/amount_format.dart';
+import 'package:my_pnl/core/money/scales.dart';
+import 'package:my_pnl/core/widgets/text_input/app_input.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/entities/spend_entry.dart';
 import 'package:my_pnl/features/spending/domain/repositories/transaction_repository.dart';
@@ -247,8 +249,10 @@ class _AmountEntryFormState extends State<_AmountEntryForm> {
               ],
             ),
             const SizedBox(height: 20),
-            TextField(
+            AppInput.white(
               controller: _amount,
+              prefixText: '$baseCurrencySymbol ',
+              inputHintText: '0.00',
               autofocus: true,
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
@@ -263,14 +267,9 @@ class _AmountEntryFormState extends State<_AmountEntryForm> {
                   RegExp(r'^\d*[.,]?\d{0,2}'),
                 ),
               ],
-              style: theme.textTheme.headlineMedium,
-              decoration: const InputDecoration(
-                prefixText: r'$ ',
-                hintText: '0.00',
-                border: OutlineInputBorder(),
-              ),
+              textStyle: theme.textTheme.headlineMedium,
               onChanged: (value) => bloc.add(AmountEntryChanged(value)),
-              onSubmitted: (_) => bloc.add(const AmountEntrySubmitted()),
+              onFieldSubmitted: (_) => bloc.add(const AmountEntrySubmitted()),
             ),
             const SizedBox(height: 8),
             Text(
@@ -284,17 +283,14 @@ class _AmountEntryFormState extends State<_AmountEntryForm> {
               ),
             ),
             const SizedBox(height: 16),
-            TextField(
+            AppInput.white(
               controller: _note,
+              label: 'Description',
+              hint: 'Optional. What this one was for.',
               textCapitalization: TextCapitalization.sentences,
               textInputAction: TextInputAction.done,
-              decoration: const InputDecoration(
-                labelText: 'Description',
-                helperText: 'Optional. What this one was for.',
-                border: OutlineInputBorder(),
-              ),
               onChanged: (value) => bloc.add(AmountEntryNoteChanged(value)),
-              onSubmitted: (_) => bloc.add(const AmountEntrySubmitted()),
+              onFieldSubmitted: (_) => bloc.add(const AmountEntrySubmitted()),
             ),
             const SizedBox(height: 16),
             _DateField(

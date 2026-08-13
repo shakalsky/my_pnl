@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:my_pnl/features/currencies/domain/entities/currency.dart';
-import 'package:my_pnl/features/currencies/presentation/widgets/currency_list_sheet.dart';
 
 import '../../../../helpers/helpers.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:my_pnl/core/widgets/text_input/app_input.dart';
+import 'package:my_pnl/features/currencies/domain/entities/currency.dart';
+import 'package:my_pnl/features/currencies/presentation/widgets/currency_list_sheet.dart';
 
 const _euro = Currency(
   id: 'currency-1',
@@ -58,9 +59,9 @@ void main() {
       await tester.tap(find.byTooltip('Add currency'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.widgetWithText(TextField, 'Ticker'), 'gbp');
+      await tester.enterText(find.widgetWithText(AppInput, 'Ticker'), 'gbp');
       await tester.enterText(
-        find.widgetWithText(TextField, 'Exchange rate'),
+        find.widgetWithText(AppInput, 'Exchange rate'),
         '1.27',
       );
       await tester.pump();
@@ -81,9 +82,9 @@ void main() {
       await tester.tap(find.widgetWithText(ChoiceChip, '🪙'));
       await tester.pump();
 
-      await tester.enterText(find.widgetWithText(TextField, 'Ticker'), 'gld');
+      await tester.enterText(find.widgetWithText(AppInput, 'Ticker'), 'gld');
       await tester.enterText(
-        find.widgetWithText(TextField, 'Exchange rate'),
+        find.widgetWithText(AppInput, 'Exchange rate'),
         '1',
       );
       await tester.pump();
@@ -102,10 +103,10 @@ void main() {
       await tester.pumpAndSettle();
 
       // Nothing filters the field, so an emoji keyboard works as well as a tap.
-      await tester.enterText(find.widgetWithText(TextField, 'Sign'), '🇪🇺');
-      await tester.enterText(find.widgetWithText(TextField, 'Ticker'), 'eur');
+      await tester.enterText(find.widgetWithText(AppInput, 'Sign'), '🇪🇺');
+      await tester.enterText(find.widgetWithText(AppInput, 'Ticker'), 'eur');
       await tester.enterText(
-        find.widgetWithText(TextField, 'Exchange rate'),
+        find.widgetWithText(AppInput, 'Exchange rate'),
         '1.08',
       );
       await tester.pump();
@@ -126,9 +127,9 @@ void main() {
       await tester.tap(find.widgetWithText(ChoiceChip, '€'));
       await tester.pump();
 
-      await tester.enterText(find.widgetWithText(TextField, 'Ticker'), 'eur');
+      await tester.enterText(find.widgetWithText(AppInput, 'Ticker'), 'eur');
       await tester.enterText(
-        find.widgetWithText(TextField, 'Exchange rate'),
+        find.widgetWithText(AppInput, 'Exchange rate'),
         '1.08',
       );
       await tester.pump();

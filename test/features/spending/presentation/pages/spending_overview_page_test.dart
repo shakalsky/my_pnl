@@ -1,7 +1,10 @@
+
+import '../../../../helpers/helpers.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
+import 'package:my_pnl/core/widgets/text_input/app_input.dart';
 import 'package:my_pnl/features/spending/domain/entities/calendar_month.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/entities/category_spend.dart';
@@ -10,8 +13,6 @@ import 'package:my_pnl/features/spending/presentation/pages/spending_overview_pa
 import 'package:my_pnl/features/spending/presentation/theme/overrun_style.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/category_tile.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/total_circle.dart';
-
-import '../../../../helpers/helpers.dart';
 
 const _groceries = CategorySpend(
   category: Category(
@@ -139,7 +140,7 @@ void main() {
       expect(find.text('New category'), findsOneWidget);
 
       await tester.enterText(
-        find.widgetWithText(TextField, 'Name'),
+        find.widgetWithText(AppInput, 'Name'),
         'Utilities',
       );
       await tester.pump();
@@ -216,7 +217,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final field = find.descendant(
-        of: find.widgetWithText(TextField, 'Name'),
+        of: find.widgetWithText(AppInput, 'Name'),
         matching: find.byType(EditableText),
       );
       expect(
@@ -270,6 +271,7 @@ void main() {
 
       await openSettings(tester, 'Groceries');
 
+      await tester.ensureVisible(find.text('Delete category'));
       await tester.tap(find.text('Delete category'));
       await tester.pumpAndSettle();
       expect(find.text('Delete Groceries?'), findsOneWidget);
@@ -301,6 +303,7 @@ void main() {
       await pumpPage(tester);
 
       await openSettings(tester, 'Groceries');
+      await tester.ensureVisible(find.text('Delete category'));
       await tester.tap(find.text('Delete category'));
       await tester.pumpAndSettle();
 
@@ -317,6 +320,7 @@ void main() {
 
       await openSettings(tester, 'Groceries');
 
+      await tester.ensureVisible(find.text('Delete category'));
       await tester.tap(find.text('Delete category'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
@@ -340,7 +344,7 @@ void main() {
       // Seeded with the current values.
       expect(find.widgetWithText(TextField, 'Groceries'), findsOneWidget);
 
-      await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Food');
+      await tester.enterText(find.widgetWithText(AppInput, 'Name'), 'Food');
       await tester.pump();
       await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();

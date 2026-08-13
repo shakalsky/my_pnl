@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_pnl/core/money/scales.dart';
+import 'package:my_pnl/core/widgets/text_input/app_input.dart';
 import 'package:my_pnl/features/currencies/domain/entities/currency.dart';
 import 'package:my_pnl/features/currencies/domain/repositories/currency_repository.dart';
 import 'package:my_pnl/features/currencies/domain/usecases/save_currency.dart';
@@ -105,26 +106,26 @@ class _CurrencyFormState extends State<_CurrencyForm> {
               children: [
                 SizedBox(
                   width: 80,
-                  child: TextField(
+                  child: AppInput.white(
                     controller: _icon,
+                    label: 'Sign',
+                    inputHintText: '€',
                     textAlign: TextAlign.center,
-                    style: theme.textTheme.titleLarge,
+                    textStyle: theme.textTheme.titleLarge,
                     // Counted in characters rather than code units, so a
                     // multi-part emoji is one of the four rather than several.
-                    maxLength: 4,
-                    decoration: const InputDecoration(
-                      labelText: 'Sign',
-                      hintText: '€',
-                      counterText: '',
-                      border: OutlineInputBorder(),
-                    ),
+                    inputFormatters: [LengthLimitingTextInputFormatter(4)],
+                    // Too narrow to give up room to a clear button.
+                    showClearButton: false,
                     onChanged: (value) => bloc.add(CurrencyIconChanged(value)),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: TextField(
+                  child: AppInput.white(
                     controller: _ticker,
+                    label: 'Ticker',
+                    inputHintText: 'EUR',
                     autofocus: true,
                     textCapitalization: TextCapitalization.characters,
                     // Tickers are stored upper-case; forcing it here means the
@@ -134,11 +135,6 @@ class _CurrencyFormState extends State<_CurrencyForm> {
                       LengthLimitingTextInputFormatter(10),
                       _UpperCaseFormatter(),
                     ],
-                    decoration: const InputDecoration(
-                      labelText: 'Ticker',
-                      hintText: 'EUR',
-                      border: OutlineInputBorder(),
-                    ),
                     onChanged: (value) =>
                         bloc.add(CurrencyTickerChanged(value)),
                   ),
@@ -156,8 +152,12 @@ class _CurrencyFormState extends State<_CurrencyForm> {
               },
             ),
             const SizedBox(height: 12),
-            TextField(
+            AppInput.white(
               controller: _rate,
+              label: 'Exchange rate',
+              hint:
+                  'What 1 ${state.ticker.isEmpty ? 'unit' : state.ticker} '
+                  'is worth in $baseCurrency',
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
@@ -165,15 +165,8 @@ class _CurrencyFormState extends State<_CurrencyForm> {
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'^\d*[.,]?\d{0,6}')),
               ],
-              decoration: InputDecoration(
-                labelText: 'Exchange rate',
-                helperText:
-                    'What 1 ${state.ticker.isEmpty ? 'unit' : state.ticker} '
-                    'is worth in $baseCurrency',
-                border: const OutlineInputBorder(),
-              ),
               onChanged: (value) => bloc.add(CurrencyRateChanged(value)),
-              onSubmitted: (_) => bloc.add(const CurrencyFormSubmitted()),
+              onFieldSubmitted: (_) => bloc.add(const CurrencyFormSubmitted()),
             ),
             if (state.errorMessage case final message?) ...[
               const SizedBox(height: 12),

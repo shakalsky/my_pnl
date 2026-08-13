@@ -1,11 +1,12 @@
+
+import '../../../../helpers/helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:my_pnl/core/widgets/text_input/app_input.dart';
 import 'package:my_pnl/features/goals/domain/entities/savings_goal.dart';
 import 'package:my_pnl/features/goals/presentation/pages/goal_page.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/entities/category_spend.dart';
-
-import '../../../../helpers/helpers.dart';
 
 const _salary = CategorySpend(
   category: Category(
@@ -147,7 +148,7 @@ void main() {
       await tester.tap(find.text('Set a goal'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.widgetWithText(TextField, 'Target'), '5000');
+      await tester.enterText(find.widgetWithText(AppInput, 'Target'), '5000');
       await tester.pump();
       await tester.tap(find.text('Set goal'));
       await tester.pumpAndSettle();
@@ -167,7 +168,7 @@ void main() {
       await tester.tap(find.text('Set a goal'));
       await tester.pumpAndSettle();
 
-      final field = find.widgetWithText(TextField, 'Target');
+      final field = find.widgetWithText(AppInput, 'Target');
       await tester.enterText(field, '1000000000000');
       await tester.pump();
       // The last digit is refused rather than the whole figure, so what was
@@ -175,7 +176,7 @@ void main() {
       await tester.enterText(field, '10000000000000');
       await tester.pump();
 
-      expect(tester.widget<TextField>(field).controller?.text, '1000000000000');
+      expect(tester.widget<AppInput>(field).controller?.text, '1000000000000');
 
       await tester.tap(find.text('Set goal'));
       await tester.pumpAndSettle();
@@ -231,7 +232,7 @@ void main() {
         reason: 'opens with the current figure',
       );
 
-      await tester.enterText(find.widgetWithText(TextField, 'Target'), '4000');
+      await tester.enterText(find.widgetWithText(AppInput, 'Target'), '4000');
       await tester.pump();
       await tester.tap(find.text('Save goal'));
       await tester.pumpAndSettle();
@@ -351,7 +352,7 @@ void main() {
       await tester.tap(find.text('Set a goal'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.widgetWithText(TextField, 'Target'), '5000');
+      await tester.enterText(find.widgetWithText(AppInput, 'Target'), '5000');
       await tester.pump();
       await tester.tap(find.text('Set goal'));
       await tester.pumpAndSettle();

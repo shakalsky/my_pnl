@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:my_pnl/core/money/amount_format.dart';
+import 'package:my_pnl/core/money/scales.dart';
+import 'package:my_pnl/core/widgets/text_input/app_input.dart';
 import 'package:my_pnl/features/debts/domain/entities/debt.dart';
 import 'package:my_pnl/features/debts/domain/repositories/debt_repository.dart';
 import 'package:my_pnl/features/debts/domain/usecases/save_debt.dart';
@@ -146,21 +148,21 @@ class _DebtFormState extends State<_DebtForm> {
               ),
             ),
             const SizedBox(height: 16),
-            TextField(
+            AppInput.white(
               controller: _counterparty,
+              label: 'Who',
+              inputHintText: 'Alex',
               autofocus: true,
               textCapitalization: TextCapitalization.words,
               inputFormatters: [LengthLimitingTextInputFormatter(60)],
-              decoration: const InputDecoration(
-                labelText: 'Who',
-                hintText: 'Alex',
-                border: OutlineInputBorder(),
-              ),
               onChanged: (value) => bloc.add(DebtCounterpartyChanged(value)),
             ),
             const SizedBox(height: 16),
-            TextField(
+            AppInput.white(
               controller: _amount,
+              label: 'Amount',
+              prefixText: '$baseCurrencySymbol ',
+              inputHintText: '0.00',
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
@@ -169,26 +171,17 @@ class _DebtFormState extends State<_DebtForm> {
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'^\d*[.,]?\d{0,2}')),
               ],
-              decoration: const InputDecoration(
-                labelText: 'Amount',
-                prefixText: r'$ ',
-                hintText: '0.00',
-                border: OutlineInputBorder(),
-              ),
               onChanged: (value) => bloc.add(DebtAmountChanged(value)),
             ),
             const SizedBox(height: 16),
-            TextField(
+            AppInput.white(
               controller: _note,
+              label: 'What for',
+              inputHintText: 'Optional',
               textCapitalization: TextCapitalization.sentences,
               textInputAction: TextInputAction.done,
-              decoration: const InputDecoration(
-                labelText: 'What for',
-                hintText: 'Optional',
-                border: OutlineInputBorder(),
-              ),
               onChanged: (value) => bloc.add(DebtNoteChanged(value)),
-              onSubmitted: (_) => bloc.add(const DebtFormSubmitted()),
+              onFieldSubmitted: (_) => bloc.add(const DebtFormSubmitted()),
             ),
             const SizedBox(height: 12),
             Row(

@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:my_pnl/features/debts/domain/entities/debt.dart';
-import 'package:my_pnl/features/debts/presentation/pages/debts_page.dart';
 
 import '../../../../helpers/helpers.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:my_pnl/core/widgets/text_input/app_input.dart';
+import 'package:my_pnl/features/debts/domain/entities/debt.dart';
+import 'package:my_pnl/features/debts/presentation/pages/debts_page.dart';
 
 const _lentToAlex = Debt(
   id: 'debt-1',
@@ -75,8 +76,8 @@ void main() {
       await tester.tap(find.byTooltip('Add debt'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.widgetWithText(TextField, 'Who'), 'Sam');
-      await tester.enterText(find.widgetWithText(TextField, 'Amount'), '40');
+      await tester.enterText(find.widgetWithText(AppInput, 'Who'), 'Sam');
+      await tester.enterText(find.widgetWithText(AppInput, 'Amount'), '40');
       await tester.pump();
       await tester.tap(find.text('Add debt').last);
       await tester.pumpAndSettle();
@@ -95,8 +96,8 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('I owe'));
-      await tester.enterText(find.widgetWithText(TextField, 'Who'), 'Sam');
-      await tester.enterText(find.widgetWithText(TextField, 'Amount'), '40');
+      await tester.enterText(find.widgetWithText(AppInput, 'Who'), 'Sam');
+      await tester.enterText(find.widgetWithText(AppInput, 'Amount'), '40');
       await tester.pump();
       await tester.tap(find.text('Add debt').last);
       await tester.pumpAndSettle();
@@ -113,7 +114,7 @@ void main() {
       await tester.tap(find.text('Alex'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.widgetWithText(TextField, 'Amount'), '30');
+      await tester.enterText(find.widgetWithText(AppInput, 'Amount'), '30');
       await tester.pump();
       await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();

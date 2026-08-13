@@ -269,15 +269,15 @@ void main() {
         );
       });
 
-      testWidgets('the arrow on income slides back', (tester) async {
+      testWidgets('income carries no app bar of its own', (tester) async {
         await openOverview(tester);
         await flick(tester, 300);
         expectShowing(tester, IncomeOverviewPage);
 
-        await tester.tap(find.byTooltip('Spending'));
-        await tester.pumpAndSettle();
-
-        expectShowing(tester, SpendingOverviewPage);
+        // Swiping is the way back: income is a page of the pager rather than
+        // a screen with its own chrome, so there is no arrow to press.
+        expect(find.byTooltip('Spending'), findsNothing);
+        expect(find.byType(AppBar), findsNothing);
       });
     });
 

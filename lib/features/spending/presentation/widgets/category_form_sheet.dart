@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:my_pnl/core/money/scales.dart';
+import 'package:my_pnl/core/widgets/text_input/app_input.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/repositories/category_repository.dart';
 import 'package:my_pnl/features/spending/domain/usecases/create_category.dart';
@@ -196,20 +198,18 @@ class _CategoryFormState extends State<_CategoryForm> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: TextField(
+                  child: AppInput.white(
                     controller: _name,
+                    label: 'Name',
+                    errorText: state.errorMessage,
                     // No autofocus: the sheet opens showing the colour and icon
                     // choices rather than with half of itself behind a keyboard.
                     textCapitalization: TextCapitalization.sentences,
                     textInputAction: TextInputAction.done,
-                    decoration: InputDecoration(
-                      labelText: 'Name',
-                      border: const OutlineInputBorder(),
-                      errorText: state.errorMessage,
-                    ),
                     onChanged: (value) =>
                         bloc.add(CategoryFormNameChanged(value)),
-                    onSubmitted: (_) => bloc.add(const CategoryFormSubmitted()),
+                    onFieldSubmitted: (_) =>
+                        bloc.add(const CategoryFormSubmitted()),
                   ),
                 ),
               ],
@@ -234,26 +234,28 @@ class _CategoryFormState extends State<_CategoryForm> {
                   children: [
                     SizedBox(
                       width: 96,
-                      child: TextField(
+                      child: AppInput.white(
                         controller: _recurringDay,
+                        label: 'Day',
+                        inputHintText: '1',
                         keyboardType: TextInputType.number,
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(2),
                         ],
-                        decoration: const InputDecoration(
-                          labelText: 'Day',
-                          hintText: '1',
-                          border: OutlineInputBorder(),
-                        ),
+                        // Too narrow to give up room to a clear button.
+                        showClearButton: false,
                         onChanged: (value) =>
                             bloc.add(CategoryFormRecurringDayChanged(value)),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: TextField(
+                      child: AppInput.white(
                         controller: _recurringAmount,
+                        label: 'Amount',
+                        prefixText: '$baseCurrencySymbol ',
+                        inputHintText: '0.00',
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
@@ -262,12 +264,6 @@ class _CategoryFormState extends State<_CategoryForm> {
                             RegExp(r'^\d*[.,]?\d{0,2}'),
                           ),
                         ],
-                        decoration: const InputDecoration(
-                          labelText: 'Amount',
-                          prefixText: r'$ ',
-                          hintText: '0.00',
-                          border: OutlineInputBorder(),
-                        ),
                         onChanged: (value) =>
                             bloc.add(CategoryFormRecurringAmountChanged(value)),
                       ),

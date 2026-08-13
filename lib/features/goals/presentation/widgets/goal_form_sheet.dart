@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_pnl/core/money/amount_format.dart';
 import 'package:my_pnl/core/money/amount_parse.dart';
+import 'package:my_pnl/core/money/scales.dart';
+import 'package:my_pnl/core/widgets/text_input/app_input.dart';
 import 'package:my_pnl/features/goals/domain/entities/savings_goal.dart';
 import 'package:my_pnl/features/goals/domain/repositories/goal_repository.dart';
 import 'package:my_pnl/features/goals/domain/usecases/save_goal.dart';
@@ -120,8 +122,11 @@ class _GoalFormState extends State<_GoalForm> {
               ),
             ),
             const SizedBox(height: 20),
-            TextField(
+            AppInput.white(
               controller: _amount,
+              label: 'Target',
+              prefixText: '$baseCurrencySymbol ',
+              inputHintText: '0.00',
               autofocus: true,
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
@@ -134,15 +139,9 @@ class _GoalFormState extends State<_GoalForm> {
                 FilteringTextInputFormatter.allow(RegExp(r'^\d*[.,]?\d{0,2}')),
                 const _MaxAmountFormatter(maxGoalAmountScaled),
               ],
-              style: theme.textTheme.headlineMedium,
-              decoration: const InputDecoration(
-                labelText: 'Target',
-                prefixText: r'$ ',
-                hintText: '0.00',
-                border: OutlineInputBorder(),
-              ),
+              textStyle: theme.textTheme.headlineMedium,
               onChanged: (value) => bloc.add(GoalAmountChanged(value)),
-              onSubmitted: (_) => bloc.add(const GoalFormSubmitted()),
+              onFieldSubmitted: (_) => bloc.add(const GoalFormSubmitted()),
             ),
             const SizedBox(height: 8),
             Text(

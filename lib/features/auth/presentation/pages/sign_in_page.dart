@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:my_pnl/core/widgets/text_input/app_input.dart';
 import 'package:my_pnl/features/app_update/domain/repositories/app_update_repository.dart';
 import 'package:my_pnl/features/auth/domain/repositories/auth_repository.dart';
 import 'package:my_pnl/features/auth/presentation/bloc/sign_in_form/sign_in_form_bloc.dart';
@@ -14,6 +15,48 @@ class SignInPage extends StatelessWidget {
       create: (context) =>
           SignInFormBloc(authRepository: context.read<AuthRepository>()),
       child: const SignInView(),
+    );
+  }
+}
+
+/// Password entry with a reveal toggle, so a typo in a field nobody can read
+/// is not the reason someone cannot get into their own account.
+class _PasswordField extends StatefulWidget {
+  const _PasswordField({required this.onChanged, required this.onSubmitted});
+
+  final ValueChanged<String> onChanged;
+  final ValueChanged<String> onSubmitted;
+
+  @override
+  State<_PasswordField> createState() => _PasswordFieldState();
+}
+
+class _PasswordFieldState extends State<_PasswordField> {
+  bool _obscured = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppInput.white(
+      label: 'Password',
+      obscureText: _obscured,
+      autofillHints: const [AutofillHints.password],
+      textInputAction: TextInputAction.done,
+      // The reveal toggle is the only affordance this field needs; a clear
+      // button beside it would be two icons competing in the same corner.
+      showClearButton: false,
+      suffixIcon: IconButton(
+        icon: Icon(
+          _obscured ? Icons.visibility : Icons.visibility_off,
+          size: 18,
+        ),
+        tooltip: _obscured ? 'Show password' : 'Hide password',
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(),
+        visualDensity: VisualDensity.compact,
+        onPressed: () => setState(() => _obscured = !_obscured),
+      ),
+      onChanged: widget.onChanged,
+      onFieldSubmitted: widget.onSubmitted,
     );
   }
 }
@@ -55,26 +98,16 @@ class SignInView extends StatelessWidget {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 32),
-                  TextField(
+                  AppInput.white(
+                    label: 'Email',
                     autofocus: true,
                     keyboardType: TextInputType.emailAddress,
                     autofillHints: const [AutofillHints.email],
                     textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      border: OutlineInputBorder(),
-                    ),
                     onChanged: (value) => bloc.add(SignInEmailChanged(value)),
                   ),
                   const SizedBox(height: 12),
-                  TextField(
-                    obscureText: true,
-                    autofillHints: const [AutofillHints.password],
-                    textInputAction: TextInputAction.done,
-                    decoration: const InputDecoration(
-                      labelText: 'Password',
-                      border: OutlineInputBorder(),
-                    ),
+                  _PasswordField(
                     onChanged: (value) =>
                         bloc.add(SignInPasswordChanged(value)),
                     onSubmitted: (_) => bloc.add(const SignInSubmitted()),
