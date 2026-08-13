@@ -12,6 +12,10 @@ void main() {
     late CurrencyLocalDataSource dataSource;
 
     const owner = 'user-1';
+    const ledger = 'ledger-1';
+
+    /// Another book. Rates belong to one, so nothing here crosses over.
+    const otherLedger = 'ledger-2';
 
     setUp(() {
       db = AppDatabase.forTesting(NativeDatabase.memory());
@@ -27,6 +31,7 @@ void main() {
       String? icon = '€',
       int rateScaled = 1080000,
       String ownerId = owner,
+      String ledgerId = ledger,
     }) {
       return dataSource.createCurrency(
         NewCurrency(
@@ -34,7 +39,8 @@ void main() {
           icon: icon,
           exchangeRateScaled: rateScaled,
         ),
-        ownerId,
+        ownerId: ownerId,
+        ledgerId: ledgerId,
       );
     }
 
@@ -59,12 +65,12 @@ void main() {
       await add(ticker: 'BTC');
       await add(ticker: 'EUR');
 
-      final currencies = await dataSource.watchCurrencies(owner).first;
+      final currencies = await dataSource.watchCurrencies(ledger).first;
 
       expect(currencies.map((c) => c.ticker), ['BTC', 'EUR', 'GBP']);
     });
 
-    test('rejects a ticker the owner already has', () async {
+    test('rejects a ticker the ledger already has', () async {
       await add(ticker: 'EUR');
 
       await expectLater(
@@ -73,12 +79,24 @@ void main() {
       );
     });
 
-    test('lets a different owner use the same ticker', () async {
+    test('lets another ledger use the same ticker', () async {
       await add(ticker: 'EUR');
-      await add(ticker: 'EUR', ownerId: 'user-2');
+      await add(ticker: 'EUR', ledgerId: otherLedger);
 
-      final mine = await dataSource.watchCurrencies(owner).first;
+      final mine = await dataSource.watchCurrencies(ledger).first;
       expect(mine, hasLength(1));
+    });
+
+    test("refuses a ticker a partner already added to the same book", () async {
+      // Rates are shared furniture, so the clash is per ledger and not per
+      // person: two rates for one ticker in one book would make the totals
+      // depend on which of them a device happened to read.
+      await add(ticker: 'EUR');
+
+      await expectLater(
+        add(ticker: 'EUR', ownerId: 'partner-1'),
+        throwsA(isA<CurrencyFailure>()),
+      );
     });
 
     test('updates the rate and the icon', () async {
@@ -91,21 +109,21 @@ void main() {
           ticker: 'EUR',
           exchangeRateScaled: 1090000,
         ),
-        owner,
+        ledger,
       );
 
       expect(updated.exchangeRateScaled, 1090000);
       expect(updated.icon, isNull);
-      final currencies = await dataSource.watchCurrencies(owner).first;
+      final currencies = await dataSource.watchCurrencies(ledger).first;
       expect(currencies, hasLength(1), reason: 'edited, not duplicated');
     });
 
     test('deleting tombstones the row and frees the ticker', () async {
       final created = await add(ticker: 'EUR');
 
-      await dataSource.deleteCurrency(ownerId: owner, id: created.id);
+      await dataSource.deleteCurrency(ledgerId: ledger, id: created.id);
 
-      expect(await dataSource.watchCurrencies(owner).first, isEmpty);
+      expect(await dataSource.watchCurrencies(ledger).first, isEmpty);
 
       // Still on disk so the delete syncs...
       final row = await db.select(db.currencies).getSingle();
@@ -115,13 +133,31 @@ void main() {
       await expectLater(add(ticker: 'EUR'), completes);
     });
 
-    test("refuses to touch another owner's currency", () async {
+    test("refuses to touch another ledger's currency", () async {
       final created = await add(ticker: 'EUR');
 
       await expectLater(
-        dataSource.deleteCurrency(ownerId: 'user-2', id: created.id),
+        dataSource.deleteCurrency(ledgerId: otherLedger, id: created.id),
         throwsStateError,
       );
+    });
+
+    test("lets a partner correct a rate the other one added", () async {
+      final created = await add(ticker: 'EUR');
+
+      // Nothing here says who is asking, and that is the point: a rate in a
+      // shared book is either partner's to fix.
+      final updated = await dataSource.updateCurrency(
+        Currency(
+          id: created.id,
+          ticker: 'EUR',
+          icon: '€',
+          exchangeRateScaled: 1120000,
+        ),
+        ledger,
+      );
+
+      expect(updated.exchangeRateScaled, 1120000);
     });
   });
 }

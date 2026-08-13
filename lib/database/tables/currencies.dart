@@ -1,14 +1,11 @@
 import 'package:drift/drift.dart';
+import 'package:my_pnl/database/tables/ledger_scoped_table.dart';
 import 'package:my_pnl/database/tables/synced_table.dart';
 
 /// A currency the user defined, on top of the app's base currency.
 @DataClassName('CurrencyRow')
-class Currencies extends Table with SyncedTable {
-  /// Owner of the row. Sync rules bucket on this, and the matching Postgres
-  /// RLS policy checks it, so it must be set on every insert.
-  TextColumn get ownerId => text()();
-
-  /// Short code, e.g. `EUR` or `BTC`. Unique per owner — enforced in Postgres,
+class Currencies extends Table with SyncedTable, LedgerScopedTable {
+  /// Short code, e.g. `EUR` or `BTC`. Unique per ledger — enforced in Postgres,
   /// since the local PowerSync views carry no constraints.
   TextColumn get ticker => text()();
 

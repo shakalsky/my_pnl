@@ -8,6 +8,12 @@ const allEntriesLimit = 200;
 
 /// Money movements. Category totals come from the category repository; this
 /// one deals in the individual entries behind them.
+///
+/// Everything here is about the ledger currently open. In a family account the
+/// reads span both partners — that is what the totals on the overview are made
+/// of — while the writes only ever reach the caller's own entries. An entry says
+/// which it is with `SpendEntry.isOwn`, so a list can offer an edit only where
+/// one would be accepted.
 abstract interface class TransactionRepository {
   /// Books [amountScaled] against a category.
   ///
@@ -20,7 +26,10 @@ abstract interface class TransactionRepository {
     String? note,
   });
 
-  /// Changes an existing entry.
+  /// Changes an existing entry of the caller's own.
+  ///
+  /// Throws if the entry belongs to a partner: a shared ledger is read
+  /// together and written separately.
   ///
   /// [note] replaces whatever the entry carried, so null clears it — the form
   /// that calls this always holds the whole note, and an edit that emptied the
@@ -42,7 +51,8 @@ abstract interface class TransactionRepository {
   /// A category's entries, newest first, re-emitted as they change.
   Stream<List<SpendEntry>> watchCategoryHistory(String categoryId);
 
-  /// Every entry the owner has, newest first, with its category.
+  /// Every entry in the ledger, newest first, with its category and who
+  /// recorded it.
   ///
   /// Capped at [allEntriesLimit]: a full ledger is unbounded, and a modal
   /// cannot usefully show thousands of rows anyway.

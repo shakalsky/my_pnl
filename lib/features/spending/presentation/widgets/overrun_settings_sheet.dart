@@ -20,11 +20,10 @@ class OverrunSettingsSheet extends StatelessWidget {
       isScrollControlled: true,
       showDragHandle: true,
       builder: (_) => BlocProvider(
-        create: (_) =>
-            OverrunSettingsBloc(
-              readOverrunSettings: ReadOverrunSettings(store),
-              saveOverrunSettings: SaveOverrunSettings(store),
-            )..add(const OverrunSettingsRequested()),
+        create: (_) => OverrunSettingsBloc(
+          readOverrunSettings: ReadOverrunSettings(store),
+          saveOverrunSettings: SaveOverrunSettings(store),
+        )..add(const OverrunSettingsRequested()),
         child: const OverrunSettingsSheet(),
       ),
     );

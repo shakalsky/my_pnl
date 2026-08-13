@@ -1,25 +1,70 @@
 # PowerSync sync rules — paste into the PowerSync dashboard for this instance.
 #
-# These decide which Postgres rows reach which device. `request.user_id()` is
-# the `sub` claim of the Supabase JWT that SupabaseConnector supplies, so each
-# client only ever receives its own rows. Getting this wrong either leaks data
-# or ships a client someone else's history — it is the one piece of PowerSync
-# config worth reviewing carefully.
+# These decide which Postgres rows reach which device. Getting this wrong either
+# leaks data or ships a client someone else's history — it is the one piece of
+# PowerSync config worth reviewing carefully.
 #
-# Soft-deleted rows are still synced so that a delete on one device propagates
-# to the others; the app filters `deleted_at is null` on read.
+# The bucket is per *ledger*, not per user. `request.user_id()` is the `sub`
+# claim of the Supabase JWT that SupabaseConnector supplies; the parameter query
+# turns that into the set of ledgers the user is a member of, and a device
+# receives one bucket for each. A family account is therefore a bucket two
+# people subscribe to — which is the whole mechanism, and the reason both see the
+# same totals without either querying anything the other owns.
+#
+# Membership is what grants access, so a row in `ledger_members` is a key. That
+# is why leaving hard-deletes the row instead of tombstoning it: a parameter
+# query cannot filter on `deleted_at` — the operators allowed in one are limited
+# to comparisons against request parameters and constants — so a soft-deleted
+# membership would go on matching this bucket forever.
+#
+# Soft-deleted rows in the data queries below are still synced, so that a delete
+# on one device propagates to the others; the app filters `deleted_at is null` on
+# read.
 
 bucket_definitions:
-  user_data:
-    # One bucket per signed-in user.
+  # One bucket per ledger the user belongs to.
+  ledger_data:
+    parameters: |
+      select ledger_id as ledger_id
+      from ledger_members
+      where user_id = request.user_id()
+    data:
+      # The book itself, and who else is in it — the second is how a device
+      # learns what to call a partner beside their entries.
+      - select * from ledgers where id = bucket.ledger_id
+      - select * from ledger_members where ledger_id = bucket.ledger_id
+      - select * from accounts where ledger_id = bucket.ledger_id
+      - select * from categories where ledger_id = bucket.ledger_id
+      - select * from currencies where ledger_id = bucket.ledger_id
+      - select * from debts where ledger_id = bucket.ledger_id
+      - select * from goals where ledger_id = bucket.ledger_id
+      - select * from transactions where ledger_id = bucket.ledger_id
+
+  # Rows an older build uploaded before ledgers existed, or after them with no
+  # ledger_id set. Nothing displays these — every read in the app narrows to a
+  # ledger first — but syncing them down is what lets the client's startup repair
+  # pass stamp them with the owner's personal ledger and hand them back. Without
+  # this bucket that spending would be stranded on the server, visible to
+  # nobody.
+  #
+  # Safe to delete once app_requirements.min_version rules out every build that
+  # predates ledgers, together with the nullable column and the `or owner_id`
+  # clauses in schema.sql.
+  unscoped_legacy_data:
     parameters: select request.user_id() as user_id
     data:
-      - select * from accounts where owner_id = bucket.user_id
-      - select * from categories where owner_id = bucket.user_id
-      - select * from currencies where owner_id = bucket.user_id
-      - select * from debts where owner_id = bucket.user_id
-      - select * from goals where owner_id = bucket.user_id
-      - select * from transactions where owner_id = bucket.user_id
+      - select * from accounts
+        where owner_id = bucket.user_id and ledger_id is null
+      - select * from categories
+        where owner_id = bucket.user_id and ledger_id is null
+      - select * from currencies
+        where owner_id = bucket.user_id and ledger_id is null
+      - select * from debts
+        where owner_id = bucket.user_id and ledger_id is null
+      - select * from goals
+        where owner_id = bucket.user_id and ledger_id is null
+      - select * from transactions
+        where owner_id = bucket.user_id and ledger_id is null
 
 # `app_requirements` — the minimum app version — is deliberately absent. It is
 # read with a direct Supabase select instead, because the update gate has to
@@ -43,12 +88,14 @@ bucket_definitions:
 # everything on first sync — e.g. a bucket per year, with the client
 # subscribing only to recent ones:
 #
-#   user_data_by_year:
+#   ledger_data_by_year:
 #     parameters: |
-#       select request.user_id() as user_id,
-#              extract(year from executed_at)::int as year
-#       from transactions
+#       select m.ledger_id as ledger_id,
+#              extract(year from t.executed_at)::int as year
+#       from ledger_members m
+#       join transactions t on t.ledger_id = m.ledger_id
+#       where m.user_id = request.user_id()
 #     data:
 #       - select * from transactions
-#         where owner_id = bucket.user_id
+#         where ledger_id = bucket.ledger_id
 #           and extract(year from executed_at)::int = bucket.year

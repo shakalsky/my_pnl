@@ -10,6 +10,10 @@ void main() {
     late DebtLocalDataSource dataSource;
 
     const owner = 'user-1';
+    const ledger = 'ledger-1';
+
+    /// Another book. A debt belongs to one, so nothing here crosses over.
+    const otherLedger = 'ledger-2';
 
     setUp(() {
       db = AppDatabase.forTesting(NativeDatabase.memory());
@@ -27,6 +31,7 @@ void main() {
       String? note,
       DateTime? dueAt,
       String ownerId = owner,
+      String ledgerId = ledger,
     }) {
       return dataSource.createDebt(
         NewDebt(
@@ -36,7 +41,8 @@ void main() {
           note: note,
           dueAt: dueAt,
         ),
-        ownerId,
+        ownerId: ownerId,
+        ledgerId: ledgerId,
       );
     }
 
@@ -54,7 +60,7 @@ void main() {
     test('keeps the direction it was written with', () async {
       await add(counterparty: 'Landlord', direction: DebtDirection.owedByMe);
 
-      final debts = await dataSource.watchDebts(owner).first;
+      final debts = await dataSource.watchDebts(ledger).first;
 
       expect(debts.single.direction, DebtDirection.owedByMe);
       expect(debts.single.isOwedToMe, isFalse);
@@ -72,12 +78,12 @@ void main() {
       await add(counterparty: 'Sam');
 
       await dataSource.setDebtSettled(
-        ownerId: owner,
+        ledgerId: ledger,
         id: paid.id,
         settled: true,
       );
 
-      final debts = await dataSource.watchDebts(owner).first;
+      final debts = await dataSource.watchDebts(ledger).first;
 
       expect(debts.map((debt) => debt.counterparty), ['Sam', 'Kim']);
       expect(debts.last.isSettled, isTrue);
@@ -87,19 +93,19 @@ void main() {
       final created = await add();
 
       await dataSource.setDebtSettled(
-        ownerId: owner,
+        ledgerId: ledger,
         id: created.id,
         settled: true,
       );
-      var debt = (await dataSource.watchDebts(owner).first).single;
+      var debt = (await dataSource.watchDebts(ledger).first).single;
       expect(debt.settledAt, isNotNull);
 
       await dataSource.setDebtSettled(
-        ownerId: owner,
+        ledgerId: ledger,
         id: created.id,
         settled: false,
       );
-      debt = (await dataSource.watchDebts(owner).first).single;
+      debt = (await dataSource.watchDebts(ledger).first).single;
       expect(debt.settledAt, isNull);
     });
 
@@ -113,7 +119,7 @@ void main() {
           direction: DebtDirection.owedByMe,
           amountScaled: 4000,
         ),
-        owner,
+        ledger,
       );
 
       expect(updated.counterparty, 'Alexandra');
@@ -122,15 +128,15 @@ void main() {
       expect(updated.note, isNull);
       expect(updated.dueAt, isNull);
 
-      final debts = await dataSource.watchDebts(owner).first;
+      final debts = await dataSource.watchDebts(ledger).first;
       expect(debts, hasLength(1), reason: 'edited, not duplicated');
     });
 
-    test("does not see another owner's debts", () async {
+    test("does not see another ledger's debts", () async {
       await add();
-      await add(counterparty: 'Someone else', ownerId: 'user-2');
+      await add(counterparty: 'Someone else', ledgerId: otherLedger);
 
-      final mine = await dataSource.watchDebts(owner).first;
+      final mine = await dataSource.watchDebts(ledger).first;
 
       expect(mine.map((debt) => debt.counterparty), ['Alex']);
     });
@@ -138,30 +144,45 @@ void main() {
     test('deleting tombstones the row rather than dropping it', () async {
       final created = await add();
 
-      await dataSource.deleteDebt(ownerId: owner, id: created.id);
+      await dataSource.deleteDebt(ledgerId: ledger, id: created.id);
 
-      expect(await dataSource.watchDebts(owner).first, isEmpty);
+      expect(await dataSource.watchDebts(ledger).first, isEmpty);
 
       // Still on disk, so the delete itself syncs.
       final row = await db.select(db.debts).getSingle();
       expect(row.deletedAt, isNotNull);
     });
 
-    test("refuses to touch another owner's debt", () async {
+    test("refuses to touch another ledger's debt", () async {
       final created = await add();
 
       await expectLater(
-        dataSource.deleteDebt(ownerId: 'user-2', id: created.id),
+        dataSource.deleteDebt(ledgerId: otherLedger, id: created.id),
         throwsStateError,
       );
       await expectLater(
         dataSource.setDebtSettled(
-          ownerId: 'user-2',
+          ledgerId: otherLedger,
           id: created.id,
           settled: true,
         ),
         throwsStateError,
       );
+    });
+
+    test('lets a partner settle a debt the other one entered', () async {
+      // Which is most of why a shared book is worth having: the debt is the
+      // household's, so either of them can mark it squared up.
+      final created = await add(ownerId: 'partner-1');
+
+      await dataSource.setDebtSettled(
+        ledgerId: ledger,
+        id: created.id,
+        settled: true,
+      );
+
+      final debt = (await dataSource.watchDebts(ledger).first).single;
+      expect(debt.settledAt, isNotNull);
     });
   });
 }

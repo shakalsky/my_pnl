@@ -43,7 +43,11 @@ class AllTransactionsBloc
         clearError: true,
       ),
       onError: (error, stackTrace) {
-        log('Watching all entries failed', error: error, stackTrace: stackTrace);
+        log(
+          'Watching all entries failed',
+          error: error,
+          stackTrace: stackTrace,
+        );
         return state.copyWith(status: AllTransactionsStatus.failure);
       },
     );

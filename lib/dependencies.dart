@@ -3,6 +3,7 @@ import 'dart:developer';
 
 import 'package:flutter/foundation.dart';
 import 'package:my_pnl/core/money/base_currency.dart';
+import 'package:my_pnl/core/session/ledger_scope.dart';
 import 'package:my_pnl/core/session/session_owner.dart';
 import 'package:my_pnl/database/database.dart';
 import 'package:my_pnl/database/powersync/powersync_service.dart';
@@ -26,6 +27,11 @@ import 'package:my_pnl/features/debts/domain/repositories/debt_repository.dart';
 import 'package:my_pnl/features/goals/data/datasources/goal_local_data_source.dart';
 import 'package:my_pnl/features/goals/data/repositories/goal_repository_impl.dart';
 import 'package:my_pnl/features/goals/domain/repositories/goal_repository.dart';
+import 'package:my_pnl/features/ledgers/data/datasources/ledger_invite_source.dart';
+import 'package:my_pnl/features/ledgers/data/datasources/ledger_local_data_source.dart';
+import 'package:my_pnl/features/ledgers/data/datasources/preferences_active_ledger_store.dart';
+import 'package:my_pnl/features/ledgers/data/repositories/ledger_repository_impl.dart';
+import 'package:my_pnl/features/ledgers/domain/repositories/ledger_repository.dart';
 import 'package:my_pnl/features/spending/data/datasources/category_local_data_source.dart';
 import 'package:my_pnl/features/spending/data/datasources/preferences_overrun_settings_store.dart';
 import 'package:my_pnl/features/spending/data/datasources/transaction_local_data_source.dart';
@@ -54,6 +60,7 @@ class AppDependencies {
     required this.displayCurrencyStore,
     required this.debtRepository,
     required this.goalRepository,
+    required this.ledgerRepository,
     required this.overrunSettingsStore,
     required this.transactionRepository,
     required this.syncRepository,
@@ -80,6 +87,10 @@ class AppDependencies {
   final DisplayCurrencyStore displayCurrencyStore;
   final DebtRepository debtRepository;
   final GoalRepository goalRepository;
+
+  /// Which books the reader has, and which one everything above is reading.
+  /// Every other repository here is narrowed by the ledger this one holds.
+  final LedgerRepository ledgerRepository;
 
   /// When to warn that a month has run past what a category usually costs.
   /// A device preference, like the display currency above.
@@ -110,11 +121,39 @@ Future<AppDependencies> initializeDependencies() async {
     hasBackend: hasBackend,
   );
 
+  // Seeded with the reader's own book, which is derivable from their id and so
+  // always exists as an answer even before anything has been read. `resolveActive`
+  // below replaces it with whatever this device was last left on.
+  final activeLedger = ActiveLedger(personalLedgerId(sessionOwner.id));
+
+  final ledgerRepository = LedgerRepositoryImpl(
+    localDataSource: LedgerLocalDataSource(database),
+    // Joining is the one ledger operation that needs a server: sync only
+    // delivers ledgers you are already in, so nothing local can match a code.
+    inviteSource: hasBackend
+        ? SupabaseLedgerInviteSource(Supabase.instance.client).redeem
+        : inviteSourceUnavailable,
+    activeLedgerStore: PreferencesActiveLedgerStore(),
+    sessionOwner: sessionOwner,
+    activeLedger: activeLedger,
+  );
+
   // Awaited, unlike the repair passes below: every figure in the app is labelled
   // with the base currency, and applying it after the first frame would open the
   // app in dollars and then relabel it in front of the reader.
   final baseCurrencyStore = PreferencesBaseCurrencyStore();
   setActiveBaseCurrency(await baseCurrencyStore.read());
+
+  // Both awaited, and in this order, because every repository below reads
+  // through the ledger scope: a page that queried first would read from whatever
+  // ledger the last session left behind and then swap its contents out in front
+  // of the reader.
+  //
+  // The adoption pass comes first so that resolving does not have to care whether
+  // this is an upgrade — after it, every row on the device belongs to a ledger.
+  // It is a couple of bulk updates over local rows, not a network call.
+  await ledgerRepository.adoptUnscopedRows();
+  await ledgerRepository.resolveActive();
 
   final dependencies = AppDependencies(
     database: database,
@@ -124,24 +163,30 @@ Future<AppDependencies> initializeDependencies() async {
     categoryRepository: CategoryRepositoryImpl(
       localDataSource: CategoryLocalDataSource(database),
       sessionOwner: sessionOwner,
+      ledgerScope: activeLedger,
     ),
     currencyRepository: CurrencyRepositoryImpl(
       localDataSource: CurrencyLocalDataSource(database),
       sessionOwner: sessionOwner,
+      ledgerScope: activeLedger,
     ),
     displayCurrencyStore: PreferencesDisplayCurrencyStore(),
     debtRepository: DebtRepositoryImpl(
       localDataSource: DebtLocalDataSource(database),
       sessionOwner: sessionOwner,
+      ledgerScope: activeLedger,
     ),
     goalRepository: GoalRepositoryImpl(
       localDataSource: GoalLocalDataSource(database),
       sessionOwner: sessionOwner,
+      ledgerScope: activeLedger,
     ),
+    ledgerRepository: ledgerRepository,
     overrunSettingsStore: PreferencesOverrunSettingsStore(),
     transactionRepository: TransactionRepositoryImpl(
       localDataSource: TransactionLocalDataSource(database),
       sessionOwner: sessionOwner,
+      ledgerScope: activeLedger,
     ),
     // Without a backend there is nothing to report, so the dot stays grey
     // rather than red.
@@ -152,9 +197,21 @@ Future<AppDependencies> initializeDependencies() async {
 
   // Rows written before income and spending had signs would otherwise count
   // spending as income. Idempotent, and not awaited: it is a repair pass, and
-  // the watch streams pick up whatever it changes.
+  // the watch streams pick up whatever it changes. Scoped by owner rather than by
+  // ledger, so once is enough however many books the reader has.
   unawaited(dependencies.transactionRepository.normalizeAmountSigns());
-  unawaited(dependencies.categoryRepository.generateDueRecurringIncome());
+
+  // Recurring income is booked per ledger, so this has to run for whichever book
+  // is open — and again for the next one, because a family account switched into
+  // may have months to catch up on. `changes` emits the current ledger first,
+  // which is what makes one subscription cover startup as well as every switch.
+  //
+  // Not awaited, for the same reason as the pass above. The subscription is never
+  // cancelled: it lives as long as the app does, like the repositories it drives.
+  activeLedger.changes.listen(
+    (_) =>
+        unawaited(dependencies.categoryRepository.generateDueRecurringIncome()),
+  );
 
   // Asked once at startup, and again on every resume. Not awaited: the app has
   // to open at the same speed whether or not the network answers, and the

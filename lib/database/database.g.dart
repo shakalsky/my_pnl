@@ -59,6 +59,17 @@ class $AccountsTable extends Accounts
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _ledgerIdMeta = const VerificationMeta(
+    'ledgerId',
+  );
+  @override
+  late final GeneratedColumn<String> ledgerId = GeneratedColumn<String>(
+    'ledger_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _nameMeta = const VerificationMeta('name');
   @override
   late final GeneratedColumn<String> name = GeneratedColumn<String>(
@@ -86,6 +97,7 @@ class $AccountsTable extends Accounts
     updatedAt,
     deletedAt,
     ownerId,
+    ledgerId,
     name,
     currency,
   ];
@@ -111,6 +123,12 @@ class $AccountsTable extends Accounts
       );
     } else if (isInserting) {
       context.missing(_ownerIdMeta);
+    }
+    if (data.containsKey('ledger_id')) {
+      context.handle(
+        _ledgerIdMeta,
+        ledgerId.isAcceptableOrUnknown(data['ledger_id']!, _ledgerIdMeta),
+      );
     }
     if (data.containsKey('name')) {
       context.handle(
@@ -163,6 +181,10 @@ class $AccountsTable extends Accounts
         DriftSqlType.string,
         data['${effectivePrefix}owner_id'],
       )!,
+      ledgerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}ledger_id'],
+      ),
       name: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}name'],
@@ -195,9 +217,17 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
   final DateTime updatedAt;
   final DateTime? deletedAt;
 
-  /// Owner of the row. Sync rules bucket on this, and the matching Postgres
-  /// RLS policy checks it, so it must be set on every insert.
+  /// Who wrote the row. Must be the signed-in user: the Postgres policies
+  /// check it on every insert.
   final String ownerId;
+
+  /// References [Ledgers.id] — which book the row belongs to.
+  ///
+  /// Nullable only because rows written before ledgers existed sync down
+  /// without it, exactly as `categories.kind` did when it was added. The
+  /// startup repair pass stamps those with their owner's personal ledger, and
+  /// reads skip a row until it has one; nothing in the app inserts without it.
+  final String? ledgerId;
   final String name;
 
   /// ISO 4217 code, e.g. `USD`. Determines the minor unit of every cash
@@ -209,6 +239,7 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
     required this.updatedAt,
     this.deletedAt,
     required this.ownerId,
+    this.ledgerId,
     required this.name,
     required this.currency,
   });
@@ -232,6 +263,9 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
       );
     }
     map['owner_id'] = Variable<String>(ownerId);
+    if (!nullToAbsent || ledgerId != null) {
+      map['ledger_id'] = Variable<String>(ledgerId);
+    }
     map['name'] = Variable<String>(name);
     map['currency'] = Variable<String>(currency);
     return map;
@@ -246,6 +280,9 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
           ? const Value.absent()
           : Value(deletedAt),
       ownerId: Value(ownerId),
+      ledgerId: ledgerId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ledgerId),
       name: Value(name),
       currency: Value(currency),
     );
@@ -262,6 +299,7 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       ownerId: serializer.fromJson<String>(json['ownerId']),
+      ledgerId: serializer.fromJson<String?>(json['ledgerId']),
       name: serializer.fromJson<String>(json['name']),
       currency: serializer.fromJson<String>(json['currency']),
     );
@@ -275,6 +313,7 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'ownerId': serializer.toJson<String>(ownerId),
+      'ledgerId': serializer.toJson<String?>(ledgerId),
       'name': serializer.toJson<String>(name),
       'currency': serializer.toJson<String>(currency),
     };
@@ -286,6 +325,7 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
     DateTime? updatedAt,
     Value<DateTime?> deletedAt = const Value.absent(),
     String? ownerId,
+    Value<String?> ledgerId = const Value.absent(),
     String? name,
     String? currency,
   }) => AccountRow(
@@ -294,6 +334,7 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     ownerId: ownerId ?? this.ownerId,
+    ledgerId: ledgerId.present ? ledgerId.value : this.ledgerId,
     name: name ?? this.name,
     currency: currency ?? this.currency,
   );
@@ -304,6 +345,7 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       ownerId: data.ownerId.present ? data.ownerId.value : this.ownerId,
+      ledgerId: data.ledgerId.present ? data.ledgerId.value : this.ledgerId,
       name: data.name.present ? data.name.value : this.name,
       currency: data.currency.present ? data.currency.value : this.currency,
     );
@@ -317,6 +359,7 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('ownerId: $ownerId, ')
+          ..write('ledgerId: $ledgerId, ')
           ..write('name: $name, ')
           ..write('currency: $currency')
           ..write(')'))
@@ -324,8 +367,16 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, createdAt, updatedAt, deletedAt, ownerId, name, currency);
+  int get hashCode => Object.hash(
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    ownerId,
+    ledgerId,
+    name,
+    currency,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -335,6 +386,7 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt &&
           other.ownerId == this.ownerId &&
+          other.ledgerId == this.ledgerId &&
           other.name == this.name &&
           other.currency == this.currency);
 }
@@ -345,6 +397,7 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
   final Value<DateTime> updatedAt;
   final Value<DateTime?> deletedAt;
   final Value<String> ownerId;
+  final Value<String?> ledgerId;
   final Value<String> name;
   final Value<String> currency;
   final Value<int> rowid;
@@ -354,6 +407,7 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.ownerId = const Value.absent(),
+    this.ledgerId = const Value.absent(),
     this.name = const Value.absent(),
     this.currency = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -364,6 +418,7 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
     required String ownerId,
+    this.ledgerId = const Value.absent(),
     required String name,
     required String currency,
     this.rowid = const Value.absent(),
@@ -376,6 +431,7 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
     Expression<String>? updatedAt,
     Expression<String>? deletedAt,
     Expression<String>? ownerId,
+    Expression<String>? ledgerId,
     Expression<String>? name,
     Expression<String>? currency,
     Expression<int>? rowid,
@@ -386,6 +442,7 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
       if (ownerId != null) 'owner_id': ownerId,
+      if (ledgerId != null) 'ledger_id': ledgerId,
       if (name != null) 'name': name,
       if (currency != null) 'currency': currency,
       if (rowid != null) 'rowid': rowid,
@@ -398,6 +455,7 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
     Value<DateTime>? updatedAt,
     Value<DateTime?>? deletedAt,
     Value<String>? ownerId,
+    Value<String?>? ledgerId,
     Value<String>? name,
     Value<String>? currency,
     Value<int>? rowid,
@@ -408,6 +466,7 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
       ownerId: ownerId ?? this.ownerId,
+      ledgerId: ledgerId ?? this.ledgerId,
       name: name ?? this.name,
       currency: currency ?? this.currency,
       rowid: rowid ?? this.rowid,
@@ -438,6 +497,9 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
     if (ownerId.present) {
       map['owner_id'] = Variable<String>(ownerId.value);
     }
+    if (ledgerId.present) {
+      map['ledger_id'] = Variable<String>(ledgerId.value);
+    }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
     }
@@ -458,6 +520,7 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('ownerId: $ownerId, ')
+          ..write('ledgerId: $ledgerId, ')
           ..write('name: $name, ')
           ..write('currency: $currency, ')
           ..write('rowid: $rowid')
@@ -521,6 +584,17 @@ class $CategoriesTable extends Categories
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ledgerIdMeta = const VerificationMeta(
+    'ledgerId',
+  );
+  @override
+  late final GeneratedColumn<String> ledgerId = GeneratedColumn<String>(
+    'ledger_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _nameMeta = const VerificationMeta('name');
   @override
@@ -600,6 +674,7 @@ class $CategoriesTable extends Categories
     updatedAt,
     deletedAt,
     ownerId,
+    ledgerId,
     name,
     colorArgb,
     iconKey,
@@ -630,6 +705,12 @@ class $CategoriesTable extends Categories
       );
     } else if (isInserting) {
       context.missing(_ownerIdMeta);
+    }
+    if (data.containsKey('ledger_id')) {
+      context.handle(
+        _ledgerIdMeta,
+        ledgerId.isAcceptableOrUnknown(data['ledger_id']!, _ledgerIdMeta),
+      );
     }
     if (data.containsKey('name')) {
       context.handle(
@@ -720,6 +801,10 @@ class $CategoriesTable extends Categories
         DriftSqlType.string,
         data['${effectivePrefix}owner_id'],
       )!,
+      ledgerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}ledger_id'],
+      ),
       name: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}name'],
@@ -772,9 +857,17 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
   final DateTime updatedAt;
   final DateTime? deletedAt;
 
-  /// Owner of the row. Sync rules bucket on this, and the matching Postgres
-  /// RLS policy checks it, so it must be set on every insert.
+  /// Who wrote the row. Must be the signed-in user: the Postgres policies
+  /// check it on every insert.
   final String ownerId;
+
+  /// References [Ledgers.id] — which book the row belongs to.
+  ///
+  /// Nullable only because rows written before ledgers existed sync down
+  /// without it, exactly as `categories.kind` did when it was added. The
+  /// startup repair pass stamps those with their owner's personal ledger, and
+  /// reads skip a row until it has one; nothing in the app inserts without it.
+  final String? ledgerId;
   final String name;
 
   /// Packed ARGB, as `Color.toARGB32()` produces.
@@ -815,6 +908,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     required this.updatedAt,
     this.deletedAt,
     required this.ownerId,
+    this.ledgerId,
     required this.name,
     required this.colorArgb,
     required this.iconKey,
@@ -843,6 +937,9 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
       );
     }
     map['owner_id'] = Variable<String>(ownerId);
+    if (!nullToAbsent || ledgerId != null) {
+      map['ledger_id'] = Variable<String>(ledgerId);
+    }
     map['name'] = Variable<String>(name);
     map['color_argb'] = Variable<int>(colorArgb);
     map['icon_key'] = Variable<String>(iconKey);
@@ -870,6 +967,9 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
           ? const Value.absent()
           : Value(deletedAt),
       ownerId: Value(ownerId),
+      ledgerId: ledgerId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ledgerId),
       name: Value(name),
       colorArgb: Value(colorArgb),
       iconKey: Value(iconKey),
@@ -897,6 +997,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       ownerId: serializer.fromJson<String>(json['ownerId']),
+      ledgerId: serializer.fromJson<String?>(json['ledgerId']),
       name: serializer.fromJson<String>(json['name']),
       colorArgb: serializer.fromJson<int>(json['colorArgb']),
       iconKey: serializer.fromJson<String>(json['iconKey']),
@@ -919,6 +1020,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'ownerId': serializer.toJson<String>(ownerId),
+      'ledgerId': serializer.toJson<String?>(ledgerId),
       'name': serializer.toJson<String>(name),
       'colorArgb': serializer.toJson<int>(colorArgb),
       'iconKey': serializer.toJson<String>(iconKey),
@@ -935,6 +1037,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     DateTime? updatedAt,
     Value<DateTime?> deletedAt = const Value.absent(),
     String? ownerId,
+    Value<String?> ledgerId = const Value.absent(),
     String? name,
     int? colorArgb,
     String? iconKey,
@@ -948,6 +1051,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     ownerId: ownerId ?? this.ownerId,
+    ledgerId: ledgerId.present ? ledgerId.value : this.ledgerId,
     name: name ?? this.name,
     colorArgb: colorArgb ?? this.colorArgb,
     iconKey: iconKey ?? this.iconKey,
@@ -967,6 +1071,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       ownerId: data.ownerId.present ? data.ownerId.value : this.ownerId,
+      ledgerId: data.ledgerId.present ? data.ledgerId.value : this.ledgerId,
       name: data.name.present ? data.name.value : this.name,
       colorArgb: data.colorArgb.present ? data.colorArgb.value : this.colorArgb,
       iconKey: data.iconKey.present ? data.iconKey.value : this.iconKey,
@@ -989,6 +1094,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('ownerId: $ownerId, ')
+          ..write('ledgerId: $ledgerId, ')
           ..write('name: $name, ')
           ..write('colorArgb: $colorArgb, ')
           ..write('iconKey: $iconKey, ')
@@ -1007,6 +1113,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     updatedAt,
     deletedAt,
     ownerId,
+    ledgerId,
     name,
     colorArgb,
     iconKey,
@@ -1024,6 +1131,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt &&
           other.ownerId == this.ownerId &&
+          other.ledgerId == this.ledgerId &&
           other.name == this.name &&
           other.colorArgb == this.colorArgb &&
           other.iconKey == this.iconKey &&
@@ -1039,6 +1147,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
   final Value<DateTime> updatedAt;
   final Value<DateTime?> deletedAt;
   final Value<String> ownerId;
+  final Value<String?> ledgerId;
   final Value<String> name;
   final Value<int> colorArgb;
   final Value<String> iconKey;
@@ -1053,6 +1162,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.ownerId = const Value.absent(),
+    this.ledgerId = const Value.absent(),
     this.name = const Value.absent(),
     this.colorArgb = const Value.absent(),
     this.iconKey = const Value.absent(),
@@ -1068,6 +1178,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
     required String ownerId,
+    this.ledgerId = const Value.absent(),
     required String name,
     required int colorArgb,
     required String iconKey,
@@ -1086,6 +1197,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     Expression<String>? updatedAt,
     Expression<String>? deletedAt,
     Expression<String>? ownerId,
+    Expression<String>? ledgerId,
     Expression<String>? name,
     Expression<int>? colorArgb,
     Expression<String>? iconKey,
@@ -1101,6 +1213,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
       if (ownerId != null) 'owner_id': ownerId,
+      if (ledgerId != null) 'ledger_id': ledgerId,
       if (name != null) 'name': name,
       if (colorArgb != null) 'color_argb': colorArgb,
       if (iconKey != null) 'icon_key': iconKey,
@@ -1120,6 +1233,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     Value<DateTime>? updatedAt,
     Value<DateTime?>? deletedAt,
     Value<String>? ownerId,
+    Value<String?>? ledgerId,
     Value<String>? name,
     Value<int>? colorArgb,
     Value<String>? iconKey,
@@ -1135,6 +1249,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
       ownerId: ownerId ?? this.ownerId,
+      ledgerId: ledgerId ?? this.ledgerId,
       name: name ?? this.name,
       colorArgb: colorArgb ?? this.colorArgb,
       iconKey: iconKey ?? this.iconKey,
@@ -1170,6 +1285,9 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     }
     if (ownerId.present) {
       map['owner_id'] = Variable<String>(ownerId.value);
+    }
+    if (ledgerId.present) {
+      map['ledger_id'] = Variable<String>(ledgerId.value);
     }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
@@ -1208,6 +1326,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('ownerId: $ownerId, ')
+          ..write('ledgerId: $ledgerId, ')
           ..write('name: $name, ')
           ..write('colorArgb: $colorArgb, ')
           ..write('iconKey: $iconKey, ')
@@ -1277,6 +1396,17 @@ class $CurrenciesTable extends Currencies
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _ledgerIdMeta = const VerificationMeta(
+    'ledgerId',
+  );
+  @override
+  late final GeneratedColumn<String> ledgerId = GeneratedColumn<String>(
+    'ledger_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _tickerMeta = const VerificationMeta('ticker');
   @override
   late final GeneratedColumn<String> ticker = GeneratedColumn<String>(
@@ -1312,6 +1442,7 @@ class $CurrenciesTable extends Currencies
     updatedAt,
     deletedAt,
     ownerId,
+    ledgerId,
     ticker,
     icon,
     exchangeRateScaled,
@@ -1338,6 +1469,12 @@ class $CurrenciesTable extends Currencies
       );
     } else if (isInserting) {
       context.missing(_ownerIdMeta);
+    }
+    if (data.containsKey('ledger_id')) {
+      context.handle(
+        _ledgerIdMeta,
+        ledgerId.isAcceptableOrUnknown(data['ledger_id']!, _ledgerIdMeta),
+      );
     }
     if (data.containsKey('ticker')) {
       context.handle(
@@ -1399,6 +1536,10 @@ class $CurrenciesTable extends Currencies
         DriftSqlType.string,
         data['${effectivePrefix}owner_id'],
       )!,
+      ledgerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}ledger_id'],
+      ),
       ticker: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}ticker'],
@@ -1435,11 +1576,19 @@ class CurrencyRow extends DataClass implements Insertable<CurrencyRow> {
   final DateTime updatedAt;
   final DateTime? deletedAt;
 
-  /// Owner of the row. Sync rules bucket on this, and the matching Postgres
-  /// RLS policy checks it, so it must be set on every insert.
+  /// Who wrote the row. Must be the signed-in user: the Postgres policies
+  /// check it on every insert.
   final String ownerId;
 
-  /// Short code, e.g. `EUR` or `BTC`. Unique per owner — enforced in Postgres,
+  /// References [Ledgers.id] — which book the row belongs to.
+  ///
+  /// Nullable only because rows written before ledgers existed sync down
+  /// without it, exactly as `categories.kind` did when it was added. The
+  /// startup repair pass stamps those with their owner's personal ledger, and
+  /// reads skip a row until it has one; nothing in the app inserts without it.
+  final String? ledgerId;
+
+  /// Short code, e.g. `EUR` or `BTC`. Unique per ledger — enforced in Postgres,
   /// since the local PowerSync views carry no constraints.
   final String ticker;
 
@@ -1454,6 +1603,7 @@ class CurrencyRow extends DataClass implements Insertable<CurrencyRow> {
     required this.updatedAt,
     this.deletedAt,
     required this.ownerId,
+    this.ledgerId,
     required this.ticker,
     this.icon,
     required this.exchangeRateScaled,
@@ -1478,6 +1628,9 @@ class CurrencyRow extends DataClass implements Insertable<CurrencyRow> {
       );
     }
     map['owner_id'] = Variable<String>(ownerId);
+    if (!nullToAbsent || ledgerId != null) {
+      map['ledger_id'] = Variable<String>(ledgerId);
+    }
     map['ticker'] = Variable<String>(ticker);
     if (!nullToAbsent || icon != null) {
       map['icon'] = Variable<String>(icon);
@@ -1495,6 +1648,9 @@ class CurrencyRow extends DataClass implements Insertable<CurrencyRow> {
           ? const Value.absent()
           : Value(deletedAt),
       ownerId: Value(ownerId),
+      ledgerId: ledgerId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ledgerId),
       ticker: Value(ticker),
       icon: icon == null && nullToAbsent ? const Value.absent() : Value(icon),
       exchangeRateScaled: Value(exchangeRateScaled),
@@ -1512,6 +1668,7 @@ class CurrencyRow extends DataClass implements Insertable<CurrencyRow> {
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       ownerId: serializer.fromJson<String>(json['ownerId']),
+      ledgerId: serializer.fromJson<String?>(json['ledgerId']),
       ticker: serializer.fromJson<String>(json['ticker']),
       icon: serializer.fromJson<String?>(json['icon']),
       exchangeRateScaled: serializer.fromJson<int>(json['exchangeRateScaled']),
@@ -1526,6 +1683,7 @@ class CurrencyRow extends DataClass implements Insertable<CurrencyRow> {
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'ownerId': serializer.toJson<String>(ownerId),
+      'ledgerId': serializer.toJson<String?>(ledgerId),
       'ticker': serializer.toJson<String>(ticker),
       'icon': serializer.toJson<String?>(icon),
       'exchangeRateScaled': serializer.toJson<int>(exchangeRateScaled),
@@ -1538,6 +1696,7 @@ class CurrencyRow extends DataClass implements Insertable<CurrencyRow> {
     DateTime? updatedAt,
     Value<DateTime?> deletedAt = const Value.absent(),
     String? ownerId,
+    Value<String?> ledgerId = const Value.absent(),
     String? ticker,
     Value<String?> icon = const Value.absent(),
     int? exchangeRateScaled,
@@ -1547,6 +1706,7 @@ class CurrencyRow extends DataClass implements Insertable<CurrencyRow> {
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     ownerId: ownerId ?? this.ownerId,
+    ledgerId: ledgerId.present ? ledgerId.value : this.ledgerId,
     ticker: ticker ?? this.ticker,
     icon: icon.present ? icon.value : this.icon,
     exchangeRateScaled: exchangeRateScaled ?? this.exchangeRateScaled,
@@ -1558,6 +1718,7 @@ class CurrencyRow extends DataClass implements Insertable<CurrencyRow> {
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       ownerId: data.ownerId.present ? data.ownerId.value : this.ownerId,
+      ledgerId: data.ledgerId.present ? data.ledgerId.value : this.ledgerId,
       ticker: data.ticker.present ? data.ticker.value : this.ticker,
       icon: data.icon.present ? data.icon.value : this.icon,
       exchangeRateScaled: data.exchangeRateScaled.present
@@ -1574,6 +1735,7 @@ class CurrencyRow extends DataClass implements Insertable<CurrencyRow> {
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('ownerId: $ownerId, ')
+          ..write('ledgerId: $ledgerId, ')
           ..write('ticker: $ticker, ')
           ..write('icon: $icon, ')
           ..write('exchangeRateScaled: $exchangeRateScaled')
@@ -1588,6 +1750,7 @@ class CurrencyRow extends DataClass implements Insertable<CurrencyRow> {
     updatedAt,
     deletedAt,
     ownerId,
+    ledgerId,
     ticker,
     icon,
     exchangeRateScaled,
@@ -1601,6 +1764,7 @@ class CurrencyRow extends DataClass implements Insertable<CurrencyRow> {
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt &&
           other.ownerId == this.ownerId &&
+          other.ledgerId == this.ledgerId &&
           other.ticker == this.ticker &&
           other.icon == this.icon &&
           other.exchangeRateScaled == this.exchangeRateScaled);
@@ -1612,6 +1776,7 @@ class CurrenciesCompanion extends UpdateCompanion<CurrencyRow> {
   final Value<DateTime> updatedAt;
   final Value<DateTime?> deletedAt;
   final Value<String> ownerId;
+  final Value<String?> ledgerId;
   final Value<String> ticker;
   final Value<String?> icon;
   final Value<int> exchangeRateScaled;
@@ -1622,6 +1787,7 @@ class CurrenciesCompanion extends UpdateCompanion<CurrencyRow> {
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.ownerId = const Value.absent(),
+    this.ledgerId = const Value.absent(),
     this.ticker = const Value.absent(),
     this.icon = const Value.absent(),
     this.exchangeRateScaled = const Value.absent(),
@@ -1633,6 +1799,7 @@ class CurrenciesCompanion extends UpdateCompanion<CurrencyRow> {
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
     required String ownerId,
+    this.ledgerId = const Value.absent(),
     required String ticker,
     this.icon = const Value.absent(),
     required int exchangeRateScaled,
@@ -1646,6 +1813,7 @@ class CurrenciesCompanion extends UpdateCompanion<CurrencyRow> {
     Expression<String>? updatedAt,
     Expression<String>? deletedAt,
     Expression<String>? ownerId,
+    Expression<String>? ledgerId,
     Expression<String>? ticker,
     Expression<String>? icon,
     Expression<int>? exchangeRateScaled,
@@ -1657,6 +1825,7 @@ class CurrenciesCompanion extends UpdateCompanion<CurrencyRow> {
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
       if (ownerId != null) 'owner_id': ownerId,
+      if (ledgerId != null) 'ledger_id': ledgerId,
       if (ticker != null) 'ticker': ticker,
       if (icon != null) 'icon': icon,
       if (exchangeRateScaled != null)
@@ -1671,6 +1840,7 @@ class CurrenciesCompanion extends UpdateCompanion<CurrencyRow> {
     Value<DateTime>? updatedAt,
     Value<DateTime?>? deletedAt,
     Value<String>? ownerId,
+    Value<String?>? ledgerId,
     Value<String>? ticker,
     Value<String?>? icon,
     Value<int>? exchangeRateScaled,
@@ -1682,6 +1852,7 @@ class CurrenciesCompanion extends UpdateCompanion<CurrencyRow> {
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
       ownerId: ownerId ?? this.ownerId,
+      ledgerId: ledgerId ?? this.ledgerId,
       ticker: ticker ?? this.ticker,
       icon: icon ?? this.icon,
       exchangeRateScaled: exchangeRateScaled ?? this.exchangeRateScaled,
@@ -1713,6 +1884,9 @@ class CurrenciesCompanion extends UpdateCompanion<CurrencyRow> {
     if (ownerId.present) {
       map['owner_id'] = Variable<String>(ownerId.value);
     }
+    if (ledgerId.present) {
+      map['ledger_id'] = Variable<String>(ledgerId.value);
+    }
     if (ticker.present) {
       map['ticker'] = Variable<String>(ticker.value);
     }
@@ -1736,6 +1910,7 @@ class CurrenciesCompanion extends UpdateCompanion<CurrencyRow> {
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('ownerId: $ownerId, ')
+          ..write('ledgerId: $ledgerId, ')
           ..write('ticker: $ticker, ')
           ..write('icon: $icon, ')
           ..write('exchangeRateScaled: $exchangeRateScaled, ')
@@ -1799,6 +1974,17 @@ class $DebtsTable extends Debts with TableInfo<$DebtsTable, DebtRow> {
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ledgerIdMeta = const VerificationMeta(
+    'ledgerId',
+  );
+  @override
+  late final GeneratedColumn<String> ledgerId = GeneratedColumn<String>(
+    'ledger_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _counterpartyMeta = const VerificationMeta(
     'counterparty',
@@ -1867,6 +2053,7 @@ class $DebtsTable extends Debts with TableInfo<$DebtsTable, DebtRow> {
     updatedAt,
     deletedAt,
     ownerId,
+    ledgerId,
     counterparty,
     direction,
     amountScaled,
@@ -1896,6 +2083,12 @@ class $DebtsTable extends Debts with TableInfo<$DebtsTable, DebtRow> {
       );
     } else if (isInserting) {
       context.missing(_ownerIdMeta);
+    }
+    if (data.containsKey('ledger_id')) {
+      context.handle(
+        _ledgerIdMeta,
+        ledgerId.isAcceptableOrUnknown(data['ledger_id']!, _ledgerIdMeta),
+      );
     }
     if (data.containsKey('counterparty')) {
       context.handle(
@@ -1968,6 +2161,10 @@ class $DebtsTable extends Debts with TableInfo<$DebtsTable, DebtRow> {
         DriftSqlType.string,
         data['${effectivePrefix}owner_id'],
       )!,
+      ledgerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}ledger_id'],
+      ),
       counterparty: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}counterparty'],
@@ -2028,9 +2225,17 @@ class DebtRow extends DataClass implements Insertable<DebtRow> {
   final DateTime updatedAt;
   final DateTime? deletedAt;
 
-  /// Owner of the row. Sync rules bucket on this, and the matching Postgres
-  /// RLS policy checks it, so it must be set on every insert.
+  /// Who wrote the row. Must be the signed-in user: the Postgres policies
+  /// check it on every insert.
   final String ownerId;
+
+  /// References [Ledgers.id] — which book the row belongs to.
+  ///
+  /// Nullable only because rows written before ledgers existed sync down
+  /// without it, exactly as `categories.kind` did when it was added. The
+  /// startup repair pass stamps those with their owner's personal ledger, and
+  /// reads skip a row until it has one; nothing in the app inserts without it.
+  final String? ledgerId;
 
   /// The person or company on the other side of the debt.
   final String counterparty;
@@ -2061,6 +2266,7 @@ class DebtRow extends DataClass implements Insertable<DebtRow> {
     required this.updatedAt,
     this.deletedAt,
     required this.ownerId,
+    this.ledgerId,
     required this.counterparty,
     required this.direction,
     required this.amountScaled,
@@ -2088,6 +2294,9 @@ class DebtRow extends DataClass implements Insertable<DebtRow> {
       );
     }
     map['owner_id'] = Variable<String>(ownerId);
+    if (!nullToAbsent || ledgerId != null) {
+      map['ledger_id'] = Variable<String>(ledgerId);
+    }
     map['counterparty'] = Variable<String>(counterparty);
     map['direction'] = Variable<String>(direction);
     map['amount_scaled'] = Variable<int>(amountScaled);
@@ -2116,6 +2325,9 @@ class DebtRow extends DataClass implements Insertable<DebtRow> {
           ? const Value.absent()
           : Value(deletedAt),
       ownerId: Value(ownerId),
+      ledgerId: ledgerId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ledgerId),
       counterparty: Value(counterparty),
       direction: Value(direction),
       amountScaled: Value(amountScaled),
@@ -2140,6 +2352,7 @@ class DebtRow extends DataClass implements Insertable<DebtRow> {
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       ownerId: serializer.fromJson<String>(json['ownerId']),
+      ledgerId: serializer.fromJson<String?>(json['ledgerId']),
       counterparty: serializer.fromJson<String>(json['counterparty']),
       direction: serializer.fromJson<String>(json['direction']),
       amountScaled: serializer.fromJson<int>(json['amountScaled']),
@@ -2157,6 +2370,7 @@ class DebtRow extends DataClass implements Insertable<DebtRow> {
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'ownerId': serializer.toJson<String>(ownerId),
+      'ledgerId': serializer.toJson<String?>(ledgerId),
       'counterparty': serializer.toJson<String>(counterparty),
       'direction': serializer.toJson<String>(direction),
       'amountScaled': serializer.toJson<int>(amountScaled),
@@ -2172,6 +2386,7 @@ class DebtRow extends DataClass implements Insertable<DebtRow> {
     DateTime? updatedAt,
     Value<DateTime?> deletedAt = const Value.absent(),
     String? ownerId,
+    Value<String?> ledgerId = const Value.absent(),
     String? counterparty,
     String? direction,
     int? amountScaled,
@@ -2184,6 +2399,7 @@ class DebtRow extends DataClass implements Insertable<DebtRow> {
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     ownerId: ownerId ?? this.ownerId,
+    ledgerId: ledgerId.present ? ledgerId.value : this.ledgerId,
     counterparty: counterparty ?? this.counterparty,
     direction: direction ?? this.direction,
     amountScaled: amountScaled ?? this.amountScaled,
@@ -2198,6 +2414,7 @@ class DebtRow extends DataClass implements Insertable<DebtRow> {
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       ownerId: data.ownerId.present ? data.ownerId.value : this.ownerId,
+      ledgerId: data.ledgerId.present ? data.ledgerId.value : this.ledgerId,
       counterparty: data.counterparty.present
           ? data.counterparty.value
           : this.counterparty,
@@ -2219,6 +2436,7 @@ class DebtRow extends DataClass implements Insertable<DebtRow> {
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('ownerId: $ownerId, ')
+          ..write('ledgerId: $ledgerId, ')
           ..write('counterparty: $counterparty, ')
           ..write('direction: $direction, ')
           ..write('amountScaled: $amountScaled, ')
@@ -2236,6 +2454,7 @@ class DebtRow extends DataClass implements Insertable<DebtRow> {
     updatedAt,
     deletedAt,
     ownerId,
+    ledgerId,
     counterparty,
     direction,
     amountScaled,
@@ -2252,6 +2471,7 @@ class DebtRow extends DataClass implements Insertable<DebtRow> {
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt &&
           other.ownerId == this.ownerId &&
+          other.ledgerId == this.ledgerId &&
           other.counterparty == this.counterparty &&
           other.direction == this.direction &&
           other.amountScaled == this.amountScaled &&
@@ -2266,6 +2486,7 @@ class DebtsCompanion extends UpdateCompanion<DebtRow> {
   final Value<DateTime> updatedAt;
   final Value<DateTime?> deletedAt;
   final Value<String> ownerId;
+  final Value<String?> ledgerId;
   final Value<String> counterparty;
   final Value<String> direction;
   final Value<int> amountScaled;
@@ -2279,6 +2500,7 @@ class DebtsCompanion extends UpdateCompanion<DebtRow> {
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.ownerId = const Value.absent(),
+    this.ledgerId = const Value.absent(),
     this.counterparty = const Value.absent(),
     this.direction = const Value.absent(),
     this.amountScaled = const Value.absent(),
@@ -2293,6 +2515,7 @@ class DebtsCompanion extends UpdateCompanion<DebtRow> {
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
     required String ownerId,
+    this.ledgerId = const Value.absent(),
     required String counterparty,
     required String direction,
     required int amountScaled,
@@ -2310,6 +2533,7 @@ class DebtsCompanion extends UpdateCompanion<DebtRow> {
     Expression<String>? updatedAt,
     Expression<String>? deletedAt,
     Expression<String>? ownerId,
+    Expression<String>? ledgerId,
     Expression<String>? counterparty,
     Expression<String>? direction,
     Expression<int>? amountScaled,
@@ -2324,6 +2548,7 @@ class DebtsCompanion extends UpdateCompanion<DebtRow> {
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
       if (ownerId != null) 'owner_id': ownerId,
+      if (ledgerId != null) 'ledger_id': ledgerId,
       if (counterparty != null) 'counterparty': counterparty,
       if (direction != null) 'direction': direction,
       if (amountScaled != null) 'amount_scaled': amountScaled,
@@ -2340,6 +2565,7 @@ class DebtsCompanion extends UpdateCompanion<DebtRow> {
     Value<DateTime>? updatedAt,
     Value<DateTime?>? deletedAt,
     Value<String>? ownerId,
+    Value<String?>? ledgerId,
     Value<String>? counterparty,
     Value<String>? direction,
     Value<int>? amountScaled,
@@ -2354,6 +2580,7 @@ class DebtsCompanion extends UpdateCompanion<DebtRow> {
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
       ownerId: ownerId ?? this.ownerId,
+      ledgerId: ledgerId ?? this.ledgerId,
       counterparty: counterparty ?? this.counterparty,
       direction: direction ?? this.direction,
       amountScaled: amountScaled ?? this.amountScaled,
@@ -2387,6 +2614,9 @@ class DebtsCompanion extends UpdateCompanion<DebtRow> {
     }
     if (ownerId.present) {
       map['owner_id'] = Variable<String>(ownerId.value);
+    }
+    if (ledgerId.present) {
+      map['ledger_id'] = Variable<String>(ledgerId.value);
     }
     if (counterparty.present) {
       map['counterparty'] = Variable<String>(counterparty.value);
@@ -2424,6 +2654,7 @@ class DebtsCompanion extends UpdateCompanion<DebtRow> {
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('ownerId: $ownerId, ')
+          ..write('ledgerId: $ledgerId, ')
           ..write('counterparty: $counterparty, ')
           ..write('direction: $direction, ')
           ..write('amountScaled: $amountScaled, ')
@@ -2491,6 +2722,17 @@ class $GoalsTable extends Goals with TableInfo<$GoalsTable, GoalRow> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _ledgerIdMeta = const VerificationMeta(
+    'ledgerId',
+  );
+  @override
+  late final GeneratedColumn<String> ledgerId = GeneratedColumn<String>(
+    'ledger_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _targetAmountScaledMeta =
       const VerificationMeta('targetAmountScaled');
   @override
@@ -2508,6 +2750,7 @@ class $GoalsTable extends Goals with TableInfo<$GoalsTable, GoalRow> {
     updatedAt,
     deletedAt,
     ownerId,
+    ledgerId,
     targetAmountScaled,
   ];
   @override
@@ -2532,6 +2775,12 @@ class $GoalsTable extends Goals with TableInfo<$GoalsTable, GoalRow> {
       );
     } else if (isInserting) {
       context.missing(_ownerIdMeta);
+    }
+    if (data.containsKey('ledger_id')) {
+      context.handle(
+        _ledgerIdMeta,
+        ledgerId.isAcceptableOrUnknown(data['ledger_id']!, _ledgerIdMeta),
+      );
     }
     if (data.containsKey('target_amount_scaled')) {
       context.handle(
@@ -2579,6 +2828,10 @@ class $GoalsTable extends Goals with TableInfo<$GoalsTable, GoalRow> {
         DriftSqlType.string,
         data['${effectivePrefix}owner_id'],
       )!,
+      ledgerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}ledger_id'],
+      ),
       targetAmountScaled: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}target_amount_scaled'],
@@ -2607,9 +2860,17 @@ class GoalRow extends DataClass implements Insertable<GoalRow> {
   final DateTime updatedAt;
   final DateTime? deletedAt;
 
-  /// Owner of the row. Sync rules bucket on this, and the matching Postgres
-  /// RLS policy checks it, so it must be set on every insert.
+  /// Who wrote the row. Must be the signed-in user: the Postgres policies
+  /// check it on every insert.
   final String ownerId;
+
+  /// References [Ledgers.id] — which book the row belongs to.
+  ///
+  /// Nullable only because rows written before ledgers existed sync down
+  /// without it, exactly as `categories.kind` did when it was added. The
+  /// startup repair pass stamps those with their owner's personal ledger, and
+  /// reads skip a row until it has one; nothing in the app inserts without it.
+  final String? ledgerId;
 
   /// The figure being saved towards, scaled by `amountScale`. Always positive.
   final int targetAmountScaled;
@@ -2619,6 +2880,7 @@ class GoalRow extends DataClass implements Insertable<GoalRow> {
     required this.updatedAt,
     this.deletedAt,
     required this.ownerId,
+    this.ledgerId,
     required this.targetAmountScaled,
   });
   @override
@@ -2641,6 +2903,9 @@ class GoalRow extends DataClass implements Insertable<GoalRow> {
       );
     }
     map['owner_id'] = Variable<String>(ownerId);
+    if (!nullToAbsent || ledgerId != null) {
+      map['ledger_id'] = Variable<String>(ledgerId);
+    }
     map['target_amount_scaled'] = Variable<int>(targetAmountScaled);
     return map;
   }
@@ -2654,6 +2919,9 @@ class GoalRow extends DataClass implements Insertable<GoalRow> {
           ? const Value.absent()
           : Value(deletedAt),
       ownerId: Value(ownerId),
+      ledgerId: ledgerId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ledgerId),
       targetAmountScaled: Value(targetAmountScaled),
     );
   }
@@ -2669,6 +2937,7 @@ class GoalRow extends DataClass implements Insertable<GoalRow> {
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       ownerId: serializer.fromJson<String>(json['ownerId']),
+      ledgerId: serializer.fromJson<String?>(json['ledgerId']),
       targetAmountScaled: serializer.fromJson<int>(json['targetAmountScaled']),
     );
   }
@@ -2681,6 +2950,7 @@ class GoalRow extends DataClass implements Insertable<GoalRow> {
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'ownerId': serializer.toJson<String>(ownerId),
+      'ledgerId': serializer.toJson<String?>(ledgerId),
       'targetAmountScaled': serializer.toJson<int>(targetAmountScaled),
     };
   }
@@ -2691,6 +2961,7 @@ class GoalRow extends DataClass implements Insertable<GoalRow> {
     DateTime? updatedAt,
     Value<DateTime?> deletedAt = const Value.absent(),
     String? ownerId,
+    Value<String?> ledgerId = const Value.absent(),
     int? targetAmountScaled,
   }) => GoalRow(
     id: id ?? this.id,
@@ -2698,6 +2969,7 @@ class GoalRow extends DataClass implements Insertable<GoalRow> {
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     ownerId: ownerId ?? this.ownerId,
+    ledgerId: ledgerId.present ? ledgerId.value : this.ledgerId,
     targetAmountScaled: targetAmountScaled ?? this.targetAmountScaled,
   );
   GoalRow copyWithCompanion(GoalsCompanion data) {
@@ -2707,6 +2979,7 @@ class GoalRow extends DataClass implements Insertable<GoalRow> {
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       ownerId: data.ownerId.present ? data.ownerId.value : this.ownerId,
+      ledgerId: data.ledgerId.present ? data.ledgerId.value : this.ledgerId,
       targetAmountScaled: data.targetAmountScaled.present
           ? data.targetAmountScaled.value
           : this.targetAmountScaled,
@@ -2721,6 +2994,7 @@ class GoalRow extends DataClass implements Insertable<GoalRow> {
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('ownerId: $ownerId, ')
+          ..write('ledgerId: $ledgerId, ')
           ..write('targetAmountScaled: $targetAmountScaled')
           ..write(')'))
         .toString();
@@ -2733,6 +3007,7 @@ class GoalRow extends DataClass implements Insertable<GoalRow> {
     updatedAt,
     deletedAt,
     ownerId,
+    ledgerId,
     targetAmountScaled,
   );
   @override
@@ -2744,6 +3019,7 @@ class GoalRow extends DataClass implements Insertable<GoalRow> {
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt &&
           other.ownerId == this.ownerId &&
+          other.ledgerId == this.ledgerId &&
           other.targetAmountScaled == this.targetAmountScaled);
 }
 
@@ -2753,6 +3029,7 @@ class GoalsCompanion extends UpdateCompanion<GoalRow> {
   final Value<DateTime> updatedAt;
   final Value<DateTime?> deletedAt;
   final Value<String> ownerId;
+  final Value<String?> ledgerId;
   final Value<int> targetAmountScaled;
   final Value<int> rowid;
   const GoalsCompanion({
@@ -2761,6 +3038,7 @@ class GoalsCompanion extends UpdateCompanion<GoalRow> {
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.ownerId = const Value.absent(),
+    this.ledgerId = const Value.absent(),
     this.targetAmountScaled = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -2770,6 +3048,7 @@ class GoalsCompanion extends UpdateCompanion<GoalRow> {
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
     required String ownerId,
+    this.ledgerId = const Value.absent(),
     required int targetAmountScaled,
     this.rowid = const Value.absent(),
   }) : ownerId = Value(ownerId),
@@ -2780,6 +3059,7 @@ class GoalsCompanion extends UpdateCompanion<GoalRow> {
     Expression<String>? updatedAt,
     Expression<String>? deletedAt,
     Expression<String>? ownerId,
+    Expression<String>? ledgerId,
     Expression<int>? targetAmountScaled,
     Expression<int>? rowid,
   }) {
@@ -2789,6 +3069,7 @@ class GoalsCompanion extends UpdateCompanion<GoalRow> {
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
       if (ownerId != null) 'owner_id': ownerId,
+      if (ledgerId != null) 'ledger_id': ledgerId,
       if (targetAmountScaled != null)
         'target_amount_scaled': targetAmountScaled,
       if (rowid != null) 'rowid': rowid,
@@ -2801,6 +3082,7 @@ class GoalsCompanion extends UpdateCompanion<GoalRow> {
     Value<DateTime>? updatedAt,
     Value<DateTime?>? deletedAt,
     Value<String>? ownerId,
+    Value<String?>? ledgerId,
     Value<int>? targetAmountScaled,
     Value<int>? rowid,
   }) {
@@ -2810,6 +3092,7 @@ class GoalsCompanion extends UpdateCompanion<GoalRow> {
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
       ownerId: ownerId ?? this.ownerId,
+      ledgerId: ledgerId ?? this.ledgerId,
       targetAmountScaled: targetAmountScaled ?? this.targetAmountScaled,
       rowid: rowid ?? this.rowid,
     );
@@ -2839,6 +3122,9 @@ class GoalsCompanion extends UpdateCompanion<GoalRow> {
     if (ownerId.present) {
       map['owner_id'] = Variable<String>(ownerId.value);
     }
+    if (ledgerId.present) {
+      map['ledger_id'] = Variable<String>(ledgerId.value);
+    }
     if (targetAmountScaled.present) {
       map['target_amount_scaled'] = Variable<int>(targetAmountScaled.value);
     }
@@ -2856,7 +3142,1070 @@ class GoalsCompanion extends UpdateCompanion<GoalRow> {
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('ownerId: $ownerId, ')
+          ..write('ledgerId: $ledgerId, ')
           ..write('targetAmountScaled: $targetAmountScaled, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $LedgersTable extends Ledgers with TableInfo<$LedgersTable, LedgerRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LedgersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    clientDefault: newId,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<DateTime, String> createdAt =
+      GeneratedColumn<String>(
+        'created_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        clientDefault: nowIso,
+      ).withConverter<DateTime>($LedgersTable.$convertercreatedAt);
+  @override
+  late final GeneratedColumnWithTypeConverter<DateTime, String> updatedAt =
+      GeneratedColumn<String>(
+        'updated_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        clientDefault: nowIso,
+      ).withConverter<DateTime>($LedgersTable.$converterupdatedAt);
+  @override
+  late final GeneratedColumnWithTypeConverter<DateTime?, String> deletedAt =
+      GeneratedColumn<String>(
+        'deleted_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<DateTime?>($LedgersTable.$converterdeletedAtn);
+  static const VerificationMeta _ownerIdMeta = const VerificationMeta(
+    'ownerId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerId = GeneratedColumn<String>(
+    'owner_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  @override
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _inviteCodeMeta = const VerificationMeta(
+    'inviteCode',
+  );
+  @override
+  late final GeneratedColumn<String> inviteCode = GeneratedColumn<String>(
+    'invite_code',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    ownerId,
+    name,
+    kind,
+    inviteCode,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'ledgers';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LedgerRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('owner_id')) {
+      context.handle(
+        _ownerIdMeta,
+        ownerId.isAcceptableOrUnknown(data['owner_id']!, _ownerIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerIdMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_kindMeta);
+    }
+    if (data.containsKey('invite_code')) {
+      context.handle(
+        _inviteCodeMeta,
+        inviteCode.isAcceptableOrUnknown(data['invite_code']!, _inviteCodeMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LedgerRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LedgerRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      createdAt: $LedgersTable.$convertercreatedAt.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}created_at'],
+        )!,
+      ),
+      updatedAt: $LedgersTable.$converterupdatedAt.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}updated_at'],
+        )!,
+      ),
+      deletedAt: $LedgersTable.$converterdeletedAtn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}deleted_at'],
+        ),
+      ),
+      ownerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      kind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kind'],
+      )!,
+      inviteCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}invite_code'],
+      ),
+    );
+  }
+
+  @override
+  $LedgersTable createAlias(String alias) {
+    return $LedgersTable(attachedDatabase, alias);
+  }
+
+  static TypeConverter<DateTime, String> $convertercreatedAt =
+      const UtcDateTimeConverter();
+  static TypeConverter<DateTime, String> $converterupdatedAt =
+      const UtcDateTimeConverter();
+  static TypeConverter<DateTime, String> $converterdeletedAt =
+      const UtcDateTimeConverter();
+  static TypeConverter<DateTime?, String?> $converterdeletedAtn =
+      NullAwareTypeConverter.wrap($converterdeletedAt);
+}
+
+class LedgerRow extends DataClass implements Insertable<LedgerRow> {
+  final String id;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+
+  /// Who created it. Sync rules do not bucket on this — see [LedgerMembers] —
+  /// but the RLS policy checks it on a rename.
+  final String ownerId;
+
+  /// What the switcher shows. `Personal` on the book created for a new user.
+  final String name;
+
+  /// `personal` or `family`. Stored as plain text rather than an enum column so
+  /// a value from a newer build syncing down cannot fail to parse — the same
+  /// reason `categories.kind` is stored the way it is.
+  ///
+  /// The distinction is not about permissions — a family ledger with one member
+  /// behaves exactly like a personal one — but about what the app offers to do
+  /// with it: only a family ledger can be shared or left.
+  final String kind;
+
+  /// The code a partner types to join, upper-case and short enough to read out
+  /// loud.
+  ///
+  /// Null on a personal ledger, which nobody else can join. Rotating it revokes
+  /// every invite that has not been used yet, which is the only way to take an
+  /// invite back.
+  final String? inviteCode;
+  const LedgerRow({
+    required this.id,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+    required this.ownerId,
+    required this.name,
+    required this.kind,
+    this.inviteCode,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    {
+      map['created_at'] = Variable<String>(
+        $LedgersTable.$convertercreatedAt.toSql(createdAt),
+      );
+    }
+    {
+      map['updated_at'] = Variable<String>(
+        $LedgersTable.$converterupdatedAt.toSql(updatedAt),
+      );
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<String>(
+        $LedgersTable.$converterdeletedAtn.toSql(deletedAt),
+      );
+    }
+    map['owner_id'] = Variable<String>(ownerId);
+    map['name'] = Variable<String>(name);
+    map['kind'] = Variable<String>(kind);
+    if (!nullToAbsent || inviteCode != null) {
+      map['invite_code'] = Variable<String>(inviteCode);
+    }
+    return map;
+  }
+
+  LedgersCompanion toCompanion(bool nullToAbsent) {
+    return LedgersCompanion(
+      id: Value(id),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      ownerId: Value(ownerId),
+      name: Value(name),
+      kind: Value(kind),
+      inviteCode: inviteCode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(inviteCode),
+    );
+  }
+
+  factory LedgerRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LedgerRow(
+      id: serializer.fromJson<String>(json['id']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      ownerId: serializer.fromJson<String>(json['ownerId']),
+      name: serializer.fromJson<String>(json['name']),
+      kind: serializer.fromJson<String>(json['kind']),
+      inviteCode: serializer.fromJson<String?>(json['inviteCode']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'ownerId': serializer.toJson<String>(ownerId),
+      'name': serializer.toJson<String>(name),
+      'kind': serializer.toJson<String>(kind),
+      'inviteCode': serializer.toJson<String?>(inviteCode),
+    };
+  }
+
+  LedgerRow copyWith({
+    String? id,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    String? ownerId,
+    String? name,
+    String? kind,
+    Value<String?> inviteCode = const Value.absent(),
+  }) => LedgerRow(
+    id: id ?? this.id,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    ownerId: ownerId ?? this.ownerId,
+    name: name ?? this.name,
+    kind: kind ?? this.kind,
+    inviteCode: inviteCode.present ? inviteCode.value : this.inviteCode,
+  );
+  LedgerRow copyWithCompanion(LedgersCompanion data) {
+    return LedgerRow(
+      id: data.id.present ? data.id.value : this.id,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      ownerId: data.ownerId.present ? data.ownerId.value : this.ownerId,
+      name: data.name.present ? data.name.value : this.name,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      inviteCode: data.inviteCode.present
+          ? data.inviteCode.value
+          : this.inviteCode,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LedgerRow(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('ownerId: $ownerId, ')
+          ..write('name: $name, ')
+          ..write('kind: $kind, ')
+          ..write('inviteCode: $inviteCode')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    ownerId,
+    name,
+    kind,
+    inviteCode,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LedgerRow &&
+          other.id == this.id &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.ownerId == this.ownerId &&
+          other.name == this.name &&
+          other.kind == this.kind &&
+          other.inviteCode == this.inviteCode);
+}
+
+class LedgersCompanion extends UpdateCompanion<LedgerRow> {
+  final Value<String> id;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<String> ownerId;
+  final Value<String> name;
+  final Value<String> kind;
+  final Value<String?> inviteCode;
+  final Value<int> rowid;
+  const LedgersCompanion({
+    this.id = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.ownerId = const Value.absent(),
+    this.name = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.inviteCode = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LedgersCompanion.insert({
+    this.id = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    required String ownerId,
+    required String name,
+    required String kind,
+    this.inviteCode = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : ownerId = Value(ownerId),
+       name = Value(name),
+       kind = Value(kind);
+  static Insertable<LedgerRow> custom({
+    Expression<String>? id,
+    Expression<String>? createdAt,
+    Expression<String>? updatedAt,
+    Expression<String>? deletedAt,
+    Expression<String>? ownerId,
+    Expression<String>? name,
+    Expression<String>? kind,
+    Expression<String>? inviteCode,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (ownerId != null) 'owner_id': ownerId,
+      if (name != null) 'name': name,
+      if (kind != null) 'kind': kind,
+      if (inviteCode != null) 'invite_code': inviteCode,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LedgersCompanion copyWith({
+    Value<String>? id,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<String>? ownerId,
+    Value<String>? name,
+    Value<String>? kind,
+    Value<String?>? inviteCode,
+    Value<int>? rowid,
+  }) {
+    return LedgersCompanion(
+      id: id ?? this.id,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      ownerId: ownerId ?? this.ownerId,
+      name: name ?? this.name,
+      kind: kind ?? this.kind,
+      inviteCode: inviteCode ?? this.inviteCode,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<String>(
+        $LedgersTable.$convertercreatedAt.toSql(createdAt.value),
+      );
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<String>(
+        $LedgersTable.$converterupdatedAt.toSql(updatedAt.value),
+      );
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<String>(
+        $LedgersTable.$converterdeletedAtn.toSql(deletedAt.value),
+      );
+    }
+    if (ownerId.present) {
+      map['owner_id'] = Variable<String>(ownerId.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
+    if (inviteCode.present) {
+      map['invite_code'] = Variable<String>(inviteCode.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LedgersCompanion(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('ownerId: $ownerId, ')
+          ..write('name: $name, ')
+          ..write('kind: $kind, ')
+          ..write('inviteCode: $inviteCode, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $LedgerMembersTable extends LedgerMembers
+    with TableInfo<$LedgerMembersTable, LedgerMemberRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LedgerMembersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    clientDefault: newId,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<DateTime, String> createdAt =
+      GeneratedColumn<String>(
+        'created_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        clientDefault: nowIso,
+      ).withConverter<DateTime>($LedgerMembersTable.$convertercreatedAt);
+  @override
+  late final GeneratedColumnWithTypeConverter<DateTime, String> updatedAt =
+      GeneratedColumn<String>(
+        'updated_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        clientDefault: nowIso,
+      ).withConverter<DateTime>($LedgerMembersTable.$converterupdatedAt);
+  @override
+  late final GeneratedColumnWithTypeConverter<DateTime?, String> deletedAt =
+      GeneratedColumn<String>(
+        'deleted_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<DateTime?>($LedgerMembersTable.$converterdeletedAtn);
+  static const VerificationMeta _ledgerIdMeta = const VerificationMeta(
+    'ledgerId',
+  );
+  @override
+  late final GeneratedColumn<String> ledgerId = GeneratedColumn<String>(
+    'ledger_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _displayNameMeta = const VerificationMeta(
+    'displayName',
+  );
+  @override
+  late final GeneratedColumn<String> displayName = GeneratedColumn<String>(
+    'display_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _roleMeta = const VerificationMeta('role');
+  @override
+  late final GeneratedColumn<String> role = GeneratedColumn<String>(
+    'role',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    ledgerId,
+    userId,
+    displayName,
+    role,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'ledger_members';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LedgerMemberRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('ledger_id')) {
+      context.handle(
+        _ledgerIdMeta,
+        ledgerId.isAcceptableOrUnknown(data['ledger_id']!, _ledgerIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_ledgerIdMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('display_name')) {
+      context.handle(
+        _displayNameMeta,
+        displayName.isAcceptableOrUnknown(
+          data['display_name']!,
+          _displayNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('role')) {
+      context.handle(
+        _roleMeta,
+        role.isAcceptableOrUnknown(data['role']!, _roleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_roleMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LedgerMemberRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LedgerMemberRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      createdAt: $LedgerMembersTable.$convertercreatedAt.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}created_at'],
+        )!,
+      ),
+      updatedAt: $LedgerMembersTable.$converterupdatedAt.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}updated_at'],
+        )!,
+      ),
+      deletedAt: $LedgerMembersTable.$converterdeletedAtn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}deleted_at'],
+        ),
+      ),
+      ledgerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}ledger_id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      displayName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}display_name'],
+      ),
+      role: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}role'],
+      )!,
+    );
+  }
+
+  @override
+  $LedgerMembersTable createAlias(String alias) {
+    return $LedgerMembersTable(attachedDatabase, alias);
+  }
+
+  static TypeConverter<DateTime, String> $convertercreatedAt =
+      const UtcDateTimeConverter();
+  static TypeConverter<DateTime, String> $converterupdatedAt =
+      const UtcDateTimeConverter();
+  static TypeConverter<DateTime, String> $converterdeletedAt =
+      const UtcDateTimeConverter();
+  static TypeConverter<DateTime?, String?> $converterdeletedAtn =
+      NullAwareTypeConverter.wrap($converterdeletedAt);
+}
+
+class LedgerMemberRow extends DataClass implements Insertable<LedgerMemberRow> {
+  final String id;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+
+  /// References [Ledgers.id].
+  final String ledgerId;
+
+  /// The auth user this membership admits. Matched against `request.user_id()`
+  /// in the sync rules and `auth.uid()` in the policies.
+  final String userId;
+
+  /// What to call this member beside their entries.
+  ///
+  /// Written by the member's own device from their sign-in email, because
+  /// `auth.users` is not readable by clients — a partner's name has to travel
+  /// as ordinary synced data or not at all. Null until their device has
+  /// written it.
+  final String? displayName;
+
+  /// `owner` or `member`, stored as text for the same reason as [Ledgers.kind].
+  final String role;
+  const LedgerMemberRow({
+    required this.id,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+    required this.ledgerId,
+    required this.userId,
+    this.displayName,
+    required this.role,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    {
+      map['created_at'] = Variable<String>(
+        $LedgerMembersTable.$convertercreatedAt.toSql(createdAt),
+      );
+    }
+    {
+      map['updated_at'] = Variable<String>(
+        $LedgerMembersTable.$converterupdatedAt.toSql(updatedAt),
+      );
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<String>(
+        $LedgerMembersTable.$converterdeletedAtn.toSql(deletedAt),
+      );
+    }
+    map['ledger_id'] = Variable<String>(ledgerId);
+    map['user_id'] = Variable<String>(userId);
+    if (!nullToAbsent || displayName != null) {
+      map['display_name'] = Variable<String>(displayName);
+    }
+    map['role'] = Variable<String>(role);
+    return map;
+  }
+
+  LedgerMembersCompanion toCompanion(bool nullToAbsent) {
+    return LedgerMembersCompanion(
+      id: Value(id),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      ledgerId: Value(ledgerId),
+      userId: Value(userId),
+      displayName: displayName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(displayName),
+      role: Value(role),
+    );
+  }
+
+  factory LedgerMemberRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LedgerMemberRow(
+      id: serializer.fromJson<String>(json['id']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      ledgerId: serializer.fromJson<String>(json['ledgerId']),
+      userId: serializer.fromJson<String>(json['userId']),
+      displayName: serializer.fromJson<String?>(json['displayName']),
+      role: serializer.fromJson<String>(json['role']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'ledgerId': serializer.toJson<String>(ledgerId),
+      'userId': serializer.toJson<String>(userId),
+      'displayName': serializer.toJson<String?>(displayName),
+      'role': serializer.toJson<String>(role),
+    };
+  }
+
+  LedgerMemberRow copyWith({
+    String? id,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    String? ledgerId,
+    String? userId,
+    Value<String?> displayName = const Value.absent(),
+    String? role,
+  }) => LedgerMemberRow(
+    id: id ?? this.id,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    ledgerId: ledgerId ?? this.ledgerId,
+    userId: userId ?? this.userId,
+    displayName: displayName.present ? displayName.value : this.displayName,
+    role: role ?? this.role,
+  );
+  LedgerMemberRow copyWithCompanion(LedgerMembersCompanion data) {
+    return LedgerMemberRow(
+      id: data.id.present ? data.id.value : this.id,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      ledgerId: data.ledgerId.present ? data.ledgerId.value : this.ledgerId,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      displayName: data.displayName.present
+          ? data.displayName.value
+          : this.displayName,
+      role: data.role.present ? data.role.value : this.role,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LedgerMemberRow(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('ledgerId: $ledgerId, ')
+          ..write('userId: $userId, ')
+          ..write('displayName: $displayName, ')
+          ..write('role: $role')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    ledgerId,
+    userId,
+    displayName,
+    role,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LedgerMemberRow &&
+          other.id == this.id &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.ledgerId == this.ledgerId &&
+          other.userId == this.userId &&
+          other.displayName == this.displayName &&
+          other.role == this.role);
+}
+
+class LedgerMembersCompanion extends UpdateCompanion<LedgerMemberRow> {
+  final Value<String> id;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<String> ledgerId;
+  final Value<String> userId;
+  final Value<String?> displayName;
+  final Value<String> role;
+  final Value<int> rowid;
+  const LedgerMembersCompanion({
+    this.id = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.ledgerId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.displayName = const Value.absent(),
+    this.role = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LedgerMembersCompanion.insert({
+    this.id = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    required String ledgerId,
+    required String userId,
+    this.displayName = const Value.absent(),
+    required String role,
+    this.rowid = const Value.absent(),
+  }) : ledgerId = Value(ledgerId),
+       userId = Value(userId),
+       role = Value(role);
+  static Insertable<LedgerMemberRow> custom({
+    Expression<String>? id,
+    Expression<String>? createdAt,
+    Expression<String>? updatedAt,
+    Expression<String>? deletedAt,
+    Expression<String>? ledgerId,
+    Expression<String>? userId,
+    Expression<String>? displayName,
+    Expression<String>? role,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (ledgerId != null) 'ledger_id': ledgerId,
+      if (userId != null) 'user_id': userId,
+      if (displayName != null) 'display_name': displayName,
+      if (role != null) 'role': role,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LedgerMembersCompanion copyWith({
+    Value<String>? id,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<String>? ledgerId,
+    Value<String>? userId,
+    Value<String?>? displayName,
+    Value<String>? role,
+    Value<int>? rowid,
+  }) {
+    return LedgerMembersCompanion(
+      id: id ?? this.id,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      ledgerId: ledgerId ?? this.ledgerId,
+      userId: userId ?? this.userId,
+      displayName: displayName ?? this.displayName,
+      role: role ?? this.role,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<String>(
+        $LedgerMembersTable.$convertercreatedAt.toSql(createdAt.value),
+      );
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<String>(
+        $LedgerMembersTable.$converterupdatedAt.toSql(updatedAt.value),
+      );
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<String>(
+        $LedgerMembersTable.$converterdeletedAtn.toSql(deletedAt.value),
+      );
+    }
+    if (ledgerId.present) {
+      map['ledger_id'] = Variable<String>(ledgerId.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (displayName.present) {
+      map['display_name'] = Variable<String>(displayName.value);
+    }
+    if (role.present) {
+      map['role'] = Variable<String>(role.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LedgerMembersCompanion(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('ledgerId: $ledgerId, ')
+          ..write('userId: $userId, ')
+          ..write('displayName: $displayName, ')
+          ..write('role: $role, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2918,6 +4267,17 @@ class $TransactionsTable extends Transactions
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ledgerIdMeta = const VerificationMeta(
+    'ledgerId',
+  );
+  @override
+  late final GeneratedColumn<String> ledgerId = GeneratedColumn<String>(
+    'ledger_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _accountIdMeta = const VerificationMeta(
     'accountId',
@@ -2997,6 +4357,7 @@ class $TransactionsTable extends Transactions
     updatedAt,
     deletedAt,
     ownerId,
+    ledgerId,
     accountId,
     categoryId,
     side,
@@ -3027,6 +4388,12 @@ class $TransactionsTable extends Transactions
       );
     } else if (isInserting) {
       context.missing(_ownerIdMeta);
+    }
+    if (data.containsKey('ledger_id')) {
+      context.handle(
+        _ledgerIdMeta,
+        ledgerId.isAcceptableOrUnknown(data['ledger_id']!, _ledgerIdMeta),
+      );
     }
     if (data.containsKey('account_id')) {
       context.handle(
@@ -3102,6 +4469,10 @@ class $TransactionsTable extends Transactions
         DriftSqlType.string,
         data['${effectivePrefix}owner_id'],
       )!,
+      ledgerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}ledger_id'],
+      ),
       accountId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}account_id'],
@@ -3161,7 +4532,18 @@ class TransactionRow extends DataClass implements Insertable<TransactionRow> {
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;
+
+  /// Who wrote the row. Must be the signed-in user: the Postgres policies
+  /// check it on every insert.
   final String ownerId;
+
+  /// References [Ledgers.id] — which book the row belongs to.
+  ///
+  /// Nullable only because rows written before ledgers existed sync down
+  /// without it, exactly as `categories.kind` did when it was added. The
+  /// startup repair pass stamps those with their owner's personal ledger, and
+  /// reads skip a row until it has one; nothing in the app inserts without it.
+  final String? ledgerId;
 
   /// References [Accounts.id].
   ///
@@ -3188,6 +4570,7 @@ class TransactionRow extends DataClass implements Insertable<TransactionRow> {
     required this.updatedAt,
     this.deletedAt,
     required this.ownerId,
+    this.ledgerId,
     required this.accountId,
     this.categoryId,
     required this.side,
@@ -3216,6 +4599,9 @@ class TransactionRow extends DataClass implements Insertable<TransactionRow> {
       );
     }
     map['owner_id'] = Variable<String>(ownerId);
+    if (!nullToAbsent || ledgerId != null) {
+      map['ledger_id'] = Variable<String>(ledgerId);
+    }
     map['account_id'] = Variable<String>(accountId);
     if (!nullToAbsent || categoryId != null) {
       map['category_id'] = Variable<String>(categoryId);
@@ -3247,6 +4633,9 @@ class TransactionRow extends DataClass implements Insertable<TransactionRow> {
           ? const Value.absent()
           : Value(deletedAt),
       ownerId: Value(ownerId),
+      ledgerId: ledgerId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ledgerId),
       accountId: Value(accountId),
       categoryId: categoryId == null && nullToAbsent
           ? const Value.absent()
@@ -3270,6 +4659,7 @@ class TransactionRow extends DataClass implements Insertable<TransactionRow> {
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       ownerId: serializer.fromJson<String>(json['ownerId']),
+      ledgerId: serializer.fromJson<String?>(json['ledgerId']),
       accountId: serializer.fromJson<String>(json['accountId']),
       categoryId: serializer.fromJson<String?>(json['categoryId']),
       side: $TransactionsTable.$converterside.fromJson(
@@ -3290,6 +4680,7 @@ class TransactionRow extends DataClass implements Insertable<TransactionRow> {
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'ownerId': serializer.toJson<String>(ownerId),
+      'ledgerId': serializer.toJson<String?>(ledgerId),
       'accountId': serializer.toJson<String>(accountId),
       'categoryId': serializer.toJson<String?>(categoryId),
       'side': serializer.toJson<String>(
@@ -3308,6 +4699,7 @@ class TransactionRow extends DataClass implements Insertable<TransactionRow> {
     DateTime? updatedAt,
     Value<DateTime?> deletedAt = const Value.absent(),
     String? ownerId,
+    Value<String?> ledgerId = const Value.absent(),
     String? accountId,
     Value<String?> categoryId = const Value.absent(),
     TradeSide? side,
@@ -3321,6 +4713,7 @@ class TransactionRow extends DataClass implements Insertable<TransactionRow> {
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     ownerId: ownerId ?? this.ownerId,
+    ledgerId: ledgerId.present ? ledgerId.value : this.ledgerId,
     accountId: accountId ?? this.accountId,
     categoryId: categoryId.present ? categoryId.value : this.categoryId,
     side: side ?? this.side,
@@ -3336,6 +4729,7 @@ class TransactionRow extends DataClass implements Insertable<TransactionRow> {
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       ownerId: data.ownerId.present ? data.ownerId.value : this.ownerId,
+      ledgerId: data.ledgerId.present ? data.ledgerId.value : this.ledgerId,
       accountId: data.accountId.present ? data.accountId.value : this.accountId,
       categoryId: data.categoryId.present
           ? data.categoryId.value
@@ -3360,6 +4754,7 @@ class TransactionRow extends DataClass implements Insertable<TransactionRow> {
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('ownerId: $ownerId, ')
+          ..write('ledgerId: $ledgerId, ')
           ..write('accountId: $accountId, ')
           ..write('categoryId: $categoryId, ')
           ..write('side: $side, ')
@@ -3378,6 +4773,7 @@ class TransactionRow extends DataClass implements Insertable<TransactionRow> {
     updatedAt,
     deletedAt,
     ownerId,
+    ledgerId,
     accountId,
     categoryId,
     side,
@@ -3395,6 +4791,7 @@ class TransactionRow extends DataClass implements Insertable<TransactionRow> {
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt &&
           other.ownerId == this.ownerId &&
+          other.ledgerId == this.ledgerId &&
           other.accountId == this.accountId &&
           other.categoryId == this.categoryId &&
           other.side == this.side &&
@@ -3410,6 +4807,7 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRow> {
   final Value<DateTime> updatedAt;
   final Value<DateTime?> deletedAt;
   final Value<String> ownerId;
+  final Value<String?> ledgerId;
   final Value<String> accountId;
   final Value<String?> categoryId;
   final Value<TradeSide> side;
@@ -3424,6 +4822,7 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRow> {
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.ownerId = const Value.absent(),
+    this.ledgerId = const Value.absent(),
     this.accountId = const Value.absent(),
     this.categoryId = const Value.absent(),
     this.side = const Value.absent(),
@@ -3439,6 +4838,7 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRow> {
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
     required String ownerId,
+    this.ledgerId = const Value.absent(),
     required String accountId,
     this.categoryId = const Value.absent(),
     required TradeSide side,
@@ -3459,6 +4859,7 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRow> {
     Expression<String>? updatedAt,
     Expression<String>? deletedAt,
     Expression<String>? ownerId,
+    Expression<String>? ledgerId,
     Expression<String>? accountId,
     Expression<String>? categoryId,
     Expression<String>? side,
@@ -3474,6 +4875,7 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRow> {
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
       if (ownerId != null) 'owner_id': ownerId,
+      if (ledgerId != null) 'ledger_id': ledgerId,
       if (accountId != null) 'account_id': accountId,
       if (categoryId != null) 'category_id': categoryId,
       if (side != null) 'side': side,
@@ -3491,6 +4893,7 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRow> {
     Value<DateTime>? updatedAt,
     Value<DateTime?>? deletedAt,
     Value<String>? ownerId,
+    Value<String?>? ledgerId,
     Value<String>? accountId,
     Value<String?>? categoryId,
     Value<TradeSide>? side,
@@ -3506,6 +4909,7 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRow> {
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
       ownerId: ownerId ?? this.ownerId,
+      ledgerId: ledgerId ?? this.ledgerId,
       accountId: accountId ?? this.accountId,
       categoryId: categoryId ?? this.categoryId,
       side: side ?? this.side,
@@ -3540,6 +4944,9 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRow> {
     }
     if (ownerId.present) {
       map['owner_id'] = Variable<String>(ownerId.value);
+    }
+    if (ledgerId.present) {
+      map['ledger_id'] = Variable<String>(ledgerId.value);
     }
     if (accountId.present) {
       map['account_id'] = Variable<String>(accountId.value);
@@ -3580,6 +4987,7 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRow> {
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('ownerId: $ownerId, ')
+          ..write('ledgerId: $ledgerId, ')
           ..write('accountId: $accountId, ')
           ..write('categoryId: $categoryId, ')
           ..write('side: $side, ')
@@ -3601,6 +5009,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $CurrenciesTable currencies = $CurrenciesTable(this);
   late final $DebtsTable debts = $DebtsTable(this);
   late final $GoalsTable goals = $GoalsTable(this);
+  late final $LedgersTable ledgers = $LedgersTable(this);
+  late final $LedgerMembersTable ledgerMembers = $LedgerMembersTable(this);
   late final $TransactionsTable transactions = $TransactionsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
@@ -3612,6 +5022,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     currencies,
     debts,
     goals,
+    ledgers,
+    ledgerMembers,
     transactions,
   ];
   @override
@@ -3626,6 +5038,7 @@ typedef $$AccountsTableCreateCompanionBuilder =
       Value<DateTime> updatedAt,
       Value<DateTime?> deletedAt,
       required String ownerId,
+      Value<String?> ledgerId,
       required String name,
       required String currency,
       Value<int> rowid,
@@ -3637,6 +5050,7 @@ typedef $$AccountsTableUpdateCompanionBuilder =
       Value<DateTime> updatedAt,
       Value<DateTime?> deletedAt,
       Value<String> ownerId,
+      Value<String?> ledgerId,
       Value<String> name,
       Value<String> currency,
       Value<int> rowid,
@@ -3676,6 +5090,11 @@ class $$AccountsTableFilterComposer
 
   ColumnFilters<String> get ownerId => $composableBuilder(
     column: $table.ownerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ledgerId => $composableBuilder(
+    column: $table.ledgerId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3724,6 +5143,11 @@ class $$AccountsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get ledgerId => $composableBuilder(
+    column: $table.ledgerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get name => $composableBuilder(
     column: $table.name,
     builder: (column) => ColumnOrderings(column),
@@ -3758,6 +5182,9 @@ class $$AccountsTableAnnotationComposer
 
   GeneratedColumn<String> get ownerId =>
       $composableBuilder(column: $table.ownerId, builder: (column) => column);
+
+  GeneratedColumn<String> get ledgerId =>
+      $composableBuilder(column: $table.ledgerId, builder: (column) => column);
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
@@ -3802,6 +5229,7 @@ class $$AccountsTableTableManager
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<String> ownerId = const Value.absent(),
+                Value<String?> ledgerId = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String> currency = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -3811,6 +5239,7 @@ class $$AccountsTableTableManager
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
                 ownerId: ownerId,
+                ledgerId: ledgerId,
                 name: name,
                 currency: currency,
                 rowid: rowid,
@@ -3822,6 +5251,7 @@ class $$AccountsTableTableManager
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 required String ownerId,
+                Value<String?> ledgerId = const Value.absent(),
                 required String name,
                 required String currency,
                 Value<int> rowid = const Value.absent(),
@@ -3831,6 +5261,7 @@ class $$AccountsTableTableManager
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
                 ownerId: ownerId,
+                ledgerId: ledgerId,
                 name: name,
                 currency: currency,
                 rowid: rowid,
@@ -3864,6 +5295,7 @@ typedef $$CategoriesTableCreateCompanionBuilder =
       Value<DateTime> updatedAt,
       Value<DateTime?> deletedAt,
       required String ownerId,
+      Value<String?> ledgerId,
       required String name,
       required int colorArgb,
       required String iconKey,
@@ -3880,6 +5312,7 @@ typedef $$CategoriesTableUpdateCompanionBuilder =
       Value<DateTime> updatedAt,
       Value<DateTime?> deletedAt,
       Value<String> ownerId,
+      Value<String?> ledgerId,
       Value<String> name,
       Value<int> colorArgb,
       Value<String> iconKey,
@@ -3924,6 +5357,11 @@ class $$CategoriesTableFilterComposer
 
   ColumnFilters<String> get ownerId => $composableBuilder(
     column: $table.ownerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ledgerId => $composableBuilder(
+    column: $table.ledgerId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3997,6 +5435,11 @@ class $$CategoriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get ledgerId => $composableBuilder(
+    column: $table.ledgerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get name => $composableBuilder(
     column: $table.name,
     builder: (column) => ColumnOrderings(column),
@@ -4056,6 +5499,9 @@ class $$CategoriesTableAnnotationComposer
 
   GeneratedColumn<String> get ownerId =>
       $composableBuilder(column: $table.ownerId, builder: (column) => column);
+
+  GeneratedColumn<String> get ledgerId =>
+      $composableBuilder(column: $table.ledgerId, builder: (column) => column);
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
@@ -4119,6 +5565,7 @@ class $$CategoriesTableTableManager
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<String> ownerId = const Value.absent(),
+                Value<String?> ledgerId = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<int> colorArgb = const Value.absent(),
                 Value<String> iconKey = const Value.absent(),
@@ -4133,6 +5580,7 @@ class $$CategoriesTableTableManager
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
                 ownerId: ownerId,
+                ledgerId: ledgerId,
                 name: name,
                 colorArgb: colorArgb,
                 iconKey: iconKey,
@@ -4149,6 +5597,7 @@ class $$CategoriesTableTableManager
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 required String ownerId,
+                Value<String?> ledgerId = const Value.absent(),
                 required String name,
                 required int colorArgb,
                 required String iconKey,
@@ -4163,6 +5612,7 @@ class $$CategoriesTableTableManager
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
                 ownerId: ownerId,
+                ledgerId: ledgerId,
                 name: name,
                 colorArgb: colorArgb,
                 iconKey: iconKey,
@@ -4204,6 +5654,7 @@ typedef $$CurrenciesTableCreateCompanionBuilder =
       Value<DateTime> updatedAt,
       Value<DateTime?> deletedAt,
       required String ownerId,
+      Value<String?> ledgerId,
       required String ticker,
       Value<String?> icon,
       required int exchangeRateScaled,
@@ -4216,6 +5667,7 @@ typedef $$CurrenciesTableUpdateCompanionBuilder =
       Value<DateTime> updatedAt,
       Value<DateTime?> deletedAt,
       Value<String> ownerId,
+      Value<String?> ledgerId,
       Value<String> ticker,
       Value<String?> icon,
       Value<int> exchangeRateScaled,
@@ -4256,6 +5708,11 @@ class $$CurrenciesTableFilterComposer
 
   ColumnFilters<String> get ownerId => $composableBuilder(
     column: $table.ownerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ledgerId => $composableBuilder(
+    column: $table.ledgerId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4309,6 +5766,11 @@ class $$CurrenciesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get ledgerId => $composableBuilder(
+    column: $table.ledgerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get ticker => $composableBuilder(
     column: $table.ticker,
     builder: (column) => ColumnOrderings(column),
@@ -4348,6 +5810,9 @@ class $$CurrenciesTableAnnotationComposer
 
   GeneratedColumn<String> get ownerId =>
       $composableBuilder(column: $table.ownerId, builder: (column) => column);
+
+  GeneratedColumn<String> get ledgerId =>
+      $composableBuilder(column: $table.ledgerId, builder: (column) => column);
 
   GeneratedColumn<String> get ticker =>
       $composableBuilder(column: $table.ticker, builder: (column) => column);
@@ -4397,6 +5862,7 @@ class $$CurrenciesTableTableManager
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<String> ownerId = const Value.absent(),
+                Value<String?> ledgerId = const Value.absent(),
                 Value<String> ticker = const Value.absent(),
                 Value<String?> icon = const Value.absent(),
                 Value<int> exchangeRateScaled = const Value.absent(),
@@ -4407,6 +5873,7 @@ class $$CurrenciesTableTableManager
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
                 ownerId: ownerId,
+                ledgerId: ledgerId,
                 ticker: ticker,
                 icon: icon,
                 exchangeRateScaled: exchangeRateScaled,
@@ -4419,6 +5886,7 @@ class $$CurrenciesTableTableManager
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 required String ownerId,
+                Value<String?> ledgerId = const Value.absent(),
                 required String ticker,
                 Value<String?> icon = const Value.absent(),
                 required int exchangeRateScaled,
@@ -4429,6 +5897,7 @@ class $$CurrenciesTableTableManager
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
                 ownerId: ownerId,
+                ledgerId: ledgerId,
                 ticker: ticker,
                 icon: icon,
                 exchangeRateScaled: exchangeRateScaled,
@@ -4466,6 +5935,7 @@ typedef $$DebtsTableCreateCompanionBuilder =
       Value<DateTime> updatedAt,
       Value<DateTime?> deletedAt,
       required String ownerId,
+      Value<String?> ledgerId,
       required String counterparty,
       required String direction,
       required int amountScaled,
@@ -4481,6 +5951,7 @@ typedef $$DebtsTableUpdateCompanionBuilder =
       Value<DateTime> updatedAt,
       Value<DateTime?> deletedAt,
       Value<String> ownerId,
+      Value<String?> ledgerId,
       Value<String> counterparty,
       Value<String> direction,
       Value<int> amountScaled,
@@ -4523,6 +5994,11 @@ class $$DebtsTableFilterComposer extends Composer<_$AppDatabase, $DebtsTable> {
 
   ColumnFilters<String> get ownerId => $composableBuilder(
     column: $table.ownerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ledgerId => $composableBuilder(
+    column: $table.ledgerId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4593,6 +6069,11 @@ class $$DebtsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get ledgerId => $composableBuilder(
+    column: $table.ledgerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get counterparty => $composableBuilder(
     column: $table.counterparty,
     builder: (column) => ColumnOrderings(column),
@@ -4647,6 +6128,9 @@ class $$DebtsTableAnnotationComposer
 
   GeneratedColumn<String> get ownerId =>
       $composableBuilder(column: $table.ownerId, builder: (column) => column);
+
+  GeneratedColumn<String> get ledgerId =>
+      $composableBuilder(column: $table.ledgerId, builder: (column) => column);
 
   GeneratedColumn<String> get counterparty => $composableBuilder(
     column: $table.counterparty,
@@ -4704,6 +6188,7 @@ class $$DebtsTableTableManager
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<String> ownerId = const Value.absent(),
+                Value<String?> ledgerId = const Value.absent(),
                 Value<String> counterparty = const Value.absent(),
                 Value<String> direction = const Value.absent(),
                 Value<int> amountScaled = const Value.absent(),
@@ -4717,6 +6202,7 @@ class $$DebtsTableTableManager
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
                 ownerId: ownerId,
+                ledgerId: ledgerId,
                 counterparty: counterparty,
                 direction: direction,
                 amountScaled: amountScaled,
@@ -4732,6 +6218,7 @@ class $$DebtsTableTableManager
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 required String ownerId,
+                Value<String?> ledgerId = const Value.absent(),
                 required String counterparty,
                 required String direction,
                 required int amountScaled,
@@ -4745,6 +6232,7 @@ class $$DebtsTableTableManager
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
                 ownerId: ownerId,
+                ledgerId: ledgerId,
                 counterparty: counterparty,
                 direction: direction,
                 amountScaled: amountScaled,
@@ -4782,6 +6270,7 @@ typedef $$GoalsTableCreateCompanionBuilder =
       Value<DateTime> updatedAt,
       Value<DateTime?> deletedAt,
       required String ownerId,
+      Value<String?> ledgerId,
       required int targetAmountScaled,
       Value<int> rowid,
     });
@@ -4792,6 +6281,7 @@ typedef $$GoalsTableUpdateCompanionBuilder =
       Value<DateTime> updatedAt,
       Value<DateTime?> deletedAt,
       Value<String> ownerId,
+      Value<String?> ledgerId,
       Value<int> targetAmountScaled,
       Value<int> rowid,
     });
@@ -4829,6 +6319,11 @@ class $$GoalsTableFilterComposer extends Composer<_$AppDatabase, $GoalsTable> {
 
   ColumnFilters<String> get ownerId => $composableBuilder(
     column: $table.ownerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ledgerId => $composableBuilder(
+    column: $table.ledgerId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4872,6 +6367,11 @@ class $$GoalsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get ledgerId => $composableBuilder(
+    column: $table.ledgerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get targetAmountScaled => $composableBuilder(
     column: $table.targetAmountScaled,
     builder: (column) => ColumnOrderings(column),
@@ -4901,6 +6401,9 @@ class $$GoalsTableAnnotationComposer
 
   GeneratedColumn<String> get ownerId =>
       $composableBuilder(column: $table.ownerId, builder: (column) => column);
+
+  GeneratedColumn<String> get ledgerId =>
+      $composableBuilder(column: $table.ledgerId, builder: (column) => column);
 
   GeneratedColumn<int> get targetAmountScaled => $composableBuilder(
     column: $table.targetAmountScaled,
@@ -4941,6 +6444,7 @@ class $$GoalsTableTableManager
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<String> ownerId = const Value.absent(),
+                Value<String?> ledgerId = const Value.absent(),
                 Value<int> targetAmountScaled = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => GoalsCompanion(
@@ -4949,6 +6453,7 @@ class $$GoalsTableTableManager
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
                 ownerId: ownerId,
+                ledgerId: ledgerId,
                 targetAmountScaled: targetAmountScaled,
                 rowid: rowid,
               ),
@@ -4959,6 +6464,7 @@ class $$GoalsTableTableManager
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 required String ownerId,
+                Value<String?> ledgerId = const Value.absent(),
                 required int targetAmountScaled,
                 Value<int> rowid = const Value.absent(),
               }) => GoalsCompanion.insert(
@@ -4967,6 +6473,7 @@ class $$GoalsTableTableManager
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
                 ownerId: ownerId,
+                ledgerId: ledgerId,
                 targetAmountScaled: targetAmountScaled,
                 rowid: rowid,
               ),
@@ -4992,6 +6499,524 @@ typedef $$GoalsTableProcessedTableManager =
       GoalRow,
       PrefetchHooks Function()
     >;
+typedef $$LedgersTableCreateCompanionBuilder =
+    LedgersCompanion Function({
+      Value<String> id,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      required String ownerId,
+      required String name,
+      required String kind,
+      Value<String?> inviteCode,
+      Value<int> rowid,
+    });
+typedef $$LedgersTableUpdateCompanionBuilder =
+    LedgersCompanion Function({
+      Value<String> id,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String> ownerId,
+      Value<String> name,
+      Value<String> kind,
+      Value<String?> inviteCode,
+      Value<int> rowid,
+    });
+
+class $$LedgersTableFilterComposer
+    extends Composer<_$AppDatabase, $LedgersTable> {
+  $$LedgersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<DateTime, DateTime, String> get createdAt =>
+      $composableBuilder(
+        column: $table.createdAt,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnWithTypeConverterFilters<DateTime, DateTime, String> get updatedAt =>
+      $composableBuilder(
+        column: $table.updatedAt,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnWithTypeConverterFilters<DateTime?, DateTime, String> get deletedAt =>
+      $composableBuilder(
+        column: $table.deletedAt,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get inviteCode => $composableBuilder(
+    column: $table.inviteCode,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LedgersTableOrderingComposer
+    extends Composer<_$AppDatabase, $LedgersTable> {
+  $$LedgersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get ownerId => $composableBuilder(
+    column: $table.ownerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get inviteCode => $composableBuilder(
+    column: $table.inviteCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LedgersTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LedgersTable> {
+  $$LedgersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<DateTime, String> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<DateTime, String> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<DateTime?, String> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get ownerId =>
+      $composableBuilder(column: $table.ownerId, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get inviteCode => $composableBuilder(
+    column: $table.inviteCode,
+    builder: (column) => column,
+  );
+}
+
+class $$LedgersTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LedgersTable,
+          LedgerRow,
+          $$LedgersTableFilterComposer,
+          $$LedgersTableOrderingComposer,
+          $$LedgersTableAnnotationComposer,
+          $$LedgersTableCreateCompanionBuilder,
+          $$LedgersTableUpdateCompanionBuilder,
+          (LedgerRow, BaseReferences<_$AppDatabase, $LedgersTable, LedgerRow>),
+          LedgerRow,
+          PrefetchHooks Function()
+        > {
+  $$LedgersTableTableManager(_$AppDatabase db, $LedgersTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LedgersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LedgersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LedgersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String> ownerId = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> kind = const Value.absent(),
+                Value<String?> inviteCode = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LedgersCompanion(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                ownerId: ownerId,
+                name: name,
+                kind: kind,
+                inviteCode: inviteCode,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                required String ownerId,
+                required String name,
+                required String kind,
+                Value<String?> inviteCode = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LedgersCompanion.insert(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                ownerId: ownerId,
+                name: name,
+                kind: kind,
+                inviteCode: inviteCode,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LedgersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LedgersTable,
+      LedgerRow,
+      $$LedgersTableFilterComposer,
+      $$LedgersTableOrderingComposer,
+      $$LedgersTableAnnotationComposer,
+      $$LedgersTableCreateCompanionBuilder,
+      $$LedgersTableUpdateCompanionBuilder,
+      (LedgerRow, BaseReferences<_$AppDatabase, $LedgersTable, LedgerRow>),
+      LedgerRow,
+      PrefetchHooks Function()
+    >;
+typedef $$LedgerMembersTableCreateCompanionBuilder =
+    LedgerMembersCompanion Function({
+      Value<String> id,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      required String ledgerId,
+      required String userId,
+      Value<String?> displayName,
+      required String role,
+      Value<int> rowid,
+    });
+typedef $$LedgerMembersTableUpdateCompanionBuilder =
+    LedgerMembersCompanion Function({
+      Value<String> id,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String> ledgerId,
+      Value<String> userId,
+      Value<String?> displayName,
+      Value<String> role,
+      Value<int> rowid,
+    });
+
+class $$LedgerMembersTableFilterComposer
+    extends Composer<_$AppDatabase, $LedgerMembersTable> {
+  $$LedgerMembersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<DateTime, DateTime, String> get createdAt =>
+      $composableBuilder(
+        column: $table.createdAt,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnWithTypeConverterFilters<DateTime, DateTime, String> get updatedAt =>
+      $composableBuilder(
+        column: $table.updatedAt,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnWithTypeConverterFilters<DateTime?, DateTime, String> get deletedAt =>
+      $composableBuilder(
+        column: $table.deletedAt,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<String> get ledgerId => $composableBuilder(
+    column: $table.ledgerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LedgerMembersTableOrderingComposer
+    extends Composer<_$AppDatabase, $LedgerMembersTable> {
+  $$LedgerMembersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get ledgerId => $composableBuilder(
+    column: $table.ledgerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LedgerMembersTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LedgerMembersTable> {
+  $$LedgerMembersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<DateTime, String> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<DateTime, String> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<DateTime?, String> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get ledgerId =>
+      $composableBuilder(column: $table.ledgerId, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get role =>
+      $composableBuilder(column: $table.role, builder: (column) => column);
+}
+
+class $$LedgerMembersTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LedgerMembersTable,
+          LedgerMemberRow,
+          $$LedgerMembersTableFilterComposer,
+          $$LedgerMembersTableOrderingComposer,
+          $$LedgerMembersTableAnnotationComposer,
+          $$LedgerMembersTableCreateCompanionBuilder,
+          $$LedgerMembersTableUpdateCompanionBuilder,
+          (
+            LedgerMemberRow,
+            BaseReferences<_$AppDatabase, $LedgerMembersTable, LedgerMemberRow>,
+          ),
+          LedgerMemberRow,
+          PrefetchHooks Function()
+        > {
+  $$LedgerMembersTableTableManager(_$AppDatabase db, $LedgerMembersTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LedgerMembersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LedgerMembersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LedgerMembersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String> ledgerId = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<String?> displayName = const Value.absent(),
+                Value<String> role = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LedgerMembersCompanion(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                ledgerId: ledgerId,
+                userId: userId,
+                displayName: displayName,
+                role: role,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                required String ledgerId,
+                required String userId,
+                Value<String?> displayName = const Value.absent(),
+                required String role,
+                Value<int> rowid = const Value.absent(),
+              }) => LedgerMembersCompanion.insert(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                ledgerId: ledgerId,
+                userId: userId,
+                displayName: displayName,
+                role: role,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LedgerMembersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LedgerMembersTable,
+      LedgerMemberRow,
+      $$LedgerMembersTableFilterComposer,
+      $$LedgerMembersTableOrderingComposer,
+      $$LedgerMembersTableAnnotationComposer,
+      $$LedgerMembersTableCreateCompanionBuilder,
+      $$LedgerMembersTableUpdateCompanionBuilder,
+      (
+        LedgerMemberRow,
+        BaseReferences<_$AppDatabase, $LedgerMembersTable, LedgerMemberRow>,
+      ),
+      LedgerMemberRow,
+      PrefetchHooks Function()
+    >;
 typedef $$TransactionsTableCreateCompanionBuilder =
     TransactionsCompanion Function({
       Value<String> id,
@@ -4999,6 +7024,7 @@ typedef $$TransactionsTableCreateCompanionBuilder =
       Value<DateTime> updatedAt,
       Value<DateTime?> deletedAt,
       required String ownerId,
+      Value<String?> ledgerId,
       required String accountId,
       Value<String?> categoryId,
       required TradeSide side,
@@ -5015,6 +7041,7 @@ typedef $$TransactionsTableUpdateCompanionBuilder =
       Value<DateTime> updatedAt,
       Value<DateTime?> deletedAt,
       Value<String> ownerId,
+      Value<String?> ledgerId,
       Value<String> accountId,
       Value<String?> categoryId,
       Value<TradeSide> side,
@@ -5059,6 +7086,11 @@ class $$TransactionsTableFilterComposer
 
   ColumnFilters<String> get ownerId => $composableBuilder(
     column: $table.ownerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ledgerId => $composableBuilder(
+    column: $table.ledgerId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5134,6 +7166,11 @@ class $$TransactionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get ledgerId => $composableBuilder(
+    column: $table.ledgerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get accountId => $composableBuilder(
     column: $table.accountId,
     builder: (column) => ColumnOrderings(column),
@@ -5193,6 +7230,9 @@ class $$TransactionsTableAnnotationComposer
 
   GeneratedColumn<String> get ownerId =>
       $composableBuilder(column: $table.ownerId, builder: (column) => column);
+
+  GeneratedColumn<String> get ledgerId =>
+      $composableBuilder(column: $table.ledgerId, builder: (column) => column);
 
   GeneratedColumn<String> get accountId =>
       $composableBuilder(column: $table.accountId, builder: (column) => column);
@@ -5259,6 +7299,7 @@ class $$TransactionsTableTableManager
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<String> ownerId = const Value.absent(),
+                Value<String?> ledgerId = const Value.absent(),
                 Value<String> accountId = const Value.absent(),
                 Value<String?> categoryId = const Value.absent(),
                 Value<TradeSide> side = const Value.absent(),
@@ -5273,6 +7314,7 @@ class $$TransactionsTableTableManager
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
                 ownerId: ownerId,
+                ledgerId: ledgerId,
                 accountId: accountId,
                 categoryId: categoryId,
                 side: side,
@@ -5289,6 +7331,7 @@ class $$TransactionsTableTableManager
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 required String ownerId,
+                Value<String?> ledgerId = const Value.absent(),
                 required String accountId,
                 Value<String?> categoryId = const Value.absent(),
                 required TradeSide side,
@@ -5303,6 +7346,7 @@ class $$TransactionsTableTableManager
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
                 ownerId: ownerId,
+                ledgerId: ledgerId,
                 accountId: accountId,
                 categoryId: categoryId,
                 side: side,
@@ -5351,6 +7395,10 @@ class $AppDatabaseManager {
       $$DebtsTableTableManager(_db, _db.debts);
   $$GoalsTableTableManager get goals =>
       $$GoalsTableTableManager(_db, _db.goals);
+  $$LedgersTableTableManager get ledgers =>
+      $$LedgersTableTableManager(_db, _db.ledgers);
+  $$LedgerMembersTableTableManager get ledgerMembers =>
+      $$LedgerMembersTableTableManager(_db, _db.ledgerMembers);
   $$TransactionsTableTableManager get transactions =>
       $$TransactionsTableTableManager(_db, _db.transactions);
 }

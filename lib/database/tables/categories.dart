@@ -1,13 +1,14 @@
 import 'package:drift/drift.dart';
+import 'package:my_pnl/database/tables/ledger_scoped_table.dart';
 import 'package:my_pnl/database/tables/synced_table.dart';
 
 /// A user-defined bucket that transactions are grouped by for reporting.
+///
+/// Shared within a ledger: in a family account both partners record against the
+/// same categories, which is what lets one grid of tiles add up to one total.
+/// Either member may edit them — unlike the entries booked against them.
 @DataClassName('CategoryRow')
-class Categories extends Table with SyncedTable {
-  /// Owner of the row. Sync rules bucket on this, and the matching Postgres
-  /// RLS policy checks it, so it must be set on every insert.
-  TextColumn get ownerId => text()();
-
+class Categories extends Table with SyncedTable, LedgerScopedTable {
   TextColumn get name => text()();
 
   /// Packed ARGB, as `Color.toARGB32()` produces.

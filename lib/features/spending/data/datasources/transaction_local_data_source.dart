@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:my_pnl/database/database.dart';
+import 'package:my_pnl/features/ledgers/domain/entities/ledger.dart';
 import 'package:my_pnl/features/spending/data/datasources/account_local_data_source.dart';
 import 'package:my_pnl/features/spending/data/mappers/category_mapper.dart';
 import 'package:my_pnl/features/spending/domain/entities/calendar_month.dart';
@@ -10,6 +11,16 @@ import 'package:my_pnl/features/spending/domain/entities/spend_entry.dart';
 import 'package:my_pnl/features/spending/domain/repositories/transaction_repository.dart';
 
 /// Drift writes behind the transaction repository.
+///
+/// Two scopes run through everything here, and keeping them apart is what makes
+/// a family account safe:
+///
+/// * reads narrow on `ledger_id`, so both partners' entries are counted;
+/// * writes narrow on `owner_id` as well, so neither can change the other's.
+///
+/// The Postgres policies enforce the same split. These filters are not the
+/// security boundary — they are what stops the app offering an action the server
+/// would refuse.
 class TransactionLocalDataSource {
   const TransactionLocalDataSource(this._db);
 
@@ -26,14 +37,18 @@ class TransactionLocalDataSource {
 
   Future<void> recordSpend({
     required String ownerId,
+    required String ledgerId,
     required String categoryId,
     required int amountScaled,
     DateTime? occurredAt,
     String? note,
   }) async {
-    final accountId = await _accounts.defaultAccountId(ownerId);
-    final signed = await _signFor(
+    final accountId = await _accounts.defaultAccountId(
       ownerId: ownerId,
+      ledgerId: ledgerId,
+    );
+    final signed = await _signFor(
+      ledgerId: ledgerId,
       categoryId: categoryId,
       amountScaled: amountScaled,
     );
@@ -43,6 +58,7 @@ class TransactionLocalDataSource {
         .insert(
           TransactionsCompanion.insert(
             ownerId: ownerId,
+            ledgerId: Value(ledgerId),
             accountId: accountId,
             categoryId: Value(categoryId),
             side: TradeSide.buy,
@@ -54,22 +70,34 @@ class TransactionLocalDataSource {
         );
   }
 
-  /// Every entry the owner has, newest first, with its category.
+  /// Every entry in the ledger, newest first, with its category and author.
   ///
-  /// A left join: an entry whose category was deleted with its entries kept
-  /// still belongs in the ledger, and dropping it here would make the list
-  /// disagree with the net total.
-  Stream<List<LedgerEntry>> watchAllEntries(String ownerId) {
+  /// A left join on the category: an entry whose category was deleted with its
+  /// entries kept still belongs in the ledger, and dropping it here would make
+  /// the list disagree with the net total.
+  ///
+  /// A left join on the membership too, which is how a partner's entry gets a
+  /// name beside it. Left rather than inner for the same reason: a member who
+  /// has left is gone from that table, and their spending stays in the book.
+  Stream<List<LedgerEntry>> watchAllEntries({
+    required String ledgerId,
+    required String viewerId,
+  }) {
     final query =
         _db.select(_db.transactions).join([
-          leftOuterJoin(
-            _db.categories,
-            _db.categories.id.equalsExp(_db.transactions.categoryId) &
-                _db.categories.deletedAt.isNull(),
-          ),
-        ])
+            leftOuterJoin(
+              _db.categories,
+              _db.categories.id.equalsExp(_db.transactions.categoryId) &
+                  _db.categories.deletedAt.isNull(),
+            ),
+            leftOuterJoin(
+              _db.ledgerMembers,
+              _db.ledgerMembers.ledgerId.equalsExp(_db.transactions.ledgerId) &
+                  _db.ledgerMembers.userId.equalsExp(_db.transactions.ownerId),
+            ),
+          ])
           ..where(
-            _db.transactions.ownerId.equals(ownerId) &
+            _db.transactions.ledgerId.equals(ledgerId) &
                 _db.transactions.deletedAt.isNull(),
           )
           ..orderBy([OrderingTerm.desc(_db.transactions.executedAt)])
@@ -80,11 +108,10 @@ class TransactionLocalDataSource {
         final transaction = row.readTable(_db.transactions);
 
         return LedgerEntry(
-          entry: SpendEntry(
-            id: transaction.id,
-            amountScaled: transaction.amountScaled,
-            occurredAt: transaction.executedAt,
-            note: transaction.note,
+          entry: _toEntry(
+            transaction,
+            viewerId: viewerId,
+            author: row.readTableOrNull(_db.ledgerMembers),
           ),
           category: row.readTableOrNull(_db.categories)?.toEntity(),
         );
@@ -92,15 +119,16 @@ class TransactionLocalDataSource {
     );
   }
 
-  /// Income minus spending, across every category.
+  /// Income minus spending, across every category in the ledger.
   ///
   /// A plain SUM: because income is stored positive and spending negative,
-  /// the subtraction is already in the data.
+  /// the subtraction is already in the data. Both partners' rows are in it,
+  /// which is the figure the overview is asking for.
   ///
   /// [month] narrows it to one UTC month, read the same way `watchMonthlyPnl`
   /// groups them, so the figure for a month agrees with that month's row there.
   /// Null sums the whole ledger.
-  Stream<int> watchNetTotal(String ownerId, {CalendarMonth? month}) {
+  Stream<int> watchNetTotal(String ledgerId, {CalendarMonth? month}) {
     final total = _db.transactions.amountScaled.sum();
     // See `watchMonthlyPnl` on the cast: the column is stored as text, and the
     // date functions read that text as it stands.
@@ -109,7 +137,7 @@ class TransactionLocalDataSource {
     final query = _db.selectOnly(_db.transactions)
       ..addColumns([total])
       ..where(
-        _db.transactions.ownerId.equals(ownerId) &
+        _db.transactions.ledgerId.equals(ledgerId) &
             _db.transactions.deletedAt.isNull() &
             // `AND 1` when no month is asked for, which SQLite folds away.
             (month == null
@@ -129,7 +157,7 @@ class TransactionLocalDataSource {
   /// The month comes from `strftime` over the stored UTC timestamp, so months
   /// are UTC months. A device an hour either side of the boundary would
   /// otherwise move an entry between months just by travelling.
-  Stream<List<MonthlyPnl>> watchMonthlyPnl(String ownerId) {
+  Stream<List<MonthlyPnl>> watchMonthlyPnl(String ledgerId) {
     // The column carries a type converter, so drift types it as the String it
     // is stored as. `dartCast` puts the DateTime back for the sake of the date
     // functions below and changes no SQL: `strftime` reads the ISO-8601 text
@@ -142,7 +170,7 @@ class TransactionLocalDataSource {
     final query = _db.selectOnly(_db.transactions)
       ..addColumns([year, month, total])
       ..where(
-        _db.transactions.ownerId.equals(ownerId) &
+        _db.transactions.ledgerId.equals(ledgerId) &
             _db.transactions.deletedAt.isNull(),
       )
       ..groupBy([year, month])
@@ -167,14 +195,18 @@ class TransactionLocalDataSource {
   /// category — a spend stored positive, or income stored negative. Returns
   /// how many it changed. Without this, totals recorded before the change
   /// would count spending as income.
+  ///
+  /// Scoped by owner and not by ledger: a sign is wrong wherever the row sits,
+  /// and these are exactly the rows this user is allowed to rewrite. A partner's
+  /// rows are their own device's business.
   Future<int> normalizeAmountSigns(String ownerId) async {
     final rows =
         await (_db.select(_db.transactions).join([
-          leftOuterJoin(
-            _db.categories,
-            _db.categories.id.equalsExp(_db.transactions.categoryId),
-          ),
-        ])..where(
+              leftOuterJoin(
+                _db.categories,
+                _db.categories.id.equalsExp(_db.transactions.categoryId),
+              ),
+            ])..where(
               _db.transactions.ownerId.equals(ownerId) &
                   _db.transactions.deletedAt.isNull(),
             ))
@@ -194,14 +226,14 @@ class TransactionLocalDataSource {
 
       if (expected == transaction.amountScaled) continue;
 
-      await (_db.update(_db.transactions)
-            ..where((t) => t.id.equals(transaction.id)))
-          .write(
-            TransactionsCompanion(
-              amountScaled: Value(expected),
-              updatedAt: Value(DateTime.now().toUtc()),
-            ),
-          );
+      await (_db.update(
+        _db.transactions,
+      )..where((t) => t.id.equals(transaction.id))).write(
+        TransactionsCompanion(
+          amountScaled: Value(expected),
+          updatedAt: Value(DateTime.now().toUtc()),
+        ),
+      );
       fixed++;
     }
 
@@ -214,8 +246,12 @@ class TransactionLocalDataSource {
   /// of rows gives income minus spending without any of the readers needing
   /// to know which is which. Callers pass a magnitude; the sign is not theirs
   /// to decide, and a UI that got it wrong would corrupt every total.
+  ///
+  /// Scoped to the ledger, which doubles as the check that the category is one
+  /// this book has. Booking against a category from another ledger would put a
+  /// row in totals nobody can see the category for.
   Future<int> _signFor({
-    required String ownerId,
+    required String ledgerId,
     required String categoryId,
     required int amountScaled,
   }) async {
@@ -223,21 +259,27 @@ class TransactionLocalDataSource {
         await (_db.select(_db.categories)
               ..where(
                 (row) =>
-                    row.id.equals(categoryId) & row.ownerId.equals(ownerId),
+                    row.id.equals(categoryId) & row.ledgerId.equals(ledgerId),
               )
               ..limit(1))
             .getSingleOrNull();
 
+    if (category == null) {
+      throw StateError('No category $categoryId in ledger $ledgerId');
+    }
+
     final isIncome =
-        CategoryKind.fromStorage(category?.kind) == CategoryKind.income;
+        CategoryKind.fromStorage(category.kind) == CategoryKind.income;
 
     return isIncome ? amountScaled.abs() : -amountScaled.abs();
   }
 
   /// Changes an existing entry.
   ///
-  /// Scoped by owner as well as id: without it a client that guessed an id
-  /// could edit a row it does not own, and the local views enforce nothing.
+  /// Scoped by owner as well as id, and that is the family-account rule rather
+  /// than paranoia: a partner reads these rows and must not be able to rewrite
+  /// them. The local views enforce nothing, so this filter and the matching
+  /// Postgres policy are what does.
   Future<void> updateSpend({
     required String ownerId,
     required String id,
@@ -249,13 +291,17 @@ class TransactionLocalDataSource {
 
     // Re-signed from the row's own category: an edit must not be able to flip
     // an expense into income by typing a positive number.
-    final signed = existing.categoryId == null
-        ? -amountScaled.abs()
-        : await _signFor(
-            ownerId: ownerId,
-            categoryId: existing.categoryId!,
-            amountScaled: amountScaled,
-          );
+    final signed = switch ((existing.categoryId, existing.ledgerId)) {
+      (final String categoryId, final String ledgerId) => await _signFor(
+        ledgerId: ledgerId,
+        categoryId: categoryId,
+        amountScaled: amountScaled,
+      ),
+      // No category to take a kind from — an entry left uncategorised, or one
+      // the startup pass has not given a ledger yet — so it stays spending,
+      // which is what an uncategorised amount has always counted as.
+      _ => -amountScaled.abs(),
+    };
 
     await (_db.update(_db.transactions)..where(
           (row) => row.id.equals(id) & row.ownerId.equals(ownerId),
@@ -314,31 +360,57 @@ class TransactionLocalDataSource {
         );
   }
 
-  /// A category's entries, newest first.
+  /// A category's entries, newest first, whoever recorded them.
   Stream<List<SpendEntry>> watchCategoryHistory({
-    required String ownerId,
+    required String ledgerId,
+    required String viewerId,
     required String categoryId,
   }) {
-    final query = _db.select(_db.transactions)
-      ..where(
-        (row) =>
-            row.ownerId.equals(ownerId) &
-            row.categoryId.equals(categoryId) &
-            row.deletedAt.isNull(),
-      )
-      ..orderBy([(row) => OrderingTerm.desc(row.executedAt)]);
+    final query =
+        _db.select(_db.transactions).join([
+            leftOuterJoin(
+              _db.ledgerMembers,
+              _db.ledgerMembers.ledgerId.equalsExp(_db.transactions.ledgerId) &
+                  _db.ledgerMembers.userId.equalsExp(_db.transactions.ownerId),
+            ),
+          ])
+          ..where(
+            _db.transactions.ledgerId.equals(ledgerId) &
+                _db.transactions.categoryId.equals(categoryId) &
+                _db.transactions.deletedAt.isNull(),
+          )
+          ..orderBy([OrderingTerm.desc(_db.transactions.executedAt)]);
 
     return query.watch().map(
       (rows) => rows
           .map(
-            (row) => SpendEntry(
-              id: row.id,
-              amountScaled: row.amountScaled,
-              occurredAt: row.executedAt,
-              note: row.note,
+            (row) => _toEntry(
+              row.readTable(_db.transactions),
+              viewerId: viewerId,
+              author: row.readTableOrNull(_db.ledgerMembers),
             ),
           )
           .toList(),
+    );
+  }
+
+  /// Builds the entry, working out whether the reader may change it.
+  SpendEntry _toEntry(
+    TransactionRow row, {
+    required String viewerId,
+    required LedgerMemberRow? author,
+  }) {
+    final isOwn = row.ownerId == viewerId;
+
+    return SpendEntry(
+      id: row.id,
+      amountScaled: row.amountScaled,
+      occurredAt: row.executedAt,
+      note: row.note,
+      isOwn: isOwn,
+      // Resolved here rather than in the UI, so a stored sign-in email cannot
+      // reach the screen by a route that forgot to shorten it.
+      authorName: isOwn ? null : ledgerMemberLabel(author?.displayName),
     );
   }
 }

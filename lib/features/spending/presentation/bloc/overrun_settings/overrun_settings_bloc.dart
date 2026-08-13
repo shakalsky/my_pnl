@@ -40,8 +40,7 @@ class OverrunSettingsBloc
       ),
     );
     on<OverrunSettingsRestored>(
-      (event, emit) =>
-          emit(state.copyWith(settings: OverrunSettings.defaults)),
+      (event, emit) => emit(state.copyWith(settings: OverrunSettings.defaults)),
     );
     on<OverrunSettingsSubmitted>(_onSubmitted);
   }

@@ -3,6 +3,17 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_pnl/app/routing/app_router.dart';
 import 'package:my_pnl/features/currencies/presentation/widgets/currency_list_sheet.dart';
+import 'package:my_pnl/features/ledgers/domain/repositories/ledger_repository.dart';
+import 'package:my_pnl/features/ledgers/domain/usecases/create_family_ledger.dart';
+import 'package:my_pnl/features/ledgers/domain/usecases/create_personal_ledger.dart';
+import 'package:my_pnl/features/ledgers/domain/usecases/delete_personal_ledger.dart';
+import 'package:my_pnl/features/ledgers/domain/usecases/join_family_ledger.dart';
+import 'package:my_pnl/features/ledgers/domain/usecases/leave_ledger.dart';
+import 'package:my_pnl/features/ledgers/domain/usecases/rotate_invite_code.dart';
+import 'package:my_pnl/features/ledgers/domain/usecases/select_ledger.dart';
+import 'package:my_pnl/features/ledgers/domain/usecases/watch_ledgers.dart';
+import 'package:my_pnl/features/ledgers/presentation/bloc/ledger/ledger_bloc.dart';
+import 'package:my_pnl/features/ledgers/presentation/widgets/ledger_switcher.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/repositories/category_repository.dart';
 import 'package:my_pnl/features/spending/domain/repositories/overrun_settings_store.dart';
@@ -23,29 +34,52 @@ class SpendingOverviewPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) =>
-          SpendingOverviewBloc(
-              watchCategorySpend: WatchCategorySpend(
-                context.read<CategoryRepository>(),
-              ),
-              // Only the spending page: a month of income above the usual is
-              // not something to warn anybody about.
-              watchSpendBaselines: WatchSpendBaselines(
-                context.read<CategoryRepository>(),
-              ),
-              watchOverrunSettings: WatchOverrunSettings(
-                context.read<OverrunSettingsStore>(),
-              ),
-              reorderCategories: ReorderCategories(
-                context.read<CategoryRepository>(),
-              ),
-            )
-            // No net total: the headline is what this page's own categories add
-            // up to, and nothing here shows income against spending.
-            ..add(const SpendingOverviewSubscriptionRequested())
-            ..add(const SpendingOverviewBaselinesRequested())
-            ..add(const SpendingOverviewSettingsRequested()),
+    final ledgers = context.read<LedgerRepository>();
+
+    return MultiBlocProvider(
+      providers: [
+        // The switcher in the header, and the sheet it opens. Provided by this
+        // page rather than by the pager above it, because this is the page that
+        // shows it — and a page that provides what it needs is one a test can
+        // pump on its own.
+        BlocProvider(
+          create: (_) => LedgerBloc(
+            watchLedgers: WatchLedgers(ledgers),
+            activeId: ledgers.activeId,
+            selectLedger: SelectLedger(ledgers),
+            createPersonalLedger: CreatePersonalLedger(ledgers),
+            createFamilyLedger: CreateFamilyLedger(ledgers),
+            joinFamilyLedger: JoinFamilyLedger(ledgers),
+            leaveLedger: LeaveLedger(ledgers),
+            deletePersonalLedger: DeletePersonalLedger(ledgers),
+            rotateInviteCode: RotateInviteCode(ledgers),
+          )..add(const LedgerSubscriptionRequested()),
+        ),
+        BlocProvider(
+          create: (context) =>
+              SpendingOverviewBloc(
+                  watchCategorySpend: WatchCategorySpend(
+                    context.read<CategoryRepository>(),
+                  ),
+                  // Only the spending page: a month of income above the usual is
+                  // not something to warn anybody about.
+                  watchSpendBaselines: WatchSpendBaselines(
+                    context.read<CategoryRepository>(),
+                  ),
+                  watchOverrunSettings: WatchOverrunSettings(
+                    context.read<OverrunSettingsStore>(),
+                  ),
+                  reorderCategories: ReorderCategories(
+                    context.read<CategoryRepository>(),
+                  ),
+                )
+                // No net total: the headline is what this page's own categories add
+                // up to, and nothing here shows income against spending.
+                ..add(const SpendingOverviewSubscriptionRequested())
+                ..add(const SpendingOverviewBaselinesRequested())
+                ..add(const SpendingOverviewSettingsRequested()),
+        ),
+      ],
       child: const SpendingOverviewView(),
     );
   }
@@ -56,7 +90,6 @@ class SpendingOverviewView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       body: SafeArea(
         // The grid runs to the bottom of the screen, and the home indicator
@@ -71,6 +104,11 @@ class SpendingOverviewView extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   const SyncIndicator(),
+                  // Ahead of everything else, and flexible so the icons keep
+                  // their room: which book is open is what every figure below
+                  // depends on, and a total read against the wrong one is not a
+                  // small mistake.
+                  const Flexible(child: LedgerSwitcher()),
                   const Spacer(),
                   IconButton(
                     onPressed: () => AllTransactionsSheet.show(context),

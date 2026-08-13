@@ -7,6 +7,7 @@ import 'package:my_pnl/app/routing/app_router.dart';
 import 'package:my_pnl/core/money/base_currency.dart';
 import 'package:my_pnl/database/database.dart';
 import 'package:my_pnl/features/app_update/domain/repositories/app_update_repository.dart';
+import 'package:my_pnl/features/auth/domain/entities/auth_user.dart';
 import 'package:my_pnl/features/auth/domain/repositories/auth_repository.dart';
 import 'package:my_pnl/features/auth/presentation/bloc/auth/auth_bloc.dart';
 import 'package:my_pnl/features/currencies/domain/repositories/base_currency_store.dart';
@@ -15,6 +16,7 @@ import 'package:my_pnl/features/currencies/domain/repositories/display_currency_
 import 'package:my_pnl/features/currencies/domain/usecases/watch_base_currency.dart';
 import 'package:my_pnl/features/debts/domain/repositories/debt_repository.dart';
 import 'package:my_pnl/features/goals/domain/repositories/goal_repository.dart';
+import 'package:my_pnl/features/ledgers/domain/repositories/ledger_repository.dart';
 import 'package:my_pnl/features/spending/domain/repositories/category_repository.dart';
 import 'package:my_pnl/features/spending/domain/repositories/overrun_settings_store.dart';
 import 'package:my_pnl/features/spending/domain/repositories/transaction_repository.dart';
@@ -31,6 +33,7 @@ class App extends StatefulWidget {
     required this.displayCurrencyStore,
     required this.debtRepository,
     required this.goalRepository,
+    required this.ledgerRepository,
     required this.overrunSettingsStore,
     required this.transactionRepository,
     required this.syncRepository,
@@ -50,6 +53,7 @@ class App extends StatefulWidget {
   final DisplayCurrencyStore displayCurrencyStore;
   final DebtRepository debtRepository;
   final GoalRepository goalRepository;
+  final LedgerRepository ledgerRepository;
   final OverrunSettingsStore overrunSettingsStore;
   final TransactionRepository transactionRepository;
   final SyncRepository syncRepository;
@@ -65,6 +69,11 @@ class _AppState extends State<App> {
   late final GoRouter _router;
   AppLifecycleListener? _lifecycle;
   StreamSubscription<BaseCurrency>? _baseCurrencyChanges;
+  StreamSubscription<AuthUser?>? _sessionChanges;
+
+  /// Who the tree below is built for. Only used to tell one session from the
+  /// next; the pages read the session through [AuthBloc].
+  String? _sessionUserId;
 
   @override
   void initState() {
@@ -92,6 +101,28 @@ class _AppState extends State<App> {
     _baseCurrencyChanges = WatchBaseCurrency(
       widget.baseCurrencyStore,
     )().listen(_applyBaseCurrency);
+
+    // Nothing here watches the open ledger, and it would not help if it did: the
+    // router keeps its Navigator behind a GlobalKey, so rebuilding this shell
+    // preserves the pages and the blocs beneath them, subscriptions and all. A
+    // switch reaches them through the repositories instead — every watch stream
+    // is built over `LedgerScope.changes`.
+    //
+    // Which books exist depends on who is signed in, so a sign-in or sign-out
+    // has to settle the open one again. Without this, the ledger resolved for
+    // the signed-out local user would stay in force after signing in, and every
+    // read and write would go to a book the account has no access to.
+    _sessionUserId = widget.authRepository.currentUser?.id;
+    _sessionChanges = widget.authRepository.watchUser().listen(_applySession);
+  }
+
+  void _applySession(AuthUser? user) {
+    if (user?.id == _sessionUserId) return;
+
+    _sessionUserId = user?.id;
+    // Not awaited, and nothing here waits for it: the switch it may cause
+    // arrives through [_applyLedger] like any other.
+    unawaited(widget.ledgerRepository.resolveActive());
   }
 
   void _applyBaseCurrency(BaseCurrency base) {
@@ -104,6 +135,7 @@ class _AppState extends State<App> {
   @override
   void dispose() {
     unawaited(_baseCurrencyChanges?.cancel());
+    unawaited(_sessionChanges?.cancel());
     _lifecycle?.dispose();
     super.dispose();
   }
@@ -121,6 +153,7 @@ class _AppState extends State<App> {
         RepositoryProvider.value(value: widget.displayCurrencyStore),
         RepositoryProvider.value(value: widget.debtRepository),
         RepositoryProvider.value(value: widget.goalRepository),
+        RepositoryProvider.value(value: widget.ledgerRepository),
         RepositoryProvider.value(value: widget.overrunSettingsStore),
         RepositoryProvider.value(value: widget.transactionRepository),
         RepositoryProvider.value(value: widget.syncRepository),
@@ -132,14 +165,19 @@ class _AppState extends State<App> {
               ..add(const AuthSubscriptionRequested()),
         child: MaterialApp.router(
           routerConfig: _router,
-          // Rebuilt from scratch when the base currency changes, and only then.
+          // Rebuilt when the base currency changes, and only then.
           //
-          // A rebuild alone does not reach the pages: they are the router's, and
-          // it hands the Navigator the same page objects it did before, so
-          // nothing beneath is asked to build again. Keying the Navigator throws
-          // the pages away and builds them from the router's current location —
-          // the reader stays where they are, and no figure is left labelled with
-          // the currency they have just stopped using.
+          // Every figure goes through `formatAmount`, which reads the base from a
+          // single value rather than being handed it, so a rebuild is all it
+          // takes to relabel what is on screen. Keying it is what makes the
+          // rebuild happen at all — the router hands the Navigator the same page
+          // objects it did before, so without a key change nothing beneath is
+          // asked to build again.
+          //
+          // Note what this does *not* do: the pages themselves survive it,
+          // because the router's Navigator sits behind a GlobalKey. Anything that
+          // has to be re-read rather than re-rendered — the open ledger — cannot
+          // be done from here.
           builder: (context, child) => KeyedSubtree(
             key: ValueKey(activeBaseCurrency.ticker),
             child: child!,

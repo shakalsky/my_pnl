@@ -3,7 +3,8 @@ import 'package:equatable/equatable.dart';
 /// Which side of the ledger a category sits on.
 enum CategoryKind {
   expense,
-  income;
+  income
+  ;
 
   /// Rows written before this column existed have no value; they are
   /// spending, which is all the app tracked at the time.

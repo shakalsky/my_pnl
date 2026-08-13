@@ -12,7 +12,17 @@ import 'package:my_pnl/features/spending/domain/repositories/category_repository
 ///
 /// Under PowerSync these tables are views over the synced data, so a row
 /// arriving from another device shows up here the same way a local write
-/// does — the watch stream fires either way.
+/// does — the watch stream fires either way. In a family account that is also
+/// how a partner's spending arrives.
+///
+/// Categories are scoped by ledger and not by owner, reads and writes alike: the
+/// categories of a shared book belong to the book. One partner having to ask the
+/// other to rename a tile, or seeing only their own half of the grid, would make
+/// a shared total meaningless.
+///
+/// Entries are the opposite case — `TransactionLocalDataSource` writes only the
+/// caller's own — which is why the few writes here that reach into
+/// `transactions` are scoped by owner as well.
 class CategoryLocalDataSource {
   const CategoryLocalDataSource(this._db);
 
@@ -37,13 +47,22 @@ class CategoryLocalDataSource {
   /// Walks month by month from the category's creation to [now], so an app
   /// closed for a quarter still books the months it missed. Returns how many
   /// transactions were created.
+  ///
+  /// Only the caller's own recurring categories, unlike everything else here.
+  /// The transaction it writes is owned by whoever the salary belongs to, and a
+  /// device may only write rows it owns — so a partner's income is their
+  /// device's job to book, not this one's. It would also be the wrong answer:
+  /// booking their salary under this reader's name would label it with the wrong
+  /// person for good.
   Future<int> generateDueRecurringIncome({
     required String ownerId,
+    required String ledgerId,
     required DateTime now,
   }) async {
     final categories =
         await (_db.select(_db.categories)..where(
               (row) =>
+                  row.ledgerId.equals(ledgerId) &
                   row.ownerId.equals(ownerId) &
                   row.deletedAt.isNull() &
                   row.kind.equals(CategoryKind.income.storage) &
@@ -85,7 +104,11 @@ class CategoryLocalDataSource {
               TransactionsCompanion.insert(
                 id: Value(id),
                 ownerId: ownerId,
-                accountId: await _accounts.defaultAccountId(ownerId),
+                ledgerId: Value(ledgerId),
+                accountId: await _accounts.defaultAccountId(
+                  ownerId: ownerId,
+                  ledgerId: ledgerId,
+                ),
                 categoryId: Value(category.id),
                 side: TradeSide.buy,
                 amountScaled: recurring.amountScaled,
@@ -144,13 +167,17 @@ class CategoryLocalDataSource {
   /// A left join, so a category with no transactions still appears with a
   /// total of zero rather than dropping out of the list.
   ///
+  /// The sum takes in every entry in the ledger, whoever recorded it: in a
+  /// family account a tile shows what the household spent on it, which is the
+  /// figure the ring around the total is drawn from as well.
+  ///
   /// [month] narrows the sum to one month. It is applied to the join and not to
   /// the `where`, because a condition on the right-hand table of a left join
   /// belongs to the match: in the `where` it would drop every category that had
   /// nothing booked that month, and the grid would empty out as the user paged
   /// back through quiet months.
   Stream<List<CategorySpend>> watchCategorySpend(
-    String ownerId,
+    String ledgerId,
     CategoryKind kind, {
     CalendarMonth? month,
   }) {
@@ -166,7 +193,7 @@ class CategoryLocalDataSource {
             ),
           ])
           ..where(
-            _db.categories.ownerId.equals(ownerId) &
+            _db.categories.ledgerId.equals(ledgerId) &
                 _db.categories.deletedAt.isNull() &
                 _kindMatches(kind),
           )
@@ -211,7 +238,7 @@ class CategoryLocalDataSource {
   /// month a category did not exist in is absent from the result rather than
   /// present as a zero. `AVG` over the rows would divide by the wrong number.
   Stream<Map<String, SpendBaseline>> watchSpendBaselines(
-    String ownerId,
+    String ledgerId,
     CategoryKind kind, {
     required CalendarMonth month,
     int lookbackMonths = SpendBaseline.lookbackMonths,
@@ -236,14 +263,14 @@ class CategoryLocalDataSource {
             innerJoin(
               _db.categories,
               _db.categories.id.equalsExp(categoryId) &
-                  _db.categories.ownerId.equals(ownerId) &
+                  _db.categories.ledgerId.equals(ledgerId) &
                   _db.categories.deletedAt.isNull() &
                   _kindMatches(kind),
             ),
           ])
           ..addColumns([categoryId, ordinal, total])
           ..where(
-            _db.transactions.ownerId.equals(ownerId) &
+            _db.transactions.ledgerId.equals(ledgerId) &
                 _db.transactions.deletedAt.isNull() &
                 ordinal.isBetweenValues(oldest, newest),
           )
@@ -309,15 +336,21 @@ class CategoryLocalDataSource {
   /// Inserts a category and returns the stored row.
   ///
   /// The id comes from the table's client-side UUIDv7 default, so it exists
-  /// before the row ever reaches a server.
-  Future<Category> createCategory(NewCategory category, String ownerId) async {
-    await _requireFreeName(category.name, ownerId);
+  /// before the row ever reaches a server. [ownerId] records who added it, which
+  /// is all it is for here — either partner may edit it afterwards.
+  Future<Category> createCategory(
+    NewCategory category, {
+    required String ownerId,
+    required String ledgerId,
+  }) async {
+    await _requireFreeName(category.name, ledgerId);
 
     final row = await _db
         .into(_db.categories)
         .insertReturning(
           CategoriesCompanion.insert(
             ownerId: ownerId,
+            ledgerId: Value(ledgerId),
             name: category.name,
             colorArgb: category.colorArgb,
             iconKey: category.iconKey,
@@ -335,12 +368,12 @@ class CategoryLocalDataSource {
   /// `updatedAt` is bumped here rather than by a database trigger: PowerSync's
   /// local tables are views and cannot carry triggers, so the client is the
   /// only place that can stamp it before the change is queued for upload.
-  Future<Category> updateCategory(Category category, String ownerId) async {
-    await _requireOwned(category.id, ownerId);
-    await _requireFreeName(category.name, ownerId, exceptId: category.id);
+  Future<Category> updateCategory(Category category, String ledgerId) async {
+    await _requireInLedger(category.id, ledgerId);
+    await _requireFreeName(category.name, ledgerId, exceptId: category.id);
 
     await (_db.update(_db.categories)..where(
-          (row) => row.id.equals(category.id) & row.ownerId.equals(ownerId),
+          (row) => row.id.equals(category.id) & row.ledgerId.equals(ledgerId),
         ))
         .write(
           CategoriesCompanion(
@@ -354,7 +387,7 @@ class CategoryLocalDataSource {
           ),
         );
 
-    return (await _requireOwned(category.id, ownerId)).toEntity();
+    return (await _requireInLedger(category.id, ledgerId)).toEntity();
   }
 
   /// Writes the grid's arrangement: [orderedIds] front to back.
@@ -364,12 +397,17 @@ class CategoryLocalDataSource {
   /// from having to guess where a null belongs.
   ///
   /// One transaction, because a half-written arrangement is an order nobody
-  /// chose. Ids not owned by [ownerId], or already deleted, match nothing and
-  /// are skipped rather than throwing: a list built from a stream can name a
+  /// chose. Ids not in [ledgerId], or already deleted, match nothing and are
+  /// skipped rather than throwing: a list built from a stream can name a
   /// category another device removed a moment ago, and losing that race is no
   /// reason to abandon the rest of the arrangement.
+  ///
+  /// The arrangement is the ledger's, so in a family account a drag rearranges
+  /// the grid both partners see. That is the same rule as the categories
+  /// themselves, and the alternative — a private order over shared tiles — would
+  /// need a second table to say whose order it was.
   Future<void> reorderCategories({
-    required String ownerId,
+    required String ledgerId,
     required List<String> orderedIds,
   }) async {
     final now = DateTime.now().toUtc();
@@ -379,7 +417,7 @@ class CategoryLocalDataSource {
         await (_db.update(_db.categories)..where(
               (row) =>
                   row.id.equals(orderedIds[position]) &
-                  row.ownerId.equals(ownerId) &
+                  row.ledgerId.equals(ledgerId) &
                   row.deletedAt.isNull(),
             ))
             .write(
@@ -392,7 +430,7 @@ class CategoryLocalDataSource {
     });
   }
 
-  /// Throws if the owner already has a live category by this name.
+  /// Throws if the ledger already has a live category by this name.
   ///
   /// Compared case-insensitively: "Food" and "food" are the same category to
   /// anyone reading the grid, and allowing both makes the list confusing.
@@ -400,7 +438,7 @@ class CategoryLocalDataSource {
   /// enforces it on device; Postgres has the matching index.
   Future<void> _requireFreeName(
     String name,
-    String ownerId, {
+    String ledgerId, {
     String? exceptId,
   }) async {
     final normalized = name.trim().toLowerCase();
@@ -408,7 +446,7 @@ class CategoryLocalDataSource {
     final clash =
         await (_db.select(_db.categories)..where(
               (row) =>
-                  row.ownerId.equals(ownerId) &
+                  row.ledgerId.equals(ledgerId) &
                   row.name.lower().equals(normalized) &
                   row.deletedAt.isNull(),
             ))
@@ -419,7 +457,7 @@ class CategoryLocalDataSource {
     }
   }
 
-  /// Reads a live row back, throwing if it is missing or not the caller's.
+  /// Reads a live row back, throwing if it is missing or in another ledger.
   ///
   /// Existence is checked with a SELECT rather than the row count a write
   /// returns. Under PowerSync these tables are views written through INSTEAD
@@ -427,17 +465,17 @@ class CategoryLocalDataSource {
   /// so `write()` returns 0 on a perfectly successful update. Treating that
   /// as "not found" fails every edit and delete on a real device, while
   /// passing against the plain database used in tests.
-  Future<CategoryRow> _requireOwned(String id, String ownerId) async {
+  Future<CategoryRow> _requireInLedger(String id, String ledgerId) async {
     final row =
         await (_db.select(_db.categories)..where(
               (row) =>
                   row.id.equals(id) &
-                  row.ownerId.equals(ownerId) &
+                  row.ledgerId.equals(ledgerId) &
                   row.deletedAt.isNull(),
             ))
             .getSingleOrNull();
 
-    if (row == null) throw StateError('No category $id owned by $ownerId');
+    if (row == null) throw StateError('No category $id in ledger $ledgerId');
     return row;
   }
 
@@ -451,7 +489,17 @@ class CategoryLocalDataSource {
   /// What happens to the transactions is the caller's choice: [mode] either
   /// detaches them, leaving the money in the ledger, or tombstones them with
   /// the category.
+  ///
+  /// Either way it reaches only [ownerId]'s own entries, and it has to: a
+  /// partner's rows are theirs to write, and an update to one would be refused
+  /// on upload — the change would apply on this device and quietly never reach
+  /// theirs, which is worse than not making it. A partner's entries in a
+  /// category deleted from under them stay in the ledger and read as
+  /// uncategorised, which is what the tombstoned category makes every read do
+  /// anyway. `CategoryDeletion.deleteTransactions` therefore removes the
+  /// caller's amounts and not the household's; the sheet that offers it says so.
   Future<void> deleteCategory({
+    required String ledgerId,
     required String ownerId,
     required String id,
     required CategoryDeletion mode,
@@ -459,10 +507,10 @@ class CategoryLocalDataSource {
     final now = DateTime.now().toUtc();
 
     await _db.transaction(() async {
-      await _requireOwned(id, ownerId);
+      await _requireInLedger(id, ledgerId);
 
       await (_db.update(_db.categories)..where(
-            (row) => row.id.equals(id) & row.ownerId.equals(ownerId),
+            (row) => row.id.equals(id) & row.ledgerId.equals(ledgerId),
           ))
           .write(
             CategoriesCompanion(deletedAt: Value(now), updatedAt: Value(now)),
@@ -471,6 +519,7 @@ class CategoryLocalDataSource {
       final booked = _db.update(_db.transactions)
         ..where(
           (row) =>
+              row.ledgerId.equals(ledgerId) &
               row.ownerId.equals(ownerId) &
               row.categoryId.equals(id) &
               row.deletedAt.isNull(),

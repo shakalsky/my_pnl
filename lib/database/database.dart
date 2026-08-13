@@ -7,6 +7,7 @@ import 'package:my_pnl/database/tables/categories.dart';
 import 'package:my_pnl/database/tables/currencies.dart';
 import 'package:my_pnl/database/tables/debts.dart';
 import 'package:my_pnl/database/tables/goals.dart';
+import 'package:my_pnl/database/tables/ledgers.dart';
 import 'package:my_pnl/database/tables/synced_table.dart';
 import 'package:my_pnl/database/tables/transactions.dart';
 import 'package:sqlite_async/sqlite_async.dart';
@@ -17,6 +18,8 @@ export 'package:my_pnl/database/tables/categories.dart';
 export 'package:my_pnl/database/tables/currencies.dart';
 export 'package:my_pnl/database/tables/debts.dart';
 export 'package:my_pnl/database/tables/goals.dart';
+export 'package:my_pnl/database/tables/ledger_scoped_table.dart';
+export 'package:my_pnl/database/tables/ledgers.dart';
 export 'package:my_pnl/database/tables/synced_table.dart';
 export 'package:my_pnl/database/tables/transactions.dart';
 
@@ -29,7 +32,16 @@ part 'database.g.dart';
 /// migrations are therefore disabled — schema changes arrive from the
 /// PowerSync schema and the sync rules, not from `build_runner`.
 @DriftDatabase(
-  tables: [Accounts, Categories, Currencies, Debts, Goals, Transactions],
+  tables: [
+    Accounts,
+    Categories,
+    Currencies,
+    Debts,
+    Goals,
+    Ledgers,
+    LedgerMembers,
+    Transactions,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   /// Opens drift over a PowerSync (or any `sqlite_async`) connection.

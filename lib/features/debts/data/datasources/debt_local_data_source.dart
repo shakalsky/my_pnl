@@ -8,14 +8,14 @@ class DebtLocalDataSource {
 
   final AppDatabase _db;
 
-  /// The owner's debts, open ones first and newest first within each group.
+  /// The ledger's debts, open ones first and newest first within each group.
   ///
   /// The ordering leans on SQLite sorting NULL before any value: an open debt
   /// has no `settled_at`, so ascending on that column floats the ones that
   /// still need doing to the top without a second query or a CASE expression.
-  Stream<List<Debt>> watchDebts(String ownerId) {
+  Stream<List<Debt>> watchDebts(String ledgerId) {
     final query = _db.select(_db.debts)
-      ..where((row) => row.ownerId.equals(ownerId) & row.deletedAt.isNull())
+      ..where((row) => row.ledgerId.equals(ledgerId) & row.deletedAt.isNull())
       ..orderBy([
         (row) => OrderingTerm.asc(row.settledAt),
         (row) => OrderingTerm.desc(row.createdAt),
@@ -24,12 +24,20 @@ class DebtLocalDataSource {
     return query.watch().map((rows) => rows.map(_toEntity).toList());
   }
 
-  Future<Debt> createDebt(NewDebt debt, String ownerId) async {
+  Future<Debt> createDebt(
+    NewDebt debt, {
+    required String ownerId,
+    required String ledgerId,
+  }) async {
     final row = await _db
         .into(_db.debts)
         .insertReturning(
           DebtsCompanion.insert(
+            // Records who entered it. A debt is shared furniture like a
+            // category: in a family account either partner can settle one, which
+            // is the point of tracking it in a shared book.
             ownerId: ownerId,
+            ledgerId: Value(ledgerId),
             counterparty: debt.counterparty,
             direction: debt.direction.storage,
             amountScaled: debt.amountScaled,
@@ -41,11 +49,11 @@ class DebtLocalDataSource {
     return _toEntity(row);
   }
 
-  Future<Debt> updateDebt(Debt debt, String ownerId) async {
-    await _requireOwned(debt.id, ownerId);
+  Future<Debt> updateDebt(Debt debt, String ledgerId) async {
+    await _requireInLedger(debt.id, ledgerId);
 
     await (_db.update(_db.debts)..where(
-          (row) => row.id.equals(debt.id) & row.ownerId.equals(ownerId),
+          (row) => row.id.equals(debt.id) & row.ledgerId.equals(ledgerId),
         ))
         .write(
           DebtsCompanion(
@@ -59,21 +67,21 @@ class DebtLocalDataSource {
           ),
         );
 
-    return _toEntity(await _requireOwned(debt.id, ownerId));
+    return _toEntity(await _requireInLedger(debt.id, ledgerId));
   }
 
   /// Stamps or clears `settled_at`.
   Future<void> setDebtSettled({
-    required String ownerId,
+    required String ledgerId,
     required String id,
     required bool settled,
   }) async {
-    await _requireOwned(id, ownerId);
+    await _requireInLedger(id, ledgerId);
 
     final now = DateTime.now().toUtc();
 
     await (_db.update(_db.debts)..where(
-          (row) => row.id.equals(id) & row.ownerId.equals(ownerId),
+          (row) => row.id.equals(id) & row.ledgerId.equals(ledgerId),
         ))
         .write(
           DebtsCompanion(
@@ -85,15 +93,15 @@ class DebtLocalDataSource {
 
   /// Tombstones the row, so the removal syncs like any other change.
   Future<void> deleteDebt({
-    required String ownerId,
+    required String ledgerId,
     required String id,
   }) async {
-    await _requireOwned(id, ownerId);
+    await _requireInLedger(id, ledgerId);
 
     final now = DateTime.now().toUtc();
 
     await (_db.update(_db.debts)..where(
-          (row) => row.id.equals(id) & row.ownerId.equals(ownerId),
+          (row) => row.id.equals(id) & row.ledgerId.equals(ledgerId),
         ))
         .write(DebtsCompanion(deletedAt: Value(now), updatedAt: Value(now)));
   }
@@ -103,17 +111,17 @@ class DebtLocalDataSource {
   /// A SELECT rather than the row count a write returns: PowerSync's tables
   /// are views written through INSTEAD OF triggers, and SQLite does not count
   /// rows changed by such a trigger, so `write()` returns 0 even on success.
-  Future<DebtRow> _requireOwned(String id, String ownerId) async {
+  Future<DebtRow> _requireInLedger(String id, String ledgerId) async {
     final row =
         await (_db.select(_db.debts)..where(
               (row) =>
                   row.id.equals(id) &
-                  row.ownerId.equals(ownerId) &
+                  row.ledgerId.equals(ledgerId) &
                   row.deletedAt.isNull(),
             ))
             .getSingleOrNull();
 
-    if (row == null) throw StateError('No debt $id owned by $ownerId');
+    if (row == null) throw StateError('No debt $id in ledger $ledgerId');
     return row;
   }
 

@@ -15,7 +15,15 @@ void main() {
     late CategoryLocalDataSource dataSource;
 
     const owner = 'user-1';
+
+    /// A second person. Paired with [otherLedger] where the point is that a
+    /// different book is out of reach, and used inside [ledger] where the point
+    /// is that a partner shares it.
     const other = 'user-2';
+    const ledger = 'ledger-1';
+
+    /// Another book. Categories belong to one, so nothing here crosses over.
+    const otherLedger = 'ledger-2';
 
     setUp(() {
       db = AppDatabase.forTesting(NativeDatabase.memory());
@@ -32,6 +40,7 @@ void main() {
           .insertReturning(
             AccountsCompanion.insert(
               ownerId: owner,
+              ledgerId: const Value(ledger),
               name: 'Everyday',
               currency: 'USD',
             ),
@@ -44,6 +53,7 @@ void main() {
       required String categoryId,
       required int amountScaled,
       String ownerId = owner,
+      String ledgerId = ledger,
       DateTime? executedAt,
     }) {
       return db
@@ -51,6 +61,7 @@ void main() {
           .insert(
             TransactionsCompanion.insert(
               ownerId: ownerId,
+              ledgerId: Value(ledgerId),
               accountId: accountId,
               categoryId: Value(categoryId),
               side: TradeSide.buy,
@@ -68,7 +79,8 @@ void main() {
           colorArgb: 0xFF3B7A57,
           iconKey: 'groceries',
         ),
-        owner,
+        ownerId: owner,
+        ledgerId: ledger,
       );
 
       expect(created.id, hasLength(36));
@@ -77,16 +89,18 @@ void main() {
       expect(created.iconKey, 'groceries');
     });
 
-    test('refuses a name the owner already has', () async {
+    test('refuses a name the ledger already has', () async {
       await dataSource.createCategory(
         const NewCategory(name: 'Groceries', colorArgb: 1, iconKey: 'g'),
-        owner,
+        ownerId: owner,
+        ledgerId: ledger,
       );
 
       await expectLater(
         dataSource.createCategory(
           const NewCategory(name: 'Groceries', colorArgb: 2, iconKey: 'd'),
-          owner,
+          ownerId: owner,
+          ledgerId: ledger,
         ),
         throwsA(isA<CategoryFailure>()),
       );
@@ -95,28 +109,32 @@ void main() {
     test('matches names case- and space-insensitively', () async {
       await dataSource.createCategory(
         const NewCategory(name: 'Groceries', colorArgb: 1, iconKey: 'g'),
-        owner,
+        ownerId: owner,
+        ledgerId: ledger,
       );
 
       await expectLater(
         dataSource.createCategory(
           const NewCategory(name: '  groceries ', colorArgb: 2, iconKey: 'd'),
-          owner,
+          ownerId: owner,
+          ledgerId: ledger,
         ),
         throwsA(isA<CategoryFailure>()),
       );
     });
 
-    test('lets a different owner use the same name', () async {
+    test('lets another ledger use the same name', () async {
       await dataSource.createCategory(
         const NewCategory(name: 'Groceries', colorArgb: 1, iconKey: 'g'),
-        owner,
+        ownerId: owner,
+        ledgerId: ledger,
       );
 
       await expectLater(
         dataSource.createCategory(
           const NewCategory(name: 'Groceries', colorArgb: 1, iconKey: 'g'),
-          other,
+          ownerId: other,
+          ledgerId: otherLedger,
         ),
         completes,
       );
@@ -125,9 +143,11 @@ void main() {
     test('a deleted name can be used again', () async {
       final category = await dataSource.createCategory(
         const NewCategory(name: 'Groceries', colorArgb: 1, iconKey: 'g'),
-        owner,
+        ownerId: owner,
+        ledgerId: ledger,
       );
       await dataSource.deleteCategory(
+        ledgerId: ledger,
         ownerId: owner,
         id: category.id,
         mode: CategoryDeletion.keepTransactions,
@@ -136,7 +156,8 @@ void main() {
       await expectLater(
         dataSource.createCategory(
           const NewCategory(name: 'Groceries', colorArgb: 1, iconKey: 'g'),
-          owner,
+          ownerId: owner,
+          ledgerId: ledger,
         ),
         completes,
       );
@@ -145,11 +166,13 @@ void main() {
     test('renaming onto another category is refused', () async {
       final groceries = await dataSource.createCategory(
         const NewCategory(name: 'Groceries', colorArgb: 1, iconKey: 'g'),
-        owner,
+        ownerId: owner,
+        ledgerId: ledger,
       );
       await dataSource.createCategory(
         const NewCategory(name: 'Dining', colorArgb: 2, iconKey: 'd'),
-        owner,
+        ownerId: owner,
+        ledgerId: ledger,
       );
 
       await expectLater(
@@ -160,7 +183,7 @@ void main() {
             colorArgb: 1,
             iconKey: 'g',
           ),
-          owner,
+          ledger,
         ),
         throwsA(isA<CategoryFailure>()),
       );
@@ -169,7 +192,8 @@ void main() {
     test('saving a category under its own name is allowed', () async {
       final groceries = await dataSource.createCategory(
         const NewCategory(name: 'Groceries', colorArgb: 1, iconKey: 'g'),
-        owner,
+        ownerId: owner,
+        ledgerId: ledger,
       );
 
       final updated = await dataSource.updateCategory(
@@ -179,7 +203,7 @@ void main() {
           colorArgb: 99,
           iconKey: 'dining',
         ),
-        owner,
+        ledger,
       );
 
       expect(updated.colorArgb, 99);
@@ -188,11 +212,12 @@ void main() {
     test('reports a category with no transactions as zero', () async {
       await dataSource.createCategory(
         const NewCategory(name: 'Fun', colorArgb: 1, iconKey: 'fun'),
-        owner,
+        ownerId: owner,
+        ledgerId: ledger,
       );
 
       final spend = await dataSource
-          .watchCategorySpend(owner, CategoryKind.expense)
+          .watchCategorySpend(ledger, CategoryKind.expense)
           .first;
 
       expect(spend, hasLength(1));
@@ -203,11 +228,13 @@ void main() {
       final accountId = await insertAccount();
       final groceries = await dataSource.createCategory(
         const NewCategory(name: 'Groceries', colorArgb: 1, iconKey: 'g'),
-        owner,
+        ownerId: owner,
+        ledgerId: ledger,
       );
       final dining = await dataSource.createCategory(
         const NewCategory(name: 'Dining', colorArgb: 2, iconKey: 'd'),
-        owner,
+        ownerId: owner,
+        ledgerId: ledger,
       );
 
       for (final amount in [1250, 2000, 375]) {
@@ -224,7 +251,7 @@ void main() {
       );
 
       final spend = await dataSource
-          .watchCategorySpend(owner, CategoryKind.expense)
+          .watchCategorySpend(ledger, CategoryKind.expense)
           .first;
       final byName = {
         for (final entry in spend) entry.category.name: entry.totalScaled,
@@ -240,7 +267,8 @@ void main() {
       final accountId = await insertAccount();
       final category = await dataSource.createCategory(
         const NewCategory(name: 'Groceries', colorArgb: 1, iconKey: 'g'),
-        owner,
+        ownerId: owner,
+        ledgerId: ledger,
       );
 
       await insertTransaction(
@@ -258,24 +286,26 @@ void main() {
           .write(TransactionsCompanion(deletedAt: Value(DateTime.now())));
 
       final spend = await dataSource
-          .watchCategorySpend(owner, CategoryKind.expense)
+          .watchCategorySpend(ledger, CategoryKind.expense)
           .first;
 
       expect(spend.single.totalScaled, 1000);
     });
 
-    test("never returns another owner's categories", () async {
+    test("never returns another ledger's categories", () async {
       await dataSource.createCategory(
         const NewCategory(name: 'Mine', colorArgb: 1, iconKey: 'g'),
-        owner,
+        ownerId: owner,
+        ledgerId: ledger,
       );
       await dataSource.createCategory(
         const NewCategory(name: 'Theirs', colorArgb: 1, iconKey: 'g'),
-        other,
+        ownerId: other,
+        ledgerId: otherLedger,
       );
 
       final spend = await dataSource
-          .watchCategorySpend(owner, CategoryKind.expense)
+          .watchCategorySpend(ledger, CategoryKind.expense)
           .first;
 
       expect(spend.map((e) => e.category.name), ['Mine']);
@@ -285,7 +315,8 @@ void main() {
       final accountId = await insertAccount();
       final category = await dataSource.createCategory(
         const NewCategory(name: 'Groceries', colorArgb: 1, iconKey: 'g'),
-        owner,
+        ownerId: owner,
+        ledgerId: ledger,
       );
       await insertTransaction(
         accountId: accountId,
@@ -294,13 +325,14 @@ void main() {
       );
 
       await dataSource.deleteCategory(
+        ledgerId: ledger,
         ownerId: owner,
         id: category.id,
         mode: CategoryDeletion.keepTransactions,
       );
 
       expect(
-        await dataSource.watchCategorySpend(owner, CategoryKind.expense).first,
+        await dataSource.watchCategorySpend(ledger, CategoryKind.expense).first,
         isEmpty,
       );
 
@@ -319,7 +351,8 @@ void main() {
       final accountId = await insertAccount();
       final category = await dataSource.createCategory(
         const NewCategory(name: 'Groceries', colorArgb: 1, iconKey: 'g'),
-        owner,
+        ownerId: owner,
+        ledgerId: ledger,
       );
       await insertTransaction(
         accountId: accountId,
@@ -328,6 +361,7 @@ void main() {
       );
 
       await dataSource.deleteCategory(
+        ledgerId: ledger,
         ownerId: owner,
         id: category.id,
         mode: CategoryDeletion.deleteTransactions,
@@ -338,14 +372,16 @@ void main() {
       expect(row.categoryId, category.id, reason: 'still says where it was');
     });
 
-    test("refuses to delete another owner's category", () async {
+    test("refuses to delete another ledger's category", () async {
       final category = await dataSource.createCategory(
         const NewCategory(name: 'Groceries', colorArgb: 1, iconKey: 'g'),
-        owner,
+        ownerId: owner,
+        ledgerId: ledger,
       );
 
       await expectLater(
         dataSource.deleteCategory(
+          ledgerId: otherLedger,
           ownerId: other,
           id: category.id,
           mode: CategoryDeletion.keepTransactions,
@@ -353,7 +389,7 @@ void main() {
         throwsStateError,
       );
       expect(
-        await dataSource.watchCategorySpend(owner, CategoryKind.expense).first,
+        await dataSource.watchCategorySpend(ledger, CategoryKind.expense).first,
         hasLength(1),
       );
     });
@@ -361,7 +397,7 @@ void main() {
     test('re-emits when a category is added', () async {
       final emissions = <int>[];
       final subscription = dataSource
-          .watchCategorySpend(owner, CategoryKind.expense)
+          .watchCategorySpend(ledger, CategoryKind.expense)
           .listen((spend) => emissions.add(spend.length));
 
       // Let the initial query land before writing, otherwise the insert can
@@ -370,7 +406,8 @@ void main() {
 
       await dataSource.createCategory(
         const NewCategory(name: 'Fun', colorArgb: 1, iconKey: 'fun'),
-        owner,
+        ownerId: owner,
+        ledgerId: ledger,
       );
       await pumpEventQueue();
       await subscription.cancel();
@@ -387,7 +424,8 @@ void main() {
           created.add(
             await dataSource.createCategory(
               NewCategory(name: name, colorArgb: 1, iconKey: 'g'),
-              owner,
+              ownerId: owner,
+              ledgerId: ledger,
             ),
           );
         }
@@ -397,7 +435,7 @@ void main() {
 
       Future<List<String>> names() async {
         final spend = await dataSource
-            .watchCategorySpend(owner, CategoryKind.expense)
+            .watchCategorySpend(ledger, CategoryKind.expense)
             .first;
         return [for (final entry in spend) entry.category.name];
       }
@@ -412,7 +450,7 @@ void main() {
         final created = await seedThree();
 
         await dataSource.reorderCategories(
-          ownerId: owner,
+          ledgerId: ledger,
           orderedIds: [created[2].id, created[0].id, created[1].id],
         );
 
@@ -422,13 +460,14 @@ void main() {
       test('puts a category created since the last drag at the end', () async {
         final created = await seedThree();
         await dataSource.reorderCategories(
-          ownerId: owner,
+          ledgerId: ledger,
           orderedIds: [created[2].id, created[1].id, created[0].id],
         );
 
         await dataSource.createCategory(
           const NewCategory(name: 'Travel', colorArgb: 1, iconKey: 'g'),
-          owner,
+          ownerId: owner,
+          ledgerId: ledger,
         );
 
         // Behind the arranged three rather than in front of them, which is
@@ -436,17 +475,18 @@ void main() {
         expect(await names(), ['Fun', 'Rent', 'Groceries', 'Travel']);
       });
 
-      test("leaves another owner's categories where they were", () async {
+      test("leaves another ledger's categories where they were", () async {
         final created = await seedThree();
         final theirs = await dataSource.createCategory(
           const NewCategory(name: 'Groceries', colorArgb: 1, iconKey: 'g'),
-          other,
+          ownerId: other,
+          ledgerId: otherLedger,
         );
 
         // Names an id the caller does not own: it must be skipped, and the rest
         // of the arrangement still saved.
         await dataSource.reorderCategories(
-          ownerId: owner,
+          ledgerId: ledger,
           orderedIds: [theirs.id, created[1].id, created[0].id],
         );
 
@@ -462,7 +502,7 @@ void main() {
         final created = await seedThree();
         final emissions = <List<String>>[];
         final subscription = dataSource
-            .watchCategorySpend(owner, CategoryKind.expense)
+            .watchCategorySpend(ledger, CategoryKind.expense)
             .listen(
               (spend) => emissions.add([
                 for (final entry in spend) entry.category.name,
@@ -471,7 +511,7 @@ void main() {
 
         await pumpEventQueue();
         await dataSource.reorderCategories(
-          ownerId: owner,
+          ledgerId: ledger,
           orderedIds: [created[1].id, created[0].id, created[2].id],
         );
         await pumpEventQueue();
@@ -488,11 +528,13 @@ void main() {
         final accountId = await insertAccount();
         final groceries = await dataSource.createCategory(
           const NewCategory(name: 'Groceries', colorArgb: 1, iconKey: 'g'),
-          owner,
+          ownerId: owner,
+          ledgerId: ledger,
         );
         await dataSource.createCategory(
           const NewCategory(name: 'Fun', colorArgb: 2, iconKey: 'fun'),
-          owner,
+          ownerId: owner,
+          ledgerId: ledger,
         );
 
         await insertTransaction(
@@ -514,7 +556,7 @@ void main() {
 
         final march = await dataSource
             .watchCategorySpend(
-              owner,
+              ledger,
               CategoryKind.expense,
               month: const CalendarMonth(2026, 3),
             )
@@ -528,7 +570,7 @@ void main() {
 
         final february = await dataSource
             .watchCategorySpend(
-              owner,
+              ledger,
               CategoryKind.expense,
               month: const CalendarMonth(2026, 2),
             )
@@ -544,7 +586,7 @@ void main() {
         await seedTwoMonths();
 
         final all = await dataSource
-            .watchCategorySpend(owner, CategoryKind.expense)
+            .watchCategorySpend(ledger, CategoryKind.expense)
             .first;
 
         expect(all.first.totalScaled, 4250);
@@ -554,7 +596,8 @@ void main() {
         final accountId = await insertAccount();
         final groceries = await dataSource.createCategory(
           const NewCategory(name: 'Groceries', colorArgb: 1, iconKey: 'g'),
-          owner,
+          ownerId: owner,
+          ledgerId: ledger,
         );
 
         // Half an hour into April, UTC. A local reading east of Greenwich would
@@ -569,7 +612,7 @@ void main() {
         Future<int> totalFor(CalendarMonth month) async =>
             (await dataSource
                     .watchCategorySpend(
-                      owner,
+                      ledger,
                       CategoryKind.expense,
                       month: month,
                     )
@@ -613,7 +656,7 @@ void main() {
         int lookbackMonths = SpendBaseline.lookbackMonths,
       }) => dataSource
           .watchSpendBaselines(
-            owner,
+            ledger,
             CategoryKind.expense,
             month: month,
             lookbackMonths: lookbackMonths,
@@ -624,7 +667,8 @@ void main() {
         final accountId = await insertAccount();
         final groceries = await dataSource.createCategory(
           const NewCategory(name: 'Groceries', colorArgb: 1, iconKey: 'g'),
-          owner,
+          ownerId: owner,
+          ledgerId: ledger,
         );
 
         // March, April, May: 100, 200, 300 — and 900 in June itself, which is
@@ -655,7 +699,8 @@ void main() {
               iconKey: 'home',
               kind: CategoryKind.income,
             ),
-            owner,
+            ownerId: owner,
+            ledgerId: ledger,
           );
 
           await bookMonthly(
@@ -666,7 +711,7 @@ void main() {
           );
 
           final found = await dataSource
-              .watchSpendBaselines(owner, CategoryKind.income, month: june)
+              .watchSpendBaselines(ledger, CategoryKind.income, month: june)
               .first;
 
           expect(found[salary.id]?.averageScaled, 300000);
@@ -677,7 +722,8 @@ void main() {
         final accountId = await insertAccount();
         final travel = await dataSource.createCategory(
           const NewCategory(name: 'Travel', colorArgb: 1, iconKey: 'travel'),
-          owner,
+          ownerId: owner,
+          ledgerId: ledger,
         );
 
         // Nothing in April: a month the category was quiet is not a month it
@@ -700,7 +746,8 @@ void main() {
         final accountId = await insertAccount();
         final dining = await dataSource.createCategory(
           const NewCategory(name: 'Dining', colorArgb: 1, iconKey: 'dining'),
-          owner,
+          ownerId: owner,
+          ledgerId: ledger,
         );
 
         for (final day in [3, 14, 28]) {
@@ -729,7 +776,8 @@ void main() {
         final accountId = await insertAccount();
         final rent = await dataSource.createCategory(
           const NewCategory(name: 'Rent', colorArgb: 1, iconKey: 'home'),
-          owner,
+          ownerId: owner,
+          ledgerId: ledger,
         );
 
         // January through May, with January far out of line. A two-month
@@ -755,7 +803,8 @@ void main() {
         final accountId = await insertAccount();
         final utilities = await dataSource.createCategory(
           const NewCategory(name: 'Utilities', colorArgb: 1, iconKey: 'build'),
-          owner,
+          ownerId: owner,
+          ledgerId: ledger,
         );
 
         // November, December, January — the window for February 2027 spans the
@@ -779,7 +828,8 @@ void main() {
         await insertAccount();
         final fun = await dataSource.createCategory(
           const NewCategory(name: 'Fun', colorArgb: 1, iconKey: 'fun'),
-          owner,
+          ownerId: owner,
+          ledgerId: ledger,
         );
 
         // Absent rather than present with a zero average: "no usual month on
@@ -787,11 +837,43 @@ void main() {
         expect(await baselines(), isNot(contains(fun.id)));
       });
 
-      test('keeps one owner out of another’s usual month', () async {
+      test("counts a partner's entries towards the usual month", () async {
+        final accountId = await insertAccount();
+        final shared = await dataSource.createCategory(
+          const NewCategory(name: 'Groceries', colorArgb: 1, iconKey: 'g'),
+          ownerId: owner,
+          ledgerId: ledger,
+        );
+
+        // April and May, one partner each. The baseline has to take both,
+        // because the figure it is compared against does: a household total
+        // measured against one person's usual month would read as an overrun
+        // every month.
+        await insertTransaction(
+          accountId: accountId,
+          categoryId: shared.id,
+          amountScaled: -10000,
+          executedAt: DateTime.utc(2026, 4, 10),
+        );
+        await insertTransaction(
+          accountId: accountId,
+          categoryId: shared.id,
+          amountScaled: -30000,
+          ownerId: other,
+          executedAt: DateTime.utc(2026, 5, 20),
+        );
+
+        // (10000 + 30000) / 2 — two months, whoever booked them.
+        expect((await baselines())[shared.id]?.averageScaled, 20000);
+        expect((await baselines())[shared.id]?.months, 2);
+      });
+
+      test("keeps one ledger out of another's usual month", () async {
         final accountId = await insertAccount();
         final mine = await dataSource.createCategory(
           const NewCategory(name: 'Groceries', colorArgb: 1, iconKey: 'g'),
-          owner,
+          ownerId: owner,
+          ledgerId: ledger,
         );
 
         await bookMonthly(
@@ -800,13 +882,13 @@ void main() {
           from: const CalendarMonth(2026, 4),
           amounts: [-10000, -10000],
         );
-        // Booked against the same category by someone else — impossible through
-        // the repository, which is why the query has to refuse it here.
+        // Booked against the same category from another book — impossible
+        // through the repository, which is why the query has to refuse it here.
         await insertTransaction(
           accountId: accountId,
           categoryId: mine.id,
           amountScaled: -900000,
-          ownerId: other,
+          ledgerId: otherLedger,
           executedAt: DateTime.utc(2026, 5, 20),
         );
 
@@ -817,7 +899,8 @@ void main() {
         final accountId = await insertAccount();
         final health = await dataSource.createCategory(
           const NewCategory(name: 'Health', colorArgb: 1, iconKey: 'health'),
-          owner,
+          ownerId: owner,
+          ledgerId: ledger,
         );
 
         await bookMonthly(
@@ -844,7 +927,8 @@ void main() {
         final accountId = await insertAccount();
         final groceries = await dataSource.createCategory(
           const NewCategory(name: 'Groceries', colorArgb: 1, iconKey: 'g'),
-          owner,
+          ownerId: owner,
+          ledgerId: ledger,
         );
 
         await bookMonthly(
@@ -855,7 +939,7 @@ void main() {
         );
 
         final income = await dataSource
-            .watchSpendBaselines(owner, CategoryKind.income, month: june)
+            .watchSpendBaselines(ledger, CategoryKind.income, month: june)
             .first;
 
         expect(income, isEmpty);
@@ -865,11 +949,12 @@ void main() {
         final accountId = await insertAccount();
         final groceries = await dataSource.createCategory(
           const NewCategory(name: 'Groceries', colorArgb: 1, iconKey: 'g'),
-          owner,
+          ownerId: owner,
+          ledgerId: ledger,
         );
 
         final stream = dataSource
-            .watchSpendBaselines(owner, CategoryKind.expense, month: june)
+            .watchSpendBaselines(ledger, CategoryKind.expense, month: june)
             .distinct();
         final seen = expectLater(
           stream,

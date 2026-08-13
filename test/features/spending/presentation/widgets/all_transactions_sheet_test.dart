@@ -145,5 +145,121 @@ void main() {
 
       expect(find.widgetWithText(ListTile, r'-$12.50'), findsOneWidget);
     });
+
+    group('divided by day', () {
+      testWidgets('heads each day the entries fall on', (tester) async {
+        final now = DateTime.now();
+
+        await repository.recordSpend(
+          categoryId: _groceries.category.id,
+          amountScaled: 1250,
+          // Built from the fields rather than by subtracting hours: a test that
+          // runs just after midnight, or on the night the clocks change, must
+          // still book one entry today and one yesterday.
+          occurredAt: DateTime(now.year, now.month, now.day, 12),
+        );
+        await repository.recordSpend(
+          categoryId: _salary.category.id,
+          amountScaled: 350000,
+          occurredAt: DateTime(now.year, now.month, now.day - 1, 12),
+        );
+        await openSheet(tester);
+
+        expect(find.text('Today'), findsOneWidget);
+        expect(find.text('Yesterday'), findsOneWidget);
+      });
+
+      testWidgets('heads a day once however many entries it holds', (
+        tester,
+      ) async {
+        final now = DateTime.now();
+
+        await repository.recordSpend(
+          categoryId: _groceries.category.id,
+          amountScaled: 1250,
+          occurredAt: DateTime(now.year, now.month, now.day, 12),
+        );
+        await repository.recordSpend(
+          categoryId: _salary.category.id,
+          amountScaled: 350000,
+          occurredAt: DateTime(now.year, now.month, now.day, 9),
+        );
+        await openSheet(tester);
+
+        expect(find.text('Today'), findsOneWidget);
+        expect(find.text('Yesterday'), findsNothing);
+      });
+    });
+
+    group('in a family account', () {
+      testWidgets("labels a partner's entry and not your own", (tester) async {
+        await repository.recordSpend(
+          categoryId: _groceries.category.id,
+          amountScaled: 1250,
+        );
+        repository.recordPartnerSpend(
+          categoryId: _groceries.category.id,
+          amountScaled: 4000,
+        );
+        await openSheet(tester);
+
+        // One name, on one row: in a list where a partner's rows are labelled,
+        // the unlabelled ones being yours needs no second marker.
+        expect(find.text('kate'), findsOneWidget);
+      });
+
+      testWidgets("offers no delete on a partner's entry", (tester) async {
+        repository.recordPartnerSpend(
+          categoryId: _groceries.category.id,
+          amountScaled: 4000,
+        );
+        await openSheet(tester);
+
+        // Disabled rather than absent, so the row still lines up with the ones
+        // around it — and disabled rather than enabled-and-refused, because the
+        // Postgres policy would drop the upload rather than report it.
+        final bin = tester.widget<IconButton>(
+          find.ancestor(
+            of: find.byTooltip('Only kate can change this'),
+            matching: find.byType(IconButton),
+          ),
+        );
+        expect(bin.onPressed, isNull);
+        expect(find.byTooltip('Delete entry'), findsNothing);
+      });
+
+      testWidgets("does not open the editor for a partner's entry", (
+        tester,
+      ) async {
+        repository.recordPartnerSpend(
+          categoryId: _groceries.category.id,
+          amountScaled: 4000,
+        );
+        await openSheet(tester);
+
+        final row = tester.widget<ListTile>(
+          find.widgetWithText(ListTile, r'-$40.00'),
+        );
+        expect(row.onTap, isNull);
+      });
+
+      testWidgets('adds both partners into the figure at the top', (
+        tester,
+      ) async {
+        await repository.recordSpend(
+          categoryId: _groceries.category.id,
+          amountScaled: 1250,
+        );
+        repository.recordPartnerSpend(
+          categoryId: _groceries.category.id,
+          amountScaled: 4000,
+        );
+        await openSheet(tester);
+
+        // The point of the whole feature, at the one place it is written out as
+        // a single number.
+        expect(find.text(r'-$52.50'), findsOneWidget);
+      });
+    });
   });
 }

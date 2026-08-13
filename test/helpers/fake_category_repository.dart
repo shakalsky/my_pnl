@@ -187,11 +187,21 @@ class FakeCategoryRepository
 
   @override
   Stream<List<LedgerEntry>> watchAllEntries() async* {
-    List<LedgerEntry> all() => List.unmodifiable([
-      for (final spend in _spend)
-        for (final entry in _history[spend.category.id] ?? const <SpendEntry>[])
-          LedgerEntry(entry: entry, category: spend.category),
-    ]);
+    List<LedgerEntry> all() {
+      final entries =
+          [
+              for (final spend in _spend)
+                for (final entry
+                    in _history[spend.category.id] ?? const <SpendEntry>[])
+                  LedgerEntry(entry: entry, category: spend.category),
+            ]
+            // Newest first across every category, the way the drift query orders
+            // them — which is what lets the sheet group a day's entries together
+            // rather than meet the same day twice.
+            ..sort((a, b) => b.entry.occurredAt.compareTo(a.entry.occurredAt));
+
+      return List.unmodifiable(entries);
+    }
 
     yield all();
     // Either controller can change the list, so both feed it.
@@ -275,6 +285,43 @@ class FakeCategoryRepository
     _historyController.add(categoryId);
   }
 
+  /// Books an entry as though a partner had recorded it in a shared ledger.
+  ///
+  /// The real data source works this out from `owner_id` and the membership
+  /// list; there is nothing to join here, so a test says so directly. What
+  /// matters below is the same either way: the entry counts towards the totals,
+  /// carries a name, and refuses to be written.
+  void recordPartnerSpend({
+    required String categoryId,
+    required int amountScaled,
+    String authorName = 'kate',
+    DateTime? occurredAt,
+    String? note,
+  }) {
+    final index = _indexOf(categoryId);
+    final signed = _spend[index].category.isIncome
+        ? amountScaled.abs()
+        : -amountScaled.abs();
+
+    _spend[index] = CategorySpend(
+      category: _spend[index].category,
+      totalScaled: _spend[index].totalScaled + signed,
+    );
+    (_history[categoryId] ??= []).insert(
+      0,
+      SpendEntry(
+        id: newId(),
+        amountScaled: signed,
+        occurredAt: (occurredAt ?? DateTime(2026, 3, 14, 9, 30)).toUtc(),
+        note: note,
+        isOwn: false,
+        authorName: authorName,
+      ),
+    );
+    _emit();
+    _historyController.add(categoryId);
+  }
+
   @override
   Future<void> updateSpend({
     required String id,
@@ -283,6 +330,7 @@ class FakeCategoryRepository
     String? note,
   }) async {
     if (writeError case final error?) throw error;
+    _requireOwn(id);
 
     final categoryId = _categoryIdForEntry(id);
     final entries = _history[categoryId]!;
@@ -307,6 +355,7 @@ class FakeCategoryRepository
   @override
   Future<void> deleteSpend(String id) async {
     if (writeError case final error?) throw error;
+    _requireOwn(id);
 
     final categoryId = _categoryIdForEntry(id);
     final entries = _history[categoryId]!;
@@ -314,6 +363,21 @@ class FakeCategoryRepository
 
     _applyTotal(categoryId, -removed.amountScaled);
     _historyController.add(categoryId);
+  }
+
+  /// Refuses an entry the reader did not record, as the data source does.
+  ///
+  /// A shared ledger is read together and written separately, and this is what
+  /// makes a UI that offered the write fail a test rather than a partner's
+  /// history.
+  void _requireOwn(String entryId) {
+    for (final entries in _history.values) {
+      for (final entry in entries) {
+        if (entry.id != entryId) continue;
+        if (entry.isOwn) return;
+        throw StateError('Entry $entryId belongs to somebody else');
+      }
+    }
   }
 
   String _categoryIdForEntry(String entryId) {

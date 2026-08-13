@@ -6,6 +6,14 @@ import 'package:my_pnl/features/auth/domain/repositories/auth_repository.dart';
 /// it has to be the signed-in user's id for anything to sync.
 abstract interface class SessionOwner {
   String get id;
+
+  /// What to call this user beside their entries, or null when there is nothing
+  /// to call them.
+  ///
+  /// Written into their `ledger_members` row so a partner's device has something
+  /// to label their spending with: `auth.users` is not readable by clients, so a
+  /// name either travels as ordinary synced data or not at all.
+  String? get label;
 }
 
 /// Takes the owner id from the current session.
@@ -23,4 +31,7 @@ class AuthSessionOwner implements SessionOwner {
 
   @override
   String get id => _authRepository.currentUser?.id ?? signedOutId;
+
+  @override
+  String? get label => _authRepository.currentUser?.email;
 }

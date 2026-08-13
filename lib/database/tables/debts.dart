@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:my_pnl/database/tables/ledger_scoped_table.dart';
 import 'package:my_pnl/database/tables/synced_table.dart';
 
 /// Money owed, in either direction.
@@ -8,11 +9,7 @@ import 'package:my_pnl/database/tables/synced_table.dart';
 /// once when it was lent and again when it came back — so debts are tracked
 /// beside the ledger and never touch the spending totals.
 @DataClassName('DebtRow')
-class Debts extends Table with SyncedTable {
-  /// Owner of the row. Sync rules bucket on this, and the matching Postgres
-  /// RLS policy checks it, so it must be set on every insert.
-  TextColumn get ownerId => text()();
-
+class Debts extends Table with SyncedTable, LedgerScopedTable {
   /// The person or company on the other side of the debt.
   TextColumn get counterparty => text()();
 

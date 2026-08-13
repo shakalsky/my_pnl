@@ -1,0 +1,140 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:my_pnl/features/ledgers/domain/entities/ledger.dart';
+import 'package:my_pnl/features/ledgers/presentation/bloc/ledger/ledger_bloc.dart';
+import 'package:my_pnl/features/ledgers/presentation/widgets/accounts_sheet.dart';
+
+/// Which book the page below is showing, and a way to change it.
+///
+/// Sits in the overview header ahead of the other actions, because it is the
+/// thing every figure on the page depends on: a total read against the wrong
+/// book is not a small mistake.
+///
+/// Two shapes, and the difference is about the header's width rather than
+/// taste. A reader with only their own book has nothing to be told — the name
+/// "Personal" is noise when it is the only answer — so it is an icon like the
+/// actions beside it, and it costs the same. Once there is a second book, which
+/// one is open stops being obvious and the name earns the room.
+class LedgerSwitcher extends StatelessWidget {
+  const LedgerSwitcher({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return BlocBuilder<LedgerBloc, LedgerState>(
+      builder: (context, state) {
+        final active = state.active;
+        // A family account earns a different icon whichever shape is showing:
+        // the reader should be able to tell at a glance that the totals below
+        // are two people's.
+        final icon = (active?.isShared ?? false)
+            ? Icons.people_outline
+            : Icons.person_outline;
+
+        if (!state.canSwitch) {
+          return IconButton(
+            onPressed: () => AccountsSheet.show(context),
+            icon: Icon(icon, size: 20),
+            tooltip: 'Accounts',
+            visualDensity: VisualDensity.compact,
+          );
+        }
+
+        return TextButton.icon(
+          onPressed: () => AccountsSheet.show(context),
+          icon: Icon(icon, size: 18),
+          // No Flexible around this: `TextButton.icon` puts the label in one
+          // already, and a second writes over the first's parent data. The
+          // ellipsis is what keeps a long family name from pushing the actions
+          // beside it off the row.
+          label: Text(
+            active?.name ?? '…',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelLarge,
+          ),
+          style: TextButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            foregroundColor: theme.colorScheme.onSurface,
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// One row of the switcher's list.
+///
+/// Pulled out because both the sheet's list and its empty state need the same
+/// tile, and a family account with a partner in it says so on the same line.
+class LedgerTile extends StatelessWidget {
+  const LedgerTile({
+    required this.ledger,
+    required this.isActive,
+    required this.viewerId,
+    this.onTap,
+    this.onRemove,
+    super.key,
+  });
+
+  final Ledger ledger;
+  final bool isActive;
+
+  /// Who is reading, so the members can be described as "you and …" rather than
+  /// listed back at the reader.
+  final String viewerId;
+
+  final VoidCallback? onTap;
+
+  /// Null on a row that cannot be removed — a family account, which is left
+  /// rather than removed, and the reader's first book, which has to stay.
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final partners = ledger.partnersOf(viewerId);
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      onTap: isActive ? null : onTap,
+      leading: CircleAvatar(
+        backgroundColor: isActive
+            ? theme.colorScheme.primaryContainer
+            : theme.colorScheme.surfaceContainerHighest,
+        child: Icon(
+          ledger.isFamily ? Icons.people_outline : Icons.person_outline,
+          size: 18,
+          color: isActive
+              ? theme.colorScheme.onPrimaryContainer
+              : theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+      title: Text(ledger.name),
+      subtitle: Text(switch (partners) {
+        // A family account nobody has joined yet is still one person's, and
+        // saying "shared with" would be a promise the code has not kept.
+        [] when ledger.isFamily => 'Nobody has joined yet',
+        [] => 'Only you',
+        [final one] => 'Shared with ${one.label}',
+        final many => 'Shared with ${many.length} others',
+      }),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isActive)
+            Icon(Icons.check, size: 20, color: theme.colorScheme.primary),
+          if (onRemove case final remove?)
+            IconButton(
+              onPressed: remove,
+              icon: const Icon(Icons.delete_outline, size: 20),
+              tooltip: 'Remove ${ledger.name}',
+              visualDensity: VisualDensity.compact,
+            ),
+        ],
+      ),
+    );
+  }
+}

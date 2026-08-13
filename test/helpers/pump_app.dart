@@ -9,6 +9,7 @@ import 'package:my_pnl/features/currencies/domain/repositories/currency_reposito
 import 'package:my_pnl/features/currencies/domain/repositories/display_currency_store.dart';
 import 'package:my_pnl/features/debts/domain/repositories/debt_repository.dart';
 import 'package:my_pnl/features/goals/domain/repositories/goal_repository.dart';
+import 'package:my_pnl/features/ledgers/domain/repositories/ledger_repository.dart';
 import 'package:my_pnl/features/spending/domain/repositories/category_repository.dart';
 import 'package:my_pnl/features/spending/domain/repositories/overrun_settings_store.dart';
 import 'package:my_pnl/features/spending/domain/repositories/transaction_repository.dart';
@@ -18,6 +19,7 @@ import 'fake_app_update_repository.dart';
 import 'fake_auth_repository.dart';
 import 'fake_base_currency_store.dart';
 import 'fake_display_currency_store.dart';
+import 'fake_ledger_repository.dart';
 import 'fake_overrun_settings_store.dart';
 import 'fake_sync_repository.dart';
 
@@ -37,6 +39,7 @@ extension PumpApp on WidgetTester {
     DisplayCurrencyStore? displayCurrencyStore,
     DebtRepository? debtRepository,
     GoalRepository? goalRepository,
+    LedgerRepository? ledgerRepository,
     OverrunSettingsStore? overrunSettingsStore,
     TransactionRepository? transactionRepository,
     SyncRepository? syncRepository,
@@ -59,6 +62,9 @@ extension PumpApp on WidgetTester {
     // And likewise: the sign-in page prints the running version, and a build
     // nobody set a version on is the ordinary case in a test.
     final updates = appUpdateRepository ?? FakeAppUpdateRepository();
+    // And likewise: the overview header carries a ledger switcher, and a reader
+    // with nothing but their own book is the ordinary case.
+    final ledgers = ledgerRepository ?? FakeLedgerRepository();
 
     // Providers sit ABOVE MaterialApp, exactly as they do in App. Below it
     // they would also sit below the Navigator, and anything pushed as a route
@@ -73,6 +79,7 @@ extension PumpApp on WidgetTester {
             value: displayCurrency,
           ),
           RepositoryProvider<BaseCurrencyStore>.value(value: baseCurrency),
+          RepositoryProvider<LedgerRepository>.value(value: ledgers),
           RepositoryProvider<OverrunSettingsStore>.value(
             value: overrunSettings,
           ),

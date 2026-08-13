@@ -15,9 +15,16 @@ class CategoryFailure implements Exception {
 
 /// What the domain needs from storage. The implementation lives in the data
 /// layer, so nothing above this line knows drift or PowerSync exists.
+///
+/// Everything here is about the ledger currently open, and in a family account
+/// the categories are shared: both partners record against the same tiles and
+/// either may edit them. That is what makes one grid add up to one total.
 abstract interface class CategoryRepository {
   /// Categories of one [kind] with their current totals, re-emitted whenever
   /// the underlying rows change — including changes that arrive from sync.
+  ///
+  /// The totals span everyone in the ledger, so a tile says what the household
+  /// spent on it rather than what the reader did.
   ///
   /// [month] narrows the totals to what was booked in that month. Null counts
   /// everything, so a caller with no month in mind gets the running total.
@@ -50,6 +57,9 @@ abstract interface class CategoryRepository {
   ///
   /// Returns how many transactions were created. Safe to call repeatedly:
   /// each occurrence has a derived id, so a second call is a no-op.
+  ///
+  /// Only the caller's own recurring categories: a partner's salary is theirs to
+  /// book, and an entry recorded here would be labelled with the wrong person.
   Future<int> generateDueRecurringIncome({DateTime? now});
 
   /// Creates a category and returns it with the id it was given.
@@ -69,8 +79,13 @@ abstract interface class CategoryRepository {
   /// against the arrangement it came from.
   Future<void> reorderCategories(List<String> orderedIds);
 
-  /// Removes a category, and does [mode] with its transactions.
+  /// Removes a category, and does [mode] with the caller's transactions in it.
   ///
   /// A soft delete either way, so the removal syncs.
+  ///
+  /// In a shared ledger [mode] reaches only the caller's own entries — a
+  /// partner's are not theirs to remove. Those stay in the ledger and read as
+  /// uncategorised, which is what a tombstoned category makes every read do in
+  /// any case.
   Future<void> deleteCategory(String id, CategoryDeletion mode);
 }

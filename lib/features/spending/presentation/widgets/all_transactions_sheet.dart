@@ -10,6 +10,8 @@ import 'package:my_pnl/features/spending/domain/usecases/watch_all_entries.dart'
 import 'package:my_pnl/features/spending/presentation/bloc/all_transactions/all_transactions_bloc.dart';
 import 'package:my_pnl/features/spending/presentation/theme/category_style.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/amount_entry_sheet.dart';
+import 'package:my_pnl/features/spending/presentation/widgets/day_divided_list.dart';
+import 'package:my_pnl/features/spending/presentation/widgets/entry_author_label.dart';
 
 /// Every entry across every category, newest first.
 ///
@@ -26,11 +28,10 @@ class AllTransactionsSheet extends StatelessWidget {
       isScrollControlled: true,
       showDragHandle: true,
       builder: (_) => BlocProvider(
-        create: (_) =>
-            AllTransactionsBloc(
-              watchAllEntries: WatchAllEntries(repository),
-              deleteSpend: DeleteSpend(repository),
-            )..add(const AllTransactionsSubscriptionRequested()),
+        create: (_) => AllTransactionsBloc(
+          watchAllEntries: WatchAllEntries(repository),
+          deleteSpend: DeleteSpend(repository),
+        )..add(const AllTransactionsSubscriptionRequested()),
         child: const AllTransactionsSheet(),
       ),
     );
@@ -138,74 +139,112 @@ class _EntryList extends StatelessWidget {
       );
     }
 
-    final dateFormat = DateFormat.yMMMd().add_jm();
+    // The date lives in the day heading now, so the row keeps only the time of
+    // day, which is what orders one entry against another within a day.
+    final timeFormat = DateFormat.jm();
+    final rows = divideByDay(entries, (item) => item.entry.occurredAt);
 
-    return ListView.separated(
+    return ListView.builder(
       shrinkWrap: true,
       padding: EdgeInsets.zero,
-      itemCount: entries.length,
-      separatorBuilder: (_, _) => const Divider(height: 1),
+      itemCount: rows.length,
       itemBuilder: (context, index) {
-        final item = entries[index];
-        final category = item.category;
-        final amount = item.entry.amountScaled;
+        switch (rows[index]) {
+          case DayHeadingRow(:final day):
+            return DayHeading(day: day, first: index == 0);
+          case DayEntryRow(:final entry, :final opensDay):
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!opensDay) const Divider(height: 1),
+                _tile(context, entry, timeFormat),
+              ],
+            );
+        }
+      },
+    );
+  }
 
-        return ListTile(
-          contentPadding: EdgeInsets.zero,
-          onTap: () => _edit(context, item),
-          leading: CircleAvatar(
-            backgroundColor: category == null
-                ? theme.colorScheme.surfaceContainerHighest
-                : Color(category.colorArgb),
-            child: Icon(
-              category == null
-                  ? Icons.help_outline
-                  : iconForKey(category.iconKey),
-              size: 18,
-              color: category == null
-                  ? theme.colorScheme.onSurfaceVariant
-                  : Colors.white,
+  Widget _tile(BuildContext context, LedgerEntry item, DateFormat timeFormat) {
+    final theme = Theme.of(context);
+    final category = item.category;
+    final amount = item.entry.amountScaled;
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      // A partner's entry is read here but not written: only whoever
+      // recorded one may change it, so no edit is offered rather than one
+      // that the server would refuse on upload.
+      onTap: item.entry.isOwn ? () => _edit(context, item) : null,
+      leading: CircleAvatar(
+        backgroundColor: category == null
+            ? theme.colorScheme.surfaceContainerHighest
+            : Color(category.colorArgb),
+        child: Icon(
+          category == null ? Icons.help_outline : iconForKey(category.iconKey),
+          size: 18,
+          color: category == null
+              ? theme.colorScheme.onSurfaceVariant
+              : Colors.white,
+        ),
+      ),
+      title: Text(category?.name ?? 'Uncategorised'),
+      // Stored in UTC, shown in the reader's zone. The entry's own note
+      // rides along on the same line — it is what tells two amounts in the
+      // same category apart — and in a family account a partner's name leads
+      // it, which is what makes a total anyone can see legible as a total two
+      // people made.
+      subtitle: Row(
+        children: [
+          EntryAuthorLabel(entry: item.entry),
+          Expanded(
+            child: Text(
+              switch (item.entry.note) {
+                null => timeFormat.format(item.entry.occurredAt.toLocal()),
+                final note =>
+                  '${timeFormat.format(item.entry.occurredAt.toLocal())}'
+                      ' · $note',
+              },
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          title: Text(category?.name ?? 'Uncategorised'),
-          // Stored in UTC, shown in the reader's zone. The entry's own note
-          // rides along on the same line — it is what tells two amounts in the
-          // same category apart.
-          subtitle: Text(
-            switch (item.entry.note) {
-              null => dateFormat.format(item.entry.occurredAt.toLocal()),
-              final note =>
-                '${dateFormat.format(item.entry.occurredAt.toLocal())} · $note',
-            },
+        ],
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            formatAmount(amount),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              // Income reads as a gain, spending as a cost.
+              color: amount < 0
+                  ? theme.colorScheme.onSurface
+                  : const Color(0xFF2E7D32),
+            ),
           ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                formatAmount(amount),
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  // Income reads as a gain, spending as a cost.
-                  color: amount < 0
-                      ? theme.colorScheme.onSurface
-                      : const Color(0xFF2E7D32),
-                ),
-              ),
-              IconButton(
-                onPressed: () async {
-                  final bloc = context.read<AllTransactionsBloc>();
-                  if (await _confirmDelete(context, item) ?? false) {
-                    bloc.add(AllTransactionsEntryDeleted(item.entry.id));
+          IconButton(
+            // Disabled rather than hidden on a partner's entry: the row
+            // still has to line up with the ones above and below it, and a
+            // greyed bin says "not yours" where a gap would just look like
+            // a rendering fault.
+            onPressed: item.entry.isOwn
+                ? () async {
+                    final bloc = context.read<AllTransactionsBloc>();
+                    if (await _confirmDelete(context, item) ?? false) {
+                      bloc.add(AllTransactionsEntryDeleted(item.entry.id));
+                    }
                   }
-                },
-                icon: const Icon(Icons.delete_outline, size: 20),
-                tooltip: 'Delete entry',
-                visualDensity: VisualDensity.compact,
-              ),
-            ],
+                : null,
+            icon: const Icon(Icons.delete_outline, size: 20),
+            tooltip: item.entry.isOwn
+                ? 'Delete entry'
+                : 'Only ${item.entry.authorName ?? 'they'} can change this',
+            visualDensity: VisualDensity.compact,
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 

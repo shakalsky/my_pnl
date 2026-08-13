@@ -15,9 +15,14 @@ import 'package:powersync/powersync.dart';
 ///   what Postgres `timestamptz` accepts.
 /// * Column names are snake_case to match both drift's default SQL naming and
 ///   the Postgres tables the sync rules select from.
+/// Note on `ledger_id`, which every table below carries: it is what the sync
+/// rules bucket on, so it decides which rows reach the device at all. `owner_id`
+/// rides along beside it as the row's author — the two are different questions,
+/// and `lib/database/tables/ledger_scoped_table.dart` spells out why.
 const appSchema = Schema([
   Table('accounts', [
     Column.text('owner_id'),
+    Column.text('ledger_id'),
     Column.text('name'),
     Column.text('currency'),
     Column.text('created_at'),
@@ -26,6 +31,7 @@ const appSchema = Schema([
   ]),
   Table('categories', [
     Column.text('owner_id'),
+    Column.text('ledger_id'),
     Column.text('name'),
     Column.integer('color_argb'),
     Column.text('icon_key'),
@@ -39,6 +45,7 @@ const appSchema = Schema([
   ]),
   Table('currencies', [
     Column.text('owner_id'),
+    Column.text('ledger_id'),
     Column.text('ticker'),
     Column.text('icon'),
     Column.integer('exchange_rate_scaled'),
@@ -50,6 +57,7 @@ const appSchema = Schema([
     'debts',
     [
       Column.text('owner_id'),
+      Column.text('ledger_id'),
       Column.text('counterparty'),
       Column.text('direction'),
       Column.integer('amount_scaled'),
@@ -66,15 +74,41 @@ const appSchema = Schema([
   ),
   Table('goals', [
     Column.text('owner_id'),
+    Column.text('ledger_id'),
     Column.integer('target_amount_scaled'),
     Column.text('created_at'),
     Column.text('updated_at'),
     Column.text('deleted_at'),
   ]),
+  Table('ledgers', [
+    Column.text('owner_id'),
+    Column.text('name'),
+    Column.text('kind'),
+    Column.text('invite_code'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+    Column.text('deleted_at'),
+  ]),
+  Table(
+    'ledger_members',
+    [
+      Column.text('ledger_id'),
+      Column.text('user_id'),
+      Column.text('display_name'),
+      Column.text('role'),
+      Column.text('created_at'),
+      Column.text('updated_at'),
+      Column.text('deleted_at'),
+    ],
+    indexes: [
+      Index('by_ledger', [IndexedColumn('ledger_id')]),
+    ],
+  ),
   Table(
     'transactions',
     [
       Column.text('owner_id'),
+      Column.text('ledger_id'),
       Column.text('account_id'),
       Column.text('category_id'),
       Column.text('side'),
@@ -89,7 +123,12 @@ const appSchema = Schema([
     indexes: [
       Index('by_account', [IndexedColumn('account_id')]),
       Index('by_category', [IndexedColumn('category_id')]),
-      Index('by_executed_at', [IndexedColumn('executed_at')]),
+      // Every read starts by narrowing to the ledger on screen, so this is the
+      // index the overview's queries actually enter through.
+      Index('by_ledger_executed_at', [
+        IndexedColumn('ledger_id'),
+        IndexedColumn('executed_at'),
+      ]),
     ],
   ),
 ]);

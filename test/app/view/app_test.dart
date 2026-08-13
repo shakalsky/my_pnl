@@ -31,6 +31,7 @@ void main() {
     late FakeCurrencyRepository currencies;
     late FakeDebtRepository debts;
     late FakeGoalRepository goals;
+    late FakeLedgerRepository ledgers;
     late FakeAppUpdateRepository updates;
     late FakeBaseCurrencyStore baseCurrency;
 
@@ -41,6 +42,7 @@ void main() {
       currencies = FakeCurrencyRepository();
       debts = FakeDebtRepository();
       goals = FakeGoalRepository();
+      ledgers = FakeLedgerRepository();
       updates = FakeAppUpdateRepository();
     });
 
@@ -50,6 +52,7 @@ void main() {
       // applies it. Put back, or the next test opens in whatever was chosen here.
       setActiveBaseCurrency(BaseCurrency.usd);
       await updates.close();
+      await ledgers.close();
       await goals.close();
       await debts.close();
       await currencies.close();
@@ -72,6 +75,7 @@ void main() {
           displayCurrencyStore: FakeDisplayCurrencyStore(),
           debtRepository: debts,
           goalRepository: goals,
+          ledgerRepository: ledgers,
           overrunSettingsStore: FakeOverrunSettingsStore(),
           transactionRepository: spending,
           syncRepository: FakeSyncRepository(),
