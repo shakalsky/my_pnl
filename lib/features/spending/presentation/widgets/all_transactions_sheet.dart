@@ -12,6 +12,7 @@ import 'package:my_pnl/features/spending/presentation/theme/category_style.dart'
 import 'package:my_pnl/features/spending/presentation/widgets/amount_entry_sheet.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/day_divided_list.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/entry_author_label.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Every entry across every category, newest first.
 ///
@@ -66,11 +67,11 @@ class AllTransactionsSheet extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'All transactions',
+                          t.entries.allTitle,
                           style: theme.textTheme.titleLarge,
                         ),
                         Text(
-                          'Newest first',
+                          t.entries.newestFirst,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -99,9 +100,9 @@ class AllTransactionsSheet extends StatelessWidget {
                     padding: EdgeInsets.all(32),
                     child: Center(child: CircularProgressIndicator()),
                   ),
-                  AllTransactionsStatus.failure => const Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Center(child: Text('Could not load transactions')),
+                  AllTransactionsStatus.failure => Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Center(child: Text(t.entries.loadFailed)),
                   ),
                   AllTransactionsStatus.success => _EntryList(
                     entries: state.entries,
@@ -130,7 +131,7 @@ class _EntryList extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 32),
         child: Center(
           child: Text(
-            'Nothing recorded yet',
+            t.entries.empty,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -188,7 +189,7 @@ class _EntryList extends StatelessWidget {
               : Colors.white,
         ),
       ),
-      title: Text(category?.name ?? 'Uncategorised'),
+      title: Text(category?.name ?? t.entries.uncategorised),
       // Stored in UTC, shown in the reader's zone. The entry's own note
       // rides along on the same line — it is what tells two amounts in the
       // same category apart — and in a family account a partner's name leads
@@ -239,8 +240,10 @@ class _EntryList extends StatelessWidget {
                 : null,
             icon: const Icon(Icons.delete_outline, size: 20),
             tooltip: item.entry.isOwn
-                ? 'Delete entry'
-                : 'Only ${item.entry.authorName ?? 'they'} can change this',
+                ? t.entries.deleteTooltip
+                : t.entries.onlyAuthorCanChange(
+                    who: item.entry.authorName ?? t.entries.authorFallback,
+                  ),
             visualDensity: VisualDensity.compact,
           ),
         ],
@@ -253,9 +256,9 @@ class _EntryList extends StatelessWidget {
     // correcting, so it gets a stand-in for the header rather than no edit.
     final category =
         item.category ??
-        const Category(
+        Category(
           id: '',
-          name: 'Uncategorised',
+          name: t.entries.uncategorised,
           colorArgb: 0xFF56606B,
           iconKey: 'unknown',
         );
@@ -267,19 +270,26 @@ class _EntryList extends StatelessWidget {
     return showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete this entry?'),
+        title: Text(t.entries.deleteTitle),
         content: Text(
-          '${formatAmount(item.entry.amountScaled)} will be removed from '
-          '${item.category?.name ?? 'your totals'}.',
+          switch (item.category?.name) {
+            final name? => t.entries.deleteBodyCategory(
+              amount: formatAmount(item.entry.amountScaled),
+              category: name,
+            ),
+            null => t.entries.deleteBodyTotals(
+              amount: formatAmount(item.entry.amountScaled),
+            ),
+          },
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: Text(t.common.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Delete'),
+            child: Text(t.common.delete),
           ),
         ],
       ),

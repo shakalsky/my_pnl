@@ -9,6 +9,7 @@ import 'package:my_pnl/features/spending/domain/usecases/reorder_categories.dart
 import 'package:my_pnl/features/spending/domain/usecases/watch_category_spend.dart';
 import 'package:my_pnl/features/spending/presentation/bloc/spending_overview/spending_overview_bloc.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/category_overview_body.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Income categories and their totals.
 ///
@@ -55,13 +56,13 @@ class IncomeOverviewView extends StatelessWidget {
                 SpendingOverviewStatus.loading => const Center(
                   child: CircularProgressIndicator(),
                 ),
-                SpendingOverviewStatus.failure => const Center(
-                  child: Text('Could not load your income'),
+                SpendingOverviewStatus.failure => Center(
+                  child: Text(t.income.loadFailed),
                 ),
                 SpendingOverviewStatus.success => CategoryOverviewBody(
                   state: state,
                   kind: CategoryKind.income,
-                  totalLabel: 'Total income',
+                  totalLabel: t.income.totalLabel,
                 ),
               };
             },

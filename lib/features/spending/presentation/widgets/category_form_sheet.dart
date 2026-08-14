@@ -13,6 +13,7 @@ import 'package:my_pnl/features/spending/domain/usecases/update_category.dart';
 import 'package:my_pnl/features/spending/presentation/bloc/category_form/category_form_bloc.dart';
 import 'package:my_pnl/features/spending/presentation/theme/category_style.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/transaction_history_sheet.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Modal form for creating or editing a category.
 ///
@@ -85,7 +86,7 @@ class CategoryFormSheet extends StatelessWidget {
             // only the generic case needs a snack bar.
             if (state.errorMessage == null) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Could not save the category')),
+                SnackBar(content: Text(t.categoryForm.saveFailed)),
               );
             }
           case CategoryFormStatus.editing:
@@ -160,10 +161,10 @@ class _CategoryFormState extends State<_CategoryForm> {
                 Expanded(
                   child: Text(
                     switch ((state.isEditing, state.isIncome)) {
-                      (true, true) => 'Edit income',
-                      (true, false) => 'Edit category',
-                      (false, true) => 'New income',
-                      (false, false) => 'New category',
+                      (true, true) => t.categoryForm.editIncome,
+                      (true, false) => t.categoryForm.editExpense,
+                      (false, true) => t.categoryForm.newIncome,
+                      (false, false) => t.categoryForm.newExpense,
                     },
                     style: theme.textTheme.titleLarge,
                   ),
@@ -175,7 +176,7 @@ class _CategoryFormState extends State<_CategoryForm> {
                     onPressed: () =>
                         TransactionHistorySheet.show(context, category),
                     icon: const Icon(Icons.receipt_long_outlined),
-                    tooltip: 'Transactions',
+                    tooltip: t.categoryForm.transactions,
                     visualDensity: VisualDensity.compact,
                   ),
               ],
@@ -200,7 +201,7 @@ class _CategoryFormState extends State<_CategoryForm> {
                 Expanded(
                   child: AppInput.white(
                     controller: _name,
-                    label: 'Name',
+                    label: t.common.name,
                     errorText: state.errorMessage,
                     // No autofocus: the sheet opens showing the colour and icon
                     // choices rather than with half of itself behind a keyboard.
@@ -223,8 +224,8 @@ class _CategoryFormState extends State<_CategoryForm> {
                 ),
                 contentPadding: EdgeInsets.zero,
                 controlAffinity: ListTileControlAffinity.leading,
-                title: const Text('Recurring'),
-                subtitle: const Text('Book this income once a month'),
+                title: Text(t.categoryForm.recurring),
+                subtitle: Text(t.categoryForm.recurringSubtitle),
               ),
               // The schedule only appears once the box is ticked: an empty day
               // and amount would otherwise read as required fields.
@@ -236,7 +237,7 @@ class _CategoryFormState extends State<_CategoryForm> {
                       width: 96,
                       child: AppInput.white(
                         controller: _recurringDay,
-                        label: 'Day',
+                        label: t.categoryForm.day,
                         inputHintText: '1',
                         keyboardType: TextInputType.number,
                         inputFormatters: [
@@ -253,7 +254,7 @@ class _CategoryFormState extends State<_CategoryForm> {
                     Expanded(
                       child: AppInput.white(
                         controller: _recurringAmount,
-                        label: 'Amount',
+                        label: t.common.amount,
                         prefixText: '$baseCurrencySymbol ',
                         inputHintText: '0.00',
                         keyboardType: const TextInputType.numberWithOptions(
@@ -276,8 +277,7 @@ class _CategoryFormState extends State<_CategoryForm> {
                   child: Text(
                     // Says what a short month does, because the 31st is the
                     // case people expect to silently misbehave.
-                    'Months shorter than the chosen day use their last day. '
-                    'Missed months are booked the next time you open the app.',
+                    t.categoryForm.recurringNote,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -285,7 +285,7 @@ class _CategoryFormState extends State<_CategoryForm> {
                 ),
             ],
             const SizedBox(height: 20),
-            Text('Color', style: theme.textTheme.labelLarge),
+            Text(t.categoryForm.color, style: theme.textTheme.labelLarge),
             const SizedBox(height: 8),
             // Sized from the available width rather than fixed, so the row
             // always holds exactly eight swatches even on narrow phones.
@@ -313,7 +313,7 @@ class _CategoryFormState extends State<_CategoryForm> {
               },
             ),
             const SizedBox(height: 20),
-            Text('Icon', style: theme.textTheme.labelLarge),
+            Text(t.categoryForm.icon, style: theme.textTheme.labelLarge),
             const SizedBox(height: 8),
             Wrap(
               spacing: 10,
@@ -339,7 +339,7 @@ class _CategoryFormState extends State<_CategoryForm> {
                         dimension: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Text(state.isEditing ? 'Save' : 'Create'),
+                    : Text(state.isEditing ? t.common.save : t.common.create),
               ),
             ),
             // Only when there is something to delete.
@@ -359,7 +359,7 @@ class _CategoryFormState extends State<_CategoryForm> {
                           dimension: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Delete category'),
+                      : Text(t.categoryForm.delete),
                 ),
               ),
             ],
@@ -381,28 +381,28 @@ class _CategoryFormState extends State<_CategoryForm> {
     final mode = await showDialog<CategoryDeletion>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text('Delete ${name.isEmpty ? 'this category' : name}?'),
-        content: const Text(
-          'What should happen to the amounts recorded against it?\n\n'
-          'Keep them and the money stays in your totals, without a category. '
-          'Delete them and it leaves your totals too.',
+        title: Text(
+          name.isEmpty
+              ? t.categoryForm.deleteTitleUnnamed
+              : t.categoryForm.deleteTitleNamed(name: name),
         ),
+        content: Text(t.categoryForm.deleteBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
+            child: Text(t.common.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.of(
               dialogContext,
             ).pop(CategoryDeletion.keepTransactions),
-            child: const Text('Keep entries'),
+            child: Text(t.categoryForm.keepEntries),
           ),
           FilledButton(
             onPressed: () => Navigator.of(
               dialogContext,
             ).pop(CategoryDeletion.deleteTransactions),
-            child: const Text('Delete entries'),
+            child: Text(t.categoryForm.deleteEntries),
           ),
         ],
       ),

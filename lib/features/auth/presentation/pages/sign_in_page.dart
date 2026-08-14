@@ -4,6 +4,7 @@ import 'package:my_pnl/core/widgets/text_input/app_input.dart';
 import 'package:my_pnl/features/app_update/domain/repositories/app_update_repository.dart';
 import 'package:my_pnl/features/auth/domain/repositories/auth_repository.dart';
 import 'package:my_pnl/features/auth/presentation/bloc/sign_in_form/sign_in_form_bloc.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Email and password, in either sign-in or sign-up mode.
 class SignInPage extends StatelessWidget {
@@ -37,7 +38,7 @@ class _PasswordFieldState extends State<_PasswordField> {
   @override
   Widget build(BuildContext context) {
     return AppInput.white(
-      label: 'Password',
+      label: t.auth.password,
       obscureText: _obscured,
       autofillHints: const [AutofillHints.password],
       textInputAction: TextInputAction.done,
@@ -49,7 +50,7 @@ class _PasswordFieldState extends State<_PasswordField> {
           _obscured ? Icons.visibility : Icons.visibility_off,
           size: 18,
         ),
-        tooltip: _obscured ? 'Show password' : 'Hide password',
+        tooltip: _obscured ? t.auth.showPassword : t.auth.hidePassword,
         padding: EdgeInsets.zero,
         constraints: const BoxConstraints(),
         visualDensity: VisualDensity.compact,
@@ -84,12 +85,10 @@ class SignInView extends StatelessWidget {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
           ..showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Confirm your email address to finish creating your account.',
-              ),
+            SnackBar(
+              content: Text(t.auth.confirmSnack),
               behavior: SnackBarBehavior.floating,
-              duration: Duration(seconds: 6),
+              duration: const Duration(seconds: 6),
             ),
           );
       },
@@ -105,13 +104,13 @@ class SignInView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      state.isSignUp ? 'Create an account' : 'Welcome back',
+                      state.isSignUp ? t.auth.signUpTitle : t.auth.signInTitle,
                       style: theme.textTheme.headlineSmall,
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Your spending syncs across devices once you sign in.',
+                      t.auth.blurb,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -119,7 +118,7 @@ class SignInView extends StatelessWidget {
                     ),
                     const SizedBox(height: 32),
                     AppInput.white(
-                      label: 'Email',
+                      label: t.auth.email,
                       autofocus: true,
                       keyboardType: TextInputType.emailAddress,
                       autofillHints: const [AutofillHints.email],
@@ -145,8 +144,7 @@ class SignInView extends StatelessWidget {
                         SignInFormStatus.awaitingConfirmation) ...[
                       const SizedBox(height: 12),
                       Text(
-                        'Account created. Check your inbox to confirm your '
-                        'email address, then sign in.',
+                        t.auth.confirmNote,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.primary,
                         ),
@@ -162,7 +160,11 @@ class SignInView extends StatelessWidget {
                               dimension: 18,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : Text(state.isSignUp ? 'Create account' : 'Sign in'),
+                          : Text(
+                              state.isSignUp
+                                  ? t.auth.signUpAction
+                                  : t.auth.signInAction,
+                            ),
                     ),
                     const SizedBox(height: 8),
                     TextButton(
@@ -170,9 +172,7 @@ class SignInView extends StatelessWidget {
                           ? null
                           : () => bloc.add(const SignInModeToggled()),
                       child: Text(
-                        state.isSignUp
-                            ? 'I already have an account'
-                            : 'Create an account',
+                        state.isSignUp ? t.auth.toSignIn : t.auth.toSignUp,
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -180,7 +180,10 @@ class SignInView extends StatelessWidget {
                     // page a user can reach before signing in, which is where a
                     // bug report starts when they cannot get in at all.
                     Text(
-                      'Version ${version.label} (${version.build})',
+                      t.auth.version(
+                        label: version.label,
+                        build: version.build,
+                      ),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),

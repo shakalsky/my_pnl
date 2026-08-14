@@ -1,0 +1,26 @@
+# Translation config for the `slang` package.
+#
+# Run `dart run slang` after editing any file under `lib/i18n` to regenerate
+# `lib/i18n/strings.g.dart`. The generated file is checked in, so a clone builds
+# without running codegen first.
+base_locale: en
+fallback_strategy: base_locale
+input_directory: lib/i18n
+input_file_pattern: .i18n.json
+output_directory: lib/i18n
+output_file_name: strings.g.dart
+
+# `t.foo.bar` reads the same in a widget, a bloc and a use case, none of which
+# share a BuildContext. Runtime locale changes still reach the widgets: the app
+# shell is keyed on the active locale.
+translate_var: t
+enum_name: AppLocale
+class_name: Translations
+
+# Pulls in slang_flutter, which is what supplies `AppLocaleUtils.supportedLocales`
+# for MaterialApp and the device-locale lookup used at startup.
+flutter_integration: true
+
+# Every string is reached through `t`, never looked up by its key at runtime, so
+# the flat map would only be dead weight in the binary.
+flat_map: false

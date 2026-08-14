@@ -1,6 +1,7 @@
 import 'package:my_pnl/core/money/scales.dart';
 import 'package:my_pnl/features/currencies/domain/entities/currency.dart';
 import 'package:my_pnl/features/currencies/domain/repositories/currency_repository.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Adds a currency, or saves edits to one.
 ///
@@ -44,15 +45,13 @@ class SaveCurrency {
     final ticker = value.trim().toUpperCase();
 
     if (ticker.isEmpty) {
-      throw const CurrencyFailure('Enter a ticker');
+      throw CurrencyFailure(t.currencies.enterTicker);
     }
     if (ticker == baseCurrency) {
-      throw CurrencyFailure('$baseCurrency is the base currency');
+      throw CurrencyFailure(t.currencies.tickerIsBase(ticker: baseCurrency));
     }
     if (!RegExp(r'^[A-Z0-9]{2,10}$').hasMatch(ticker)) {
-      throw const CurrencyFailure(
-        'Tickers are 2 to 10 letters or digits',
-      );
+      throw CurrencyFailure(t.currencies.tickerFormat);
     }
 
     return ticker;
@@ -60,7 +59,7 @@ class SaveCurrency {
 
   void _checkRate(int exchangeRateScaled) {
     if (exchangeRateScaled <= 0) {
-      throw const CurrencyFailure('The exchange rate must be above zero');
+      throw CurrencyFailure(t.currencies.rateAboveZero);
     }
   }
 

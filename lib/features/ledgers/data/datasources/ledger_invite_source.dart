@@ -1,6 +1,7 @@
 import 'dart:developer';
 
 import 'package:my_pnl/features/ledgers/domain/repositories/ledger_repository.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Adds the signed-in user to the family account with this code, and returns its
@@ -46,14 +47,14 @@ class SupabaseLedgerInviteSource {
 
       // The function either returns an id or raises. Anything else means the
       // deployed schema is not the one this build expects.
-      throw const LedgerFailure('That code could not be used');
+      throw LedgerFailure(t.accounts.codeUnusable);
     } on PostgrestException catch (e, s) {
       log('Redeeming an invite code failed', error: e, stackTrace: s);
       // The message comes from the function's own `raise`, which is written for
       // the reader — "No family account with that code" is the common one. A
       // fallback covers the codes it does not raise itself.
       throw LedgerFailure(
-        e.message.isEmpty ? 'That code could not be used' : e.message,
+        e.message.isEmpty ? t.accounts.codeUnusable : e.message,
       );
     } on LedgerFailure {
       rethrow;
@@ -61,10 +62,7 @@ class SupabaseLedgerInviteSource {
       // Almost always the network. Worth saying so, because the fix is to try
       // again somewhere with a signal rather than to check the code.
       log('Redeeming an invite code failed', error: e, stackTrace: s);
-      throw const LedgerFailure(
-        'Could not reach the server. Joining a family account needs a '
-        'connection.',
-      );
+      throw LedgerFailure(t.accounts.codeOffline);
     }
   }
 }
@@ -77,5 +75,5 @@ Future<String> inviteSourceUnavailable({
   required String code,
   String? displayName,
 }) async {
-  throw const LedgerFailure('Sign in to share a family account with someone.');
+  throw LedgerFailure(t.accounts.codeNeedsAccount);
 }

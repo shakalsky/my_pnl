@@ -8,6 +8,7 @@ import 'package:my_pnl/features/ledgers/data/datasources/ledger_local_data_sourc
 import 'package:my_pnl/features/ledgers/domain/entities/ledger.dart';
 import 'package:my_pnl/features/ledgers/domain/repositories/active_ledger_store.dart';
 import 'package:my_pnl/features/ledgers/domain/repositories/ledger_repository.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Binds the ledger data sources to the domain contract.
 ///
@@ -78,7 +79,7 @@ class LedgerRepositoryImpl implements LedgerRepository {
   @override
   Future<void> select(String ledgerId) async {
     if (!await _local.isMember(ledgerId: ledgerId, userId: _owner.id)) {
-      throw const LedgerFailure('That account is not yours to open');
+      throw LedgerFailure(t.accounts.notYoursToOpen);
     }
 
     await _store.write(ledgerId);
@@ -104,7 +105,7 @@ class LedgerRepositoryImpl implements LedgerRepository {
   Future<Ledger> joinFamilyLedger(String code) async {
     final normalized = code.trim().toUpperCase();
     if (normalized.isEmpty) {
-      throw const LedgerFailure('Enter the code your partner shared with you');
+      throw LedgerFailure(t.accounts.enterCode);
     }
 
     // Asked before the server is: redeeming first and refusing afterwards would
@@ -131,7 +132,7 @@ class LedgerRepositoryImpl implements LedgerRepository {
   @override
   Future<void> leave(String ledgerId) async {
     if (ledgerId == personalLedgerId(_owner.id)) {
-      throw const LedgerFailure('Your own account is not one you can leave');
+      throw LedgerFailure(t.accounts.cannotLeaveOwn);
     }
 
     await _local.leave(ledgerId: ledgerId, userId: _owner.id);
@@ -182,9 +183,7 @@ class LedgerRepositoryImpl implements LedgerRepository {
     try {
       return await arrived.future.timeout(syncWait);
     } on TimeoutException {
-      throw const LedgerFailure(
-        "You're in. It will show up here once syncing catches up.",
-      );
+      throw LedgerFailure(t.accounts.joinedPending);
     } finally {
       await subscription.cancel();
     }

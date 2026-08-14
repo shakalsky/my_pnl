@@ -9,6 +9,7 @@ import 'package:my_pnl/features/goals/domain/usecases/clear_goal.dart';
 import 'package:my_pnl/features/goals/domain/usecases/watch_goal.dart';
 import 'package:my_pnl/features/spending/domain/entities/monthly_pnl.dart';
 import 'package:my_pnl/features/spending/domain/usecases/watch_monthly_pnl.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 part 'goal_overview_event.dart';
 part 'goal_overview_state.dart';
@@ -83,7 +84,7 @@ class GoalOverviewBloc extends Bloc<GoalOverviewEvent, GoalOverviewState> {
           : state.copyWith(goal: goal),
       onError: (error, stackTrace) {
         log('Watching the goal failed', error: error, stackTrace: stackTrace);
-        return state.copyWith(errorMessage: 'Could not load your goal');
+        return state.copyWith(errorMessage: t.goal.loadGoalFailed);
       },
     );
   }
@@ -98,7 +99,7 @@ class GoalOverviewBloc extends Bloc<GoalOverviewEvent, GoalOverviewState> {
       // one source of truth for what the page shows.
     } on Object catch (e, s) {
       log('Clearing the goal failed', error: e, stackTrace: s);
-      emit(state.copyWith(errorMessage: 'Could not remove your goal'));
+      emit(state.copyWith(errorMessage: t.goal.removeFailed));
     }
   }
 

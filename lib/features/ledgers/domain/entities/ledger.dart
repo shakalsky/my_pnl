@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// How many books one reader may have.
 ///
@@ -68,7 +69,7 @@ enum LedgerRole {
 /// it too and they carry a name rather than a member.
 String ledgerMemberLabel(String? displayName) {
   final name = displayName?.trim();
-  if (name == null || name.isEmpty) return 'Partner';
+  if (name == null || name.isEmpty) return t.accounts.partnerFallback;
 
   final at = name.indexOf('@');
   return at > 0 ? name.substring(0, at) : name;

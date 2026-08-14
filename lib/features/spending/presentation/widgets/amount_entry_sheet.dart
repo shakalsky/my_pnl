@@ -12,6 +12,7 @@ import 'package:my_pnl/features/spending/domain/usecases/record_spend.dart';
 import 'package:my_pnl/features/spending/domain/usecases/update_spend.dart';
 import 'package:my_pnl/features/spending/presentation/bloc/amount_entry/amount_entry_bloc.dart';
 import 'package:my_pnl/features/spending/presentation/theme/category_style.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Modal for booking an amount against a category.
 class AmountEntrySheet extends StatelessWidget {
@@ -61,7 +62,7 @@ class AmountEntrySheet extends StatelessWidget {
             Navigator.of(context).pop();
           case AmountEntryStatus.failure:
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Could not save the amount')),
+              SnackBar(content: Text(t.amountEntry.saveFailed)),
             );
           case AmountEntryStatus.editing:
           case AmountEntryStatus.submitting:
@@ -107,7 +108,7 @@ class _DateField extends StatelessWidget {
     final at = occurredAt?.toLocal();
     // An entry still to be dated is being booked now, which the reader knows as
     // today — the same word a date picked today would earn below.
-    if (at == null || _isToday(at)) return 'Today';
+    if (at == null || _isToday(at)) return t.common.today;
 
     return DateFormat.yMMMd().format(at);
   }
@@ -238,7 +239,9 @@ class _AmountEntryFormState extends State<_AmountEntryForm> {
                     children: [
                       Text(category.name, style: theme.textTheme.titleLarge),
                       Text(
-                        state.isEditing ? 'Edit amount' : 'Add an amount',
+                        state.isEditing
+                            ? t.amountEntry.editSubtitle
+                            : t.amountEntry.createSubtitle,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -274,10 +277,13 @@ class _AmountEntryFormState extends State<_AmountEntryForm> {
             const SizedBox(height: 8),
             Text(
               state.isEditing
-                  ? 'Changing this entry to '
-                        '${formatAmount(state.amountScaled ?? 0)}'
-                  : 'Adding ${formatAmount(state.amountScaled ?? 0)} '
-                        'to ${category.name}',
+                  ? t.amountEntry.changingTo(
+                      amount: formatAmount(state.amountScaled ?? 0),
+                    )
+                  : t.amountEntry.addingTo(
+                      amount: formatAmount(state.amountScaled ?? 0),
+                      category: category.name,
+                    ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -285,8 +291,8 @@ class _AmountEntryFormState extends State<_AmountEntryForm> {
             const SizedBox(height: 16),
             AppInput.white(
               controller: _note,
-              label: 'Description',
-              hint: 'Optional. What this one was for.',
+              label: t.amountEntry.description,
+              hint: t.amountEntry.descriptionHint,
               textCapitalization: TextCapitalization.sentences,
               textInputAction: TextInputAction.done,
               onChanged: (value) => bloc.add(AmountEntryNoteChanged(value)),
@@ -309,7 +315,7 @@ class _AmountEntryFormState extends State<_AmountEntryForm> {
                         dimension: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Save amount'),
+                    : Text(t.amountEntry.submit),
               ),
             ),
           ],

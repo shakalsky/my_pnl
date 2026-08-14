@@ -6,6 +6,7 @@ import 'package:my_pnl/features/spending/domain/entities/overrun_settings.dart';
 import 'package:my_pnl/features/spending/domain/entities/spend_baseline.dart';
 import 'package:my_pnl/features/spending/domain/usecases/read_overrun_settings.dart';
 import 'package:my_pnl/features/spending/domain/usecases/save_overrun_settings.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 part 'overrun_settings_event.dart';
 part 'overrun_settings_state.dart';
@@ -79,7 +80,7 @@ class OverrunSettingsBloc
       emit(
         state.copyWith(
           status: OverrunSettingsStatus.failure,
-          errorMessage: 'Could not save your warning settings',
+          errorMessage: t.overrun.saveFailed,
         ),
       );
       emit(state.copyWith(status: OverrunSettingsStatus.editing));

@@ -5,6 +5,7 @@ import 'package:my_pnl/core/money/amount_parse.dart';
 import 'package:my_pnl/features/debts/domain/entities/debt.dart';
 import 'package:my_pnl/features/debts/domain/repositories/debt_repository.dart';
 import 'package:my_pnl/features/debts/domain/usecases/save_debt.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 part 'debt_form_event.dart';
 part 'debt_form_state.dart';
@@ -108,7 +109,7 @@ class DebtFormBloc extends Bloc<DebtFormEvent, DebtFormState> {
       emit(
         state.copyWith(
           status: DebtFormStatus.failure,
-          errorMessage: 'Could not save that debt',
+          errorMessage: t.debts.saveFailed,
         ),
       );
       emit(state.copyWith(status: DebtFormStatus.editing));

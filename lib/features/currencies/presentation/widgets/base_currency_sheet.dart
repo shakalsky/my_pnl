@@ -9,6 +9,7 @@ import 'package:my_pnl/features/currencies/domain/usecases/change_base_currency.
 import 'package:my_pnl/features/currencies/domain/usecases/read_base_currency.dart';
 import 'package:my_pnl/features/currencies/domain/usecases/watch_currencies.dart';
 import 'package:my_pnl/features/currencies/presentation/bloc/base_currency/base_currency_bloc.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Modal for choosing the currency everything is recorded and shown in.
 class BaseCurrencySheet extends StatelessWidget {
@@ -64,10 +65,9 @@ class BaseCurrencySheet extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Base currency', style: theme.textTheme.titleLarge),
+              Text(t.currencies.baseTitle, style: theme.textTheme.titleLarge),
               Text(
-                'What every amount is recorded in, and what rates are quoted '
-                'against.',
+                t.currencies.baseSheetSubtitle,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -87,10 +87,10 @@ class BaseCurrencySheet extends StatelessWidget {
                   ),
                   // The list of what would be removed is part of what the reader
                   // agrees to, so without it there is nothing safe to offer.
-                  BaseCurrencyStatus.failure => const Padding(
-                    padding: EdgeInsets.all(32),
+                  BaseCurrencyStatus.failure => Padding(
+                    padding: const EdgeInsets.all(32),
                     child: Center(
-                      child: Text('Could not load your currencies'),
+                      child: Text(t.currencies.baseLoadFailed),
                     ),
                   ),
                   BaseCurrencyStatus.success => _CurrencyOptions(state: state),
@@ -160,7 +160,7 @@ class _CurrencyOptions extends StatelessWidget {
     return showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text('Switch to ${chosen.ticker}?'),
+        title: Text(t.currencies.switchTitle(ticker: chosen.ticker)),
         content: Text(
           _consequences(
             chosen: chosen,
@@ -171,11 +171,11 @@ class _CurrencyOptions extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: Text(t.common.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text('Switch to ${chosen.ticker}'),
+            child: Text(t.currencies.switchAction(ticker: chosen.ticker)),
           ),
         ],
       ),
@@ -191,9 +191,7 @@ class _CurrencyOptions extends StatelessWidget {
     required BaseCurrency current,
     required List<Currency> currencies,
   }) {
-    final kept =
-        'Amounts already recorded keep the numbers they were saved '
-        'with — they will be shown in ${chosen.ticker} from now on.';
+    final kept = t.currencies.switchKept(ticker: chosen.ticker);
 
     if (currencies.isEmpty) return kept;
 
@@ -206,15 +204,14 @@ class _CurrencyOptions extends StatelessWidget {
 
     if (others.isNotEmpty) {
       buffer.write(
-        'The currencies you added are quoted against ${current.ticker}, so '
-        'they cannot be kept: ${_tickers(others)} will be deleted. ',
+        t.currencies.switchDeletes(
+          base: current.ticker,
+          tickers: _tickers(others),
+        ),
       );
     }
     if (adopted.isNotEmpty) {
-      buffer.write(
-        '${chosen.ticker} leaves your added currencies as well — it is the '
-        'base now, so there is no rate left for it to hold. ',
-      );
+      buffer.write(t.currencies.switchAdopts(ticker: chosen.ticker));
     }
 
     return '$buffer$kept';
@@ -226,6 +223,6 @@ class _CurrencyOptions extends StatelessWidget {
     if (tickers.length == 1) return tickers.single;
 
     final last = tickers.removeLast();
-    return '${tickers.join(', ')} and $last';
+    return '${tickers.join(', ')} ${t.common.listAnd} $last';
   }
 }

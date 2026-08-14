@@ -51,7 +51,7 @@ final class BaseCurrencyState extends Equatable {
         CatalogCurrency(
           ticker: base.ticker,
           symbol: base.symbol,
-          name: 'Your base currency',
+          name: t.currencies.optionYourBase,
         ),
       );
     }
@@ -62,7 +62,7 @@ final class BaseCurrencyState extends Equatable {
           ticker: currency.ticker,
           // The sign it is already shown with, or its ticker when it has none.
           symbol: currency.label,
-          name: 'One you added',
+          name: t.currencies.optionYouAdded,
         ),
       );
     }

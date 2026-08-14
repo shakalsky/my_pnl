@@ -10,6 +10,7 @@ import 'package:my_pnl/features/currencies/domain/repositories/currency_reposito
 import 'package:my_pnl/features/currencies/domain/usecases/change_base_currency.dart';
 import 'package:my_pnl/features/currencies/domain/usecases/read_base_currency.dart';
 import 'package:my_pnl/features/currencies/domain/usecases/watch_currencies.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 part 'base_currency_event.dart';
 part 'base_currency_state.dart';
@@ -112,7 +113,7 @@ class BaseCurrencyBloc extends Bloc<BaseCurrencyEvent, BaseCurrencyState> {
       emit(
         state.copyWith(
           isSubmitting: false,
-          errorMessage: 'Could not change the base currency',
+          errorMessage: t.currencies.baseChangeFailed,
         ),
       );
     }

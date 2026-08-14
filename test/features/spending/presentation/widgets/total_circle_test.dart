@@ -181,6 +181,7 @@ void main() {
               dimension: 200,
               child: TotalCircle(
                 totalScaled: 4235,
+                label: 'Total spent',
                 segments: [
                   TotalCircleSegment(color: _red, weightScaled: 4235),
                 ],
@@ -200,7 +201,7 @@ void main() {
           body: Center(
             child: SizedBox.square(
               dimension: 200,
-              child: TotalCircle(totalScaled: 0),
+              child: TotalCircle(totalScaled: 0, label: 'Total spent'),
             ),
           ),
         ),

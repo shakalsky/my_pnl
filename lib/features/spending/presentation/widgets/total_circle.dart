@@ -105,8 +105,8 @@ List<RingArc> ringArcs(
 class TotalCircle extends StatelessWidget {
   const TotalCircle({
     required this.totalScaled,
+    required this.label,
     this.segments = const [],
-    this.label = 'Total spent',
     this.currencyLabel,
     this.onTap,
     super.key,

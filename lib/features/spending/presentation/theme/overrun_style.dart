@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:my_pnl/features/spending/domain/entities/spend_baseline.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// How a category tile is outlined when its month has run past the usual.
 ///
@@ -30,7 +31,7 @@ const overrunBorderWidth = 2.5;
 /// rather than describing the border.
 String? overrunSemanticLabel(SpendOverrun overrun) => switch (overrun) {
   SpendOverrun.none => null,
-  SpendOverrun.mild => 'Above its usual month',
-  SpendOverrun.high => 'Well above its usual month',
-  SpendOverrun.severe => 'Far above its usual month',
+  SpendOverrun.mild => t.overrun.semanticsMild,
+  SpendOverrun.high => t.overrun.semanticsHigh,
+  SpendOverrun.severe => t.overrun.semanticsSevere,
 };

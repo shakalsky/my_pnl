@@ -13,6 +13,7 @@ import 'package:my_pnl/features/ledgers/domain/usecases/leave_ledger.dart';
 import 'package:my_pnl/features/ledgers/domain/usecases/rotate_invite_code.dart';
 import 'package:my_pnl/features/ledgers/domain/usecases/select_ledger.dart';
 import 'package:my_pnl/features/ledgers/domain/usecases/watch_ledgers.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 part 'ledger_event.dart';
 part 'ledger_state.dart';
@@ -108,7 +109,7 @@ class LedgerBloc extends Bloc<LedgerEvent, LedgerState> {
       emit(state.copyWith(errorMessage: e.message));
     } on Object catch (e, s) {
       log('Switching to ${event.ledgerId} failed', error: e, stackTrace: s);
-      emit(state.copyWith(errorMessage: 'Could not open that account'));
+      emit(state.copyWith(errorMessage: t.accounts.openFailed));
     }
   }
 
@@ -118,7 +119,7 @@ class LedgerBloc extends Bloc<LedgerEvent, LedgerState> {
   ) => _create(
     emit,
     make: () => _createPersonalLedger?.call(event.name),
-    whenItFails: 'Could not create that account',
+    whenItFails: t.accounts.createFailed,
   );
 
   Future<void> _onFamilyCreated(
@@ -127,7 +128,7 @@ class LedgerBloc extends Bloc<LedgerEvent, LedgerState> {
   ) => _create(
     emit,
     make: () => _createFamilyLedger?.call(event.name),
-    whenItFails: 'Could not create that family account',
+    whenItFails: t.accounts.createFamilyFailed,
   );
 
   /// Makes a book and opens it.
@@ -183,7 +184,7 @@ class LedgerBloc extends Bloc<LedgerEvent, LedgerState> {
       emit(
         state.copyWith(
           busy: false,
-          errorMessage: 'Could not remove that account',
+          errorMessage: t.accounts.removeFailed,
         ),
       );
     }
@@ -213,7 +214,7 @@ class LedgerBloc extends Bloc<LedgerEvent, LedgerState> {
     } on Object catch (e, s) {
       log('Joining a family account failed', error: e, stackTrace: s);
       emit(
-        state.copyWith(busy: false, errorMessage: 'Could not use that code'),
+        state.copyWith(busy: false, errorMessage: t.accounts.codeFailed),
       );
     }
   }
@@ -231,7 +232,7 @@ class LedgerBloc extends Bloc<LedgerEvent, LedgerState> {
       emit(
         state.copyWith(
           busy: false,
-          errorMessage: 'Could not leave that account',
+          errorMessage: t.accounts.leaveFailed,
         ),
       );
     }
@@ -253,7 +254,7 @@ class LedgerBloc extends Bloc<LedgerEvent, LedgerState> {
         error: e,
         stackTrace: s,
       );
-      emit(state.copyWith(errorMessage: 'Could not change the code'));
+      emit(state.copyWith(errorMessage: t.accounts.rotateFailed));
     }
   }
 }

@@ -2,6 +2,7 @@ import 'package:my_pnl/core/money/base_currency.dart';
 import 'package:my_pnl/features/currencies/domain/entities/currency.dart';
 import 'package:my_pnl/features/currencies/domain/repositories/base_currency_store.dart';
 import 'package:my_pnl/features/currencies/domain/repositories/currency_repository.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Moves the app onto another base currency, clearing the currencies whose rates
 /// were quoted against the old one.
@@ -43,7 +44,7 @@ class ChangeBaseCurrency {
     required List<Currency> existing,
   }) async {
     if (!currency.isValid) {
-      throw CurrencyFailure('${currency.ticker} is not a currency');
+      throw CurrencyFailure(t.currencies.notACurrency(ticker: currency.ticker));
     }
 
     for (final stale in existing) {

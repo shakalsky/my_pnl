@@ -27,6 +27,7 @@ import 'package:my_pnl/features/spending/presentation/widgets/all_transactions_s
 import 'package:my_pnl/features/spending/presentation/widgets/category_overview_body.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/overrun_settings_sheet.dart';
 import 'package:my_pnl/features/sync/presentation/widgets/sync_indicator.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Total spend up top, categories in a grid beneath it.
 class SpendingOverviewPage extends StatelessWidget {
@@ -113,31 +114,31 @@ class SpendingOverviewView extends StatelessWidget {
                   IconButton(
                     onPressed: () => AllTransactionsSheet.show(context),
                     icon: const Icon(Icons.receipt_long_outlined, size: 20),
-                    tooltip: 'All transactions',
+                    tooltip: t.spending.allTransactions,
                     visualDensity: VisualDensity.compact,
                   ),
                   IconButton(
                     onPressed: () => context.pushNamed(AppRoute.debts.name),
                     icon: const Icon(Icons.handshake_outlined, size: 20),
-                    tooltip: 'Debts',
+                    tooltip: t.spending.debts,
                     visualDensity: VisualDensity.compact,
                   ),
                   IconButton(
                     onPressed: () => context.pushNamed(AppRoute.goal.name),
                     icon: const Icon(Icons.flag_outlined, size: 20),
-                    tooltip: 'Goal',
+                    tooltip: t.spending.goal,
                     visualDensity: VisualDensity.compact,
                   ),
                   IconButton(
                     onPressed: () => CurrencyListSheet.show(context),
                     icon: const Icon(Icons.currency_exchange, size: 20),
-                    tooltip: 'Currencies',
+                    tooltip: t.spending.currencies,
                     visualDensity: VisualDensity.compact,
                   ),
                   IconButton(
                     onPressed: () => OverrunSettingsSheet.show(context),
                     icon: const Icon(Icons.warning_amber_rounded, size: 20),
-                    tooltip: 'Unusual months',
+                    tooltip: t.spending.unusualMonths,
                     visualDensity: VisualDensity.compact,
                   ),
                   const Flexible(child: AccountButton()),
@@ -151,8 +152,8 @@ class SpendingOverviewView extends StatelessWidget {
                       SpendingOverviewStatus.loading => const Center(
                         child: CircularProgressIndicator(),
                       ),
-                      SpendingOverviewStatus.failure => const Center(
-                        child: Text('Could not load your spending'),
+                      SpendingOverviewStatus.failure => Center(
+                        child: Text(t.spending.loadFailed),
                       ),
                       SpendingOverviewStatus.success => CategoryOverviewBody(
                         state: state,
@@ -162,7 +163,7 @@ class SpendingOverviewView extends StatelessWidget {
                         // net figure over a grid of spending reads as though the
                         // tiles made it, and what is left after income is the
                         // goal page's business.
-                        totalLabel: 'Spending',
+                        totalLabel: t.spending.totalLabel,
                       ),
                     };
                   },

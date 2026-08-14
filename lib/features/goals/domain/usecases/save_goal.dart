@@ -1,6 +1,7 @@
 import 'package:my_pnl/core/money/scales.dart';
 import 'package:my_pnl/features/goals/domain/entities/savings_goal.dart';
 import 'package:my_pnl/features/goals/domain/repositories/goal_repository.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// The largest target a goal can be set to: a trillion whole units.
 ///
@@ -20,10 +21,10 @@ class SaveGoal {
 
   Future<SavingsGoal> call(int targetAmountScaled) {
     if (targetAmountScaled <= 0) {
-      throw const GoalFailure('Enter an amount above zero');
+      throw GoalFailure(t.goal.amountAboveZero);
     }
     if (targetAmountScaled > maxGoalAmountScaled) {
-      throw const GoalFailure('Enter an amount up to 1,000,000,000,000');
+      throw GoalFailure(t.goal.amountTooLarge);
     }
 
     return _repository.saveGoal(targetAmountScaled);

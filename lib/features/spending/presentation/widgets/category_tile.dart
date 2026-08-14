@@ -5,6 +5,7 @@ import 'package:my_pnl/features/spending/domain/entities/category_spend.dart';
 import 'package:my_pnl/features/spending/domain/entities/spend_baseline.dart';
 import 'package:my_pnl/features/spending/presentation/theme/category_style.dart';
 import 'package:my_pnl/features/spending/presentation/theme/overrun_style.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// One cell of the category grid.
 class CategoryTile extends StatelessWidget {
@@ -109,7 +110,7 @@ class CategoryTile extends StatelessWidget {
                     // target to keep the tap from opening the amount modal.
                     _SettingsButton(
                       onPressed: onEdit,
-                      semanticLabel: '${category.name} settings',
+                      semanticLabel: t.spending.categorySettings(name: category.name),
                     ),
                   ],
                 ),
@@ -244,7 +245,7 @@ class AddCategoryTile extends StatelessWidget {
             Icon(Icons.add, color: colors.onSurfaceVariant),
             const SizedBox(height: 4),
             Text(
-              'Add',
+              t.common.add,
               style: theme.textTheme.labelMedium?.copyWith(
                 color: colors.onSurfaceVariant,
               ),

@@ -73,96 +73,70 @@ To learn more, visit https://bloclibrary.dev/lint/
 
 ## Working with Translations 🌐
 
-This project follows the [official internationalization guide for Flutter][internationalization_link] using [ARB files][arb_documentation_link] for translations.
+Translations live in `lib/i18n` and are read through the [slang][slang_link]
+package. Two locales are supported: English (`en`, the base) and Russian (`ru`).
+
+The language follows the device. Startup resolves it in `bootstrap`, and slang
+keeps listening, so changing it in the system settings while the app is open
+takes effect without a restart.
 
 ### Adding Strings
 
-1. To add a new localizable string, open the `app_en.arb` file at `lib/l10n/arb/app_en.arb` and add a new key/value pair with the relevant description (optional):
+1. Add the key to `lib/i18n/en.i18n.json`, grouped under the feature it belongs
+   to:
 
-```arb
+```json
 {
-    "@@locale": "en",
-    "counterAppBarTitle": "Counter",
-    "@counterAppBarTitle": {
-        "description": "Text shown in the AppBar of the Counter Page"
-    },
-    "helloWorld": "Hello World",
-    "@helloWorld": {
-        "description": "Hello World greeting."
-    }
+  "goal": {
+    "reached": "Goal reached",
+    "toGo": "$amount to go"
+  }
 }
 ```
 
-1. Use the new string:
+2. Add the same key to `lib/i18n/ru.i18n.json`. A key left out falls back to
+   English silently — `test/i18n/translations_test.dart` is what catches it.
 
-```dart
-import 'package:my_pnl/l10n/l10n.dart';
-
-@override
-Widget build(BuildContext context) {
-  final l10n = context.l10n;
-  return Text(l10n.helloWorld);
-}
-```
-
-### Adding Supported Locales
-
-Update the `CFBundleLocalizations` array in the `Info.plist` at `ios/Runner/Info.plist` to include the new locale.
-
-```xml
-    ...
-
-    <key>CFBundleLocalizations</key>
-	<array>
-		<string>en</string>
-		<string>es</string>
-	</array>
-
-    ...
-```
-
-### Adding Translations
-
-1. For each supported locale, add a new ARB file in `lib/l10n/arb`:
-
-```
-├── l10n
-│   ├── arb
-│   │   ├── app_en.arb
-│   │   └── app_es.arb
-```
-
-1. Add the translated strings to the new `.arb` file:
-
-`app_es.arb`
-
-```arb
-{
-    "@@locale": "es",
-    "counterAppBarTitle": "Contador",
-    "@counterAppBarTitle": {
-        "description": "Texto mostrado en la AppBar de la página del contador"
-    },
-    "helloWorld": "Hola Mundo",
-    "@helloWorld": {
-        "description": "Saludo Hola Mundo."
-    }    
-}
-```
-
-### Generating Translations
-
-To use the latest translations changes, you will need to generate them:
+3. Regenerate and use it:
 
 ```sh
-flutter gen-l10n --arb-dir="lib/l10n/arb"
+dart run slang
 ```
 
-Alternatively, run `flutter run` and code generation will take place automatically.
+```dart
+import 'package:my_pnl/i18n/strings.g.dart';
+
+Text(t.goal.reached)
+Text(t.goal.toGo(amount: formatAmount(remainingScaled)))
+```
+
+`t` is a global rather than something read off a `BuildContext`, so the same
+call works in a widget, a bloc and a use case. A locale changed at runtime still
+reaches the screen: the app shell in `lib/app/view/app.dart` is keyed on the
+active locale, which rebuilds everything under the router.
+
+### Counts
+
+Give a key `one`/`other` in English and `one`/`few`/`many`/`other` in Russian,
+and slang picks the form:
+
+```json
+{ "years": { "one": "1 year", "other": "$n years" } }
+```
+
+```dart
+t.goal.years(n: 3)
+```
+
+### Adding a Locale
+
+1. Add `lib/i18n/<code>.i18n.json` and run `dart run slang`. It is picked up
+   from the file name — nothing else to register.
+2. Add the code to `CFBundleLocalizations` in `ios/Runner/Info.plist`, or iOS
+   reports the app as not supporting it and never offers it to the device.
 
 [coverage_badge]: coverage_badge.svg
-[internationalization_link]: https://docs.flutter.dev/ui/internationalization
-[arb_documentation_link]: https://github.com/google/app-resource-bundle
+[slang_link]: https://pub.dev/packages/slang
 [license_badge]: https://img.shields.io/badge/license-MIT-blue.svg
 [license_link]: https://opensource.org/licenses/MIT
 [very_good_analysis_badge]: https://img.shields.io/badge/style-very_good_analysis-B22C89.svg

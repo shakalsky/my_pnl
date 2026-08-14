@@ -7,6 +7,7 @@ import 'package:my_pnl/features/ledgers/domain/entities/ledger.dart';
 import 'package:my_pnl/features/ledgers/presentation/bloc/ledger/ledger_bloc.dart';
 import 'package:my_pnl/features/ledgers/presentation/widgets/ledger_form_sheet.dart';
 import 'package:my_pnl/features/ledgers/presentation/widgets/ledger_switcher.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Modal for switching between accounts, and for sharing one with a partner.
 ///
@@ -78,10 +79,9 @@ class AccountsSheet extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Accounts', style: theme.textTheme.titleLarge),
+                Text(t.accounts.title, style: theme.textTheme.titleLarge),
                 Text(
-                  'Up to ${LedgerLimits.personal} accounts of your own, and one '
-                  'family account you and your partner both record into.',
+                  t.accounts.subtitle(count: LedgerLimits.personal),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -133,23 +133,20 @@ Future<void> _confirmRemove(BuildContext context, Ledger ledger) async {
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      title: Text('Remove ${ledger.name}?'),
+      title: Text(t.accounts.removeTitle(name: ledger.name)),
       // Honest about what it does and does not do. The rows are not swept up —
       // every read narrows to a ledger, so a removed one simply stops being
       // reachable, and saying "hidden" is what makes that recoverable rather
       // than a promise nothing kept.
-      content: const Text(
-        'Its categories and entries stop showing anywhere in the app. Nothing '
-        'is erased, but there is no way back to them from here.',
-      ),
+      content: Text(t.accounts.removeBody),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(dialogContext).pop(false),
-          child: const Text('Cancel'),
+          child: Text(t.common.cancel),
         ),
         FilledButton(
           onPressed: () => Navigator.of(dialogContext).pop(true),
-          child: const Text('Remove'),
+          child: Text(t.common.remove),
         ),
       ],
     ),
@@ -182,15 +179,14 @@ class _NewAccountButton extends StatelessWidget {
                 ? () => LedgerFormSheet.show(context)
                 : null,
             icon: const Icon(Icons.add, size: 18),
-            label: const Text('New account'),
+            label: Text(t.accounts.newAccount),
           ),
         ),
         if (!room)
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              'You have ${LedgerLimits.personal} accounts of your own and a '
-              'family account. Remove one to make another.',
+              t.accounts.noRoom(count: LedgerLimits.personal),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -218,7 +214,7 @@ class _InviteCode extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Invite code',
+          t.accounts.inviteCode,
           style: theme.textTheme.labelLarge?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -242,21 +238,21 @@ class _InviteCode extends StatelessWidget {
                 await Clipboard.setData(ClipboardData(text: code));
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Code copied')),
+                  SnackBar(content: Text(t.accounts.codeCopied)),
                 );
               },
               icon: const Icon(Icons.copy, size: 20),
-              tooltip: 'Copy code',
+              tooltip: t.accounts.copyCode,
             ),
             IconButton(
               onPressed: () => _confirmRotate(context),
               icon: const Icon(Icons.autorenew, size: 20),
-              tooltip: 'New code',
+              tooltip: t.accounts.newCode,
             ),
           ],
         ),
         Text(
-          'Anyone with this code can join and see these totals.',
+          t.accounts.inviteWarning,
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -272,20 +268,18 @@ class _InviteCode extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('New invite code?'),
+        title: Text(t.accounts.rotateTitle),
         // Worth spelling out: this is the only way to take an invite back, and
         // it is also the only way to break one that has been shared already.
-        content: const Text(
-          'The old code stops working. Anyone who has already joined stays.',
-        ),
+        content: Text(t.accounts.rotateBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: Text(t.common.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('New code'),
+            child: Text(t.accounts.newCode),
           ),
         ],
       ),
@@ -310,7 +304,7 @@ class _Members extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Members',
+          t.accounts.members,
           style: theme.textTheme.labelLarge?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -322,13 +316,13 @@ class _Members extends StatelessWidget {
             leading: const Icon(Icons.account_circle_outlined, size: 20),
             title: Text(
               member.userId == viewerId
-                  ? '${member.label} (you)'
+                  ? t.accounts.memberYou(label: member.label)
                   : member.label,
             ),
             subtitle: Text(
               member.isOwner
-                  ? 'Created this account'
-                  : 'Records their own entries',
+                  ? t.accounts.memberOwner
+                  : t.accounts.memberPartner,
             ),
           ),
       ],
@@ -352,7 +346,7 @@ class _LeaveButton extends StatelessWidget {
       child: TextButton.icon(
         onPressed: busy ? null : () => _confirmLeave(context),
         icon: const Icon(Icons.logout, size: 18),
-        label: const Text('Leave this account'),
+        label: Text(t.accounts.leaveAction),
         style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
       ),
     );
@@ -364,22 +358,19 @@ class _LeaveButton extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text('Leave ${ledger.name}?'),
+        title: Text(t.accounts.leaveTitle(name: ledger.name)),
         // The entries stay, and that is worth saying: someone leaving expects
         // their spending to go with them, and it cannot — a partner is still
         // reading totals it is part of.
-        content: const Text(
-          'You stop seeing these totals, and your partner stops seeing yours. '
-          'The entries you have already recorded here stay in this account.',
-        ),
+        content: Text(t.accounts.leaveBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: Text(t.common.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Leave'),
+            child: Text(t.common.leave),
           ),
         ],
       ),
@@ -439,10 +430,10 @@ class _JoinFieldState extends State<_JoinField> {
                 // starts in lower case only makes the reader fight it.
                 textCapitalization: TextCapitalization.characters,
                 autocorrect: false,
-                decoration: const InputDecoration(
-                  labelText: 'Join with a code',
-                  hintText: 'ABC123',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: t.accounts.joinLabel,
+                  hintText: t.accounts.joinHint,
+                  border: const OutlineInputBorder(),
                   isDense: true,
                 ),
                 onSubmitted: (_) => _submit(),
@@ -457,7 +448,7 @@ class _JoinFieldState extends State<_JoinField> {
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Join'),
+                  : Text(t.common.join),
             ),
           ],
         ),
@@ -468,7 +459,7 @@ class _JoinFieldState extends State<_JoinField> {
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              'Leave the family account you are in to join another.',
+              t.accounts.joinBlocked,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

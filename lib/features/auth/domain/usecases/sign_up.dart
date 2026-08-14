@@ -1,5 +1,6 @@
 import 'package:my_pnl/features/auth/domain/repositories/auth_repository.dart';
 import 'package:my_pnl/features/auth/domain/usecases/sign_in.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Creates an account.
 class SignUp {
@@ -13,12 +14,10 @@ class SignUp {
   }) {
     final trimmed = email.trim();
     if (!isValidEmail(trimmed)) {
-      throw const AuthFailure('Enter a valid email address');
+      throw AuthFailure(t.auth.invalidEmail);
     }
     if (password.length < minPasswordLength) {
-      throw const AuthFailure(
-        'Password must be at least $minPasswordLength characters',
-      );
+      throw AuthFailure(t.auth.passwordTooShort(count: minPasswordLength));
     }
 
     return _repository.signUp(email: trimmed, password: password);

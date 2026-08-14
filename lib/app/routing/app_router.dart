@@ -8,6 +8,7 @@ import 'package:my_pnl/features/auth/presentation/pages/sign_in_page.dart';
 import 'package:my_pnl/features/debts/presentation/pages/debts_page.dart';
 import 'package:my_pnl/features/goals/presentation/pages/goal_page.dart';
 import 'package:my_pnl/features/spending/presentation/pages/overview_pager_page.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Every route in the app.
 ///
@@ -93,6 +94,8 @@ GoRouter createAppRouter({
       ),
     ],
     errorBuilder: (context, state) =>
-        Scaffold(body: Center(child: Text('No route for ${state.uri}'))),
+        Scaffold(
+          body: Center(child: Text(t.router.noRoute(uri: state.uri))),
+        ),
   );
 }

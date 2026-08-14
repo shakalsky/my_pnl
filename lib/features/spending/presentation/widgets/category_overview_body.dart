@@ -16,6 +16,7 @@ import 'package:my_pnl/features/spending/presentation/widgets/amount_entry_sheet
 import 'package:my_pnl/features/spending/presentation/widgets/category_form_sheet.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/category_tile.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/total_circle.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Total in a circle, categories in a grid beneath it.
 ///
@@ -89,7 +90,7 @@ class CategoryOverviewBody extends StatelessWidget {
                     children: [
                       _MonthStep(
                         icon: Icons.chevron_left,
-                        tooltip: 'Previous month',
+                        tooltip: t.spending.previousMonth,
                         month: state.month.previous,
                       ),
                       SizedBox(
@@ -117,7 +118,7 @@ class CategoryOverviewBody extends StatelessWidget {
                       ),
                       _MonthStep(
                         icon: Icons.chevron_right,
-                        tooltip: 'Next month',
+                        tooltip: t.spending.nextMonth,
                         // Nothing can be booked in a month that has not
                         // happened, so forward stops at the present rather than
                         // walking off into empty months.

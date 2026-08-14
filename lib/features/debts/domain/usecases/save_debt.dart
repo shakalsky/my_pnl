@@ -1,5 +1,6 @@
 import 'package:my_pnl/features/debts/domain/entities/debt.dart';
 import 'package:my_pnl/features/debts/domain/repositories/debt_repository.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Records a debt, or saves edits to one.
 ///
@@ -46,10 +47,10 @@ class SaveDebt {
     final name = value.trim();
 
     if (name.isEmpty) {
-      throw const DebtFailure('Enter who the debt is with');
+      throw DebtFailure(t.debts.enterCounterparty);
     }
     if (name.length > 60) {
-      throw const DebtFailure('That name is too long');
+      throw DebtFailure(t.debts.nameTooLong);
     }
 
     return name;
@@ -59,7 +60,7 @@ class SaveDebt {
   /// would mean the same debt twice over.
   int _validAmount(int amountScaled) {
     if (amountScaled <= 0) {
-      throw const DebtFailure('Enter an amount above zero');
+      throw DebtFailure(t.debts.amountAboveZero);
     }
 
     return amountScaled;

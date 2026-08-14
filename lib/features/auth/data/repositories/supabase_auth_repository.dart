@@ -2,6 +2,7 @@ import 'dart:developer';
 
 import 'package:my_pnl/features/auth/domain/entities/auth_user.dart';
 import 'package:my_pnl/features/auth/domain/repositories/auth_repository.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 // Supabase exports an AuthUser of its own; the domain entity wins here.
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthUser;
 
@@ -73,7 +74,7 @@ class SupabaseAuthRepository implements AuthRepository {
       // Logged because this branch swallows the real cause — a bad URL, no
       // network, a DNS failure — behind a generic message.
       log('Auth call failed', error: e);
-      throw const AuthFailure('Could not reach the server. Try again.');
+      throw AuthFailure(t.auth.unreachable);
     }
   }
 }

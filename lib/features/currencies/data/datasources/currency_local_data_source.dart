@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:my_pnl/database/database.dart';
 import 'package:my_pnl/features/currencies/domain/entities/currency.dart';
 import 'package:my_pnl/features/currencies/domain/repositories/currency_repository.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Drift queries behind the currency repository.
 class CurrencyLocalDataSource {
@@ -122,7 +123,7 @@ class CurrencyLocalDataSource {
             .getSingleOrNull();
 
     if (clash != null && clash.id != exceptId) {
-      throw CurrencyFailure('$ticker is already in your list');
+      throw CurrencyFailure(t.currencies.alreadyListed(ticker: ticker));
     }
   }
 

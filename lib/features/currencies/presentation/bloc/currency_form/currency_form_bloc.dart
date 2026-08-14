@@ -5,6 +5,7 @@ import 'package:my_pnl/core/money/amount_parse.dart';
 import 'package:my_pnl/features/currencies/domain/entities/currency.dart';
 import 'package:my_pnl/features/currencies/domain/repositories/currency_repository.dart';
 import 'package:my_pnl/features/currencies/domain/usecases/save_currency.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 part 'currency_form_event.dart';
 part 'currency_form_state.dart';
@@ -84,7 +85,7 @@ class CurrencyFormBloc extends Bloc<CurrencyFormEvent, CurrencyFormState> {
       emit(
         state.copyWith(
           status: CurrencyFormStatus.failure,
-          errorMessage: 'Could not save that currency',
+          errorMessage: t.currencies.saveFailed,
         ),
       );
       emit(state.copyWith(status: CurrencyFormStatus.editing));

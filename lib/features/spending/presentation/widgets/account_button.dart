@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_pnl/features/auth/presentation/bloc/auth/auth_bloc.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Shows who is signed in, with a sign-out action.
 ///
@@ -32,7 +33,7 @@ class AccountButton extends StatelessWidget {
         IconButton(
           onPressed: () => _confirmSignOut(context),
           icon: const Icon(Icons.logout, size: 18),
-          tooltip: 'Sign out',
+          tooltip: t.account.signOut,
           visualDensity: VisualDensity.compact,
         ),
       ],
@@ -45,21 +46,18 @@ class AccountButton extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Sign out?'),
+        title: Text(t.account.signOutTitle),
         // Worth spelling out: PowerSync clears the local copy on sign-out, so
         // anything that never reached the server is gone.
-        content: const Text(
-          'Your synced data stays on the server. Anything not yet uploaded '
-          'will be removed from this device.',
-        ),
+        content: Text(t.account.signOutBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: Text(t.common.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Sign out'),
+            child: Text(t.account.signOut),
           ),
         ],
       ),

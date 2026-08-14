@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_pnl/features/ledgers/domain/entities/ledger.dart';
 import 'package:my_pnl/features/ledgers/presentation/bloc/ledger/ledger_bloc.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Where a new account is named.
 ///
@@ -114,22 +115,22 @@ class _LedgerFormState extends State<_LedgerForm> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('New account', style: theme.textTheme.titleLarge),
+          Text(t.accounts.formTitle, style: theme.textTheme.titleLarge),
           const SizedBox(height: 12),
           SegmentedButton<LedgerKind>(
             segments: [
               // Both stay selectable even at their limit. A disabled segment
               // swallows the tap and explains nothing; selecting it and being
               // told why is how the reader finds out there is a limit at all.
-              const ButtonSegment(
+              ButtonSegment(
                 value: LedgerKind.personal,
-                icon: Icon(Icons.person_outline, size: 18),
-                label: Text('Just me'),
+                icon: const Icon(Icons.person_outline, size: 18),
+                label: Text(t.accounts.kindPersonal),
               ),
-              const ButtonSegment(
+              ButtonSegment(
                 value: LedgerKind.family,
-                icon: Icon(Icons.people_outline, size: 18),
-                label: Text('Family'),
+                icon: const Icon(Icons.people_outline, size: 18),
+                label: Text(t.accounts.kindFamily),
               ),
             ],
             selected: {_kind},
@@ -141,19 +142,13 @@ class _LedgerFormState extends State<_LedgerForm> {
           Text(
             switch (_kind) {
               LedgerKind.personal when !state.canAddPersonal =>
-                'You already have ${LedgerLimits.personal} of your own. Remove '
-                    'one to make another.',
+                t.accounts.formPersonalLimit(count: LedgerLimits.personal),
               LedgerKind.family when !state.canAddFamily =>
-                'You are already in a family account. Leave it before starting '
-                    'another.',
+                t.accounts.formFamilyLimit,
               // What each kind is *for*, which is the thing a reader choosing
               // between them actually needs to know.
-              LedgerKind.personal =>
-                'Its own categories and totals, kept separate from your other '
-                    'accounts.',
-              LedgerKind.family =>
-                'One set of categories and totals that you and your partner '
-                    'both record into.',
+              LedgerKind.personal => t.accounts.formPersonalAbout,
+              LedgerKind.family => t.accounts.formFamilyAbout,
             },
             style: theme.textTheme.bodySmall?.copyWith(
               color: _isAllowed
@@ -169,12 +164,12 @@ class _LedgerFormState extends State<_LedgerForm> {
             textCapitalization: TextCapitalization.sentences,
             textInputAction: TextInputAction.done,
             decoration: InputDecoration(
-              labelText: 'Name',
+              labelText: t.common.name,
               // A suggestion rather than a default: the field stays empty, so
               // nothing is created under a name the reader did not choose.
               hintText: switch (_kind) {
-                LedgerKind.personal => 'Side business',
-                LedgerKind.family => 'Home',
+                LedgerKind.personal => t.accounts.formHintPersonal,
+                LedgerKind.family => t.accounts.formHintFamily,
               },
               border: const OutlineInputBorder(),
             ),
@@ -185,7 +180,7 @@ class _LedgerFormState extends State<_LedgerForm> {
             alignment: Alignment.centerRight,
             child: FilledButton(
               onPressed: _isAllowed && !state.busy ? _submit : null,
-              child: const Text('Create'),
+              child: Text(t.common.create),
             ),
           ),
         ],

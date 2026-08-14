@@ -5,6 +5,7 @@ import 'package:my_pnl/core/money/amount_parse.dart';
 import 'package:my_pnl/features/goals/domain/entities/savings_goal.dart';
 import 'package:my_pnl/features/goals/domain/repositories/goal_repository.dart';
 import 'package:my_pnl/features/goals/domain/usecases/save_goal.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 part 'goal_form_event.dart';
 part 'goal_form_state.dart';
@@ -55,7 +56,7 @@ class GoalFormBloc extends Bloc<GoalFormEvent, GoalFormState> {
       emit(
         state.copyWith(
           status: GoalFormStatus.failure,
-          errorMessage: 'Could not save your goal',
+          errorMessage: t.goal.saveFailed,
         ),
       );
       emit(state.copyWith(status: GoalFormStatus.editing));

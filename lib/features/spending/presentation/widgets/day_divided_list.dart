@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// A row in a list broken up by day: either a day's heading or one entry under
 /// it.
@@ -129,8 +130,8 @@ String formatDay(DateTime day) {
   final today = DateTime(now.year, now.month, now.day);
   final yesterday = DateTime(now.year, now.month, now.day - 1);
 
-  if (day == today) return 'Today';
-  if (day == yesterday) return 'Yesterday';
+  if (day == today) return t.common.today;
+  if (day == yesterday) return t.common.yesterday;
 
   return day.year == today.year
       ? DateFormat.MMMEd().format(day)

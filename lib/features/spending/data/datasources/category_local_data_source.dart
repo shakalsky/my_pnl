@@ -7,6 +7,7 @@ import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/entities/category_spend.dart';
 import 'package:my_pnl/features/spending/domain/entities/spend_baseline.dart';
 import 'package:my_pnl/features/spending/domain/repositories/category_repository.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Drift queries behind the category repository.
 ///
@@ -453,7 +454,7 @@ class CategoryLocalDataSource {
             .get();
 
     if (clash.any((row) => row.id != exceptId)) {
-      throw CategoryFailure('You already have a category called "$name"');
+      throw CategoryFailure(t.categoryForm.nameTaken(name: name));
     }
   }
 

@@ -7,6 +7,7 @@ import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/entities/spend_entry.dart';
 import 'package:my_pnl/features/spending/domain/usecases/delete_spend.dart';
 import 'package:my_pnl/features/spending/domain/usecases/watch_category_history.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 part 'transaction_history_event.dart';
 part 'transaction_history_state.dart';
@@ -40,7 +41,7 @@ class TransactionHistoryBloc
       // No emit on success: the watch stream carries the new list, so the
       // list has one source of truth rather than two.
     } on Object {
-      emit(state.copyWith(errorMessage: 'Could not delete that entry'));
+      emit(state.copyWith(errorMessage: t.entries.deleteFailed));
     }
   }
 

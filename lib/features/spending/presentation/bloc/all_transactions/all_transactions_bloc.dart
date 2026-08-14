@@ -6,6 +6,7 @@ import 'package:equatable/equatable.dart';
 import 'package:my_pnl/features/spending/domain/entities/ledger_entry.dart';
 import 'package:my_pnl/features/spending/domain/usecases/delete_spend.dart';
 import 'package:my_pnl/features/spending/domain/usecases/watch_all_entries.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 part 'all_transactions_event.dart';
 part 'all_transactions_state.dart';
@@ -63,7 +64,7 @@ class AllTransactionsBloc
       // one source of truth for what the modal shows.
     } on Object catch (e, s) {
       log('Deleting ${event.entryId} failed', error: e, stackTrace: s);
-      emit(state.copyWith(errorMessage: 'Could not delete that entry'));
+      emit(state.copyWith(errorMessage: t.entries.deleteFailed));
     }
   }
 }

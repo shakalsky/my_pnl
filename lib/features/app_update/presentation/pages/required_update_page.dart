@@ -6,6 +6,7 @@ import 'package:my_pnl/features/app_update/domain/repositories/app_update_reposi
 import 'package:my_pnl/features/app_update/domain/usecases/check_for_update.dart';
 import 'package:my_pnl/features/app_update/domain/usecases/watch_app_update_status.dart';
 import 'package:my_pnl/features/app_update/presentation/bloc/app_update/app_update_bloc.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Opens a store listing. Returns whether anything handled it.
@@ -72,15 +73,13 @@ class RequiredUpdateView extends StatelessWidget {
                       ),
                       const SizedBox(height: 24),
                       Text(
-                        'Update required',
+                        t.update.title,
                         style: theme.textTheme.headlineSmall,
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        requirement?.message ??
-                            'This version of My Pnl is no longer supported. '
-                                'Update to keep using it.',
+                        requirement?.message ?? t.update.defaultMessage,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: colors.onSurfaceVariant,
                         ),
@@ -98,12 +97,12 @@ class RequiredUpdateView extends StatelessWidget {
                           child: FilledButton.icon(
                             onPressed: () => _open(context, url),
                             icon: const Icon(Icons.open_in_new, size: 18),
-                            label: const Text('Update now'),
+                            label: Text(t.update.action),
                           ),
                         )
                       else
                         Text(
-                          'Get the latest version from your app store.',
+                          t.update.noStore,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: colors.onSurfaceVariant,
                           ),
@@ -126,7 +125,7 @@ class RequiredUpdateView extends StatelessWidget {
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Text('I have updated'),
+                            : Text(t.update.recheck),
                       ),
                     ],
                   ),
@@ -157,7 +156,7 @@ class RequiredUpdateView extends StatelessWidget {
 
     if (!opened) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('Could not open the store')),
+        SnackBar(content: Text(t.update.openFailed)),
       );
     }
   }
@@ -189,13 +188,13 @@ class _VersionLine extends StatelessWidget {
       spacing: 12,
       children: [
         Text(
-          'You have $currentLabel',
+          t.update.youHave(version: currentLabel),
           style: style?.copyWith(color: colors.onSurfaceVariant),
         ),
-        if (requiredLabel != null) ...[
+        if (requiredLabel case final required?) ...[
           Icon(Icons.arrow_forward, size: 16, color: colors.outline),
           Text(
-            'Needs $requiredLabel',
+            t.update.needs(version: required),
             style: style?.copyWith(
               color: colors.primary,
               fontWeight: FontWeight.w600,

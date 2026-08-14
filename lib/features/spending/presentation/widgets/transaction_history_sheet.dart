@@ -12,6 +12,7 @@ import 'package:my_pnl/features/spending/presentation/theme/category_style.dart'
 import 'package:my_pnl/features/spending/presentation/widgets/amount_entry_sheet.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/day_divided_list.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/entry_author_label.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Modal listing what has been booked against a category.
 class TransactionHistorySheet extends StatelessWidget {
@@ -84,7 +85,7 @@ class TransactionHistorySheet extends StatelessWidget {
                           style: theme.textTheme.titleLarge,
                         ),
                         Text(
-                          'History',
+                          t.entries.historyTitle,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -113,9 +114,9 @@ class TransactionHistorySheet extends StatelessWidget {
                     padding: EdgeInsets.all(32),
                     child: Center(child: CircularProgressIndicator()),
                   ),
-                  TransactionHistoryStatus.failure => const Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Center(child: Text('Could not load the history')),
+                  TransactionHistoryStatus.failure => Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Center(child: Text(t.entries.historyLoadFailed)),
                   ),
                   TransactionHistoryStatus.success => _HistoryList(
                     entries: state.entries,
@@ -146,7 +147,7 @@ class _HistoryList extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 32),
         child: Center(
           child: Text(
-            'Nothing booked here yet',
+            t.entries.historyEmpty,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -237,7 +238,7 @@ class _HistoryList extends StatelessWidget {
                 }
               },
               icon: const Icon(Icons.delete_outline, size: 20),
-              tooltip: 'Delete entry',
+              tooltip: t.entries.deleteTooltip,
               visualDensity: VisualDensity.compact,
             ),
           ],
@@ -250,19 +251,21 @@ class _HistoryList extends StatelessWidget {
     return showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete this entry?'),
+        title: Text(t.entries.deleteTitle),
         content: Text(
-          '${formatAmount(entry.amountScaled)} will be removed from '
-          '${category.name}.',
+          t.entries.deleteBodyCategory(
+            amount: formatAmount(entry.amountScaled),
+            category: category.name,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: Text(t.common.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Delete'),
+            child: Text(t.common.delete),
           ),
         ],
       ),

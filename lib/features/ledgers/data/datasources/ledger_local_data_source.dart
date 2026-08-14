@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:my_pnl/database/database.dart';
 import 'package:my_pnl/features/ledgers/domain/entities/ledger.dart';
 import 'package:my_pnl/features/ledgers/domain/repositories/ledger_repository.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Drift queries behind the ledger repository.
 class LedgerLocalDataSource {
@@ -17,13 +18,13 @@ class LedgerLocalDataSource {
   final Random _random;
 
   /// The name a user's own ledger is created with.
-  static const personalLedgerName = 'Personal';
+  static String get personalLedgerName => t.accounts.firstAccountName;
 
   /// What a family account is called when the reader gives no name.
-  static const defaultFamilyName = 'Family';
+  static String get defaultFamilyName => t.accounts.defaultFamilyName;
 
   /// What an extra personal book is called when the reader gives no name.
-  static const defaultPersonalName = 'Another account';
+  static String get defaultPersonalName => t.accounts.extraAccountName;
 
   /// How long an invite code is.
   static const inviteCodeLength = 6;
@@ -259,9 +260,8 @@ class LedgerLocalDataSource {
   Future<void> requireRoomForPersonal(String ownerId) async {
     if (await personalLedgerCount(ownerId) < LedgerLimits.personal) return;
 
-    throw const LedgerFailure(
-      'You can have up to ${LedgerLimits.personal} accounts of your own. '
-      'Remove one to make another.',
+    throw LedgerFailure(
+      t.accounts.personalLimitReached(count: LedgerLimits.personal),
     );
   }
 
@@ -273,10 +273,7 @@ class LedgerLocalDataSource {
   Future<void> requireRoomForFamily(String userId) async {
     if (await familyLedgerCount(userId) < LedgerLimits.family) return;
 
-    throw const LedgerFailure(
-      'You are already in a family account. Leave it before joining or '
-      'starting another.',
-    );
+    throw LedgerFailure(t.accounts.familyLimitReached);
   }
 
   /// Creates a family account owned by [ownerId], with a code to share.
@@ -397,7 +394,7 @@ class LedgerLocalDataSource {
             .getSingleOrNull();
 
     if (row == null) {
-      throw const LedgerFailure('Only whoever created it can change the code');
+      throw LedgerFailure(t.accounts.onlyOwnerRotates);
     }
 
     final code = await _freeInviteCode();
@@ -465,7 +462,7 @@ class LedgerLocalDataSource {
     required String ownerId,
   }) async {
     if (ledgerId == personalLedgerId(ownerId)) {
-      throw const LedgerFailure('Your first account has to stay');
+      throw LedgerFailure(t.accounts.firstMustStay);
     }
 
     final row =
@@ -478,14 +475,12 @@ class LedgerLocalDataSource {
             .getSingleOrNull();
 
     if (row == null) {
-      throw const LedgerFailure('That account is not yours to remove');
+      throw LedgerFailure(t.accounts.notYoursToRemove);
     }
     if (LedgerKind.fromStorage(row.kind) == LedgerKind.family) {
       // Removing it would take it away from the partner as well, and their
       // history with it. Leaving is the operation that only affects the leaver.
-      throw const LedgerFailure(
-        'Leave a family account rather than removing it',
-      );
+      throw LedgerFailure(t.accounts.leaveRatherThanRemove);
     }
 
     final now = DateTime.now().toUtc();
@@ -592,7 +587,7 @@ class LedgerLocalDataSource {
       if (clash == null) return code;
     }
 
-    throw const LedgerFailure('Could not come up with an invite code');
+    throw LedgerFailure(t.accounts.noFreeCode);
   }
 
   String _inviteCode() => String.fromCharCodes([

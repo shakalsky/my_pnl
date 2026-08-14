@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_pnl/features/ledgers/domain/entities/ledger.dart';
 import 'package:my_pnl/features/ledgers/presentation/bloc/ledger/ledger_bloc.dart';
 import 'package:my_pnl/features/ledgers/presentation/widgets/accounts_sheet.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Which book the page below is showing, and a way to change it.
 ///
@@ -36,7 +37,7 @@ class LedgerSwitcher extends StatelessWidget {
           return IconButton(
             onPressed: () => AccountsSheet.show(context),
             icon: Icon(icon, size: 20),
-            tooltip: 'Accounts',
+            tooltip: t.accounts.tooltip,
             visualDensity: VisualDensity.compact,
           );
         }
@@ -116,10 +117,10 @@ class LedgerTile extends StatelessWidget {
       subtitle: Text(switch (partners) {
         // A family account nobody has joined yet is still one person's, and
         // saying "shared with" would be a promise the code has not kept.
-        [] when ledger.isFamily => 'Nobody has joined yet',
-        [] => 'Only you',
-        [final one] => 'Shared with ${one.label}',
-        final many => 'Shared with ${many.length} others',
+        [] when ledger.isFamily => t.accounts.tileNobodyJoined,
+        [] => t.accounts.tileOnlyYou,
+        [final one] => t.accounts.tileSharedWith(name: one.label),
+        final many => t.accounts.tileSharedWithOthers(count: many.length),
       }),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -130,7 +131,7 @@ class LedgerTile extends StatelessWidget {
             IconButton(
               onPressed: remove,
               icon: const Icon(Icons.delete_outline, size: 20),
-              tooltip: 'Remove ${ledger.name}',
+              tooltip: t.accounts.removeTooltip(name: ledger.name),
               visualDensity: VisualDensity.compact,
             ),
         ],

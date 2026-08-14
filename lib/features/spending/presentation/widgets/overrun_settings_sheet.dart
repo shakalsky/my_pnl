@@ -7,6 +7,7 @@ import 'package:my_pnl/features/spending/domain/usecases/read_overrun_settings.d
 import 'package:my_pnl/features/spending/domain/usecases/save_overrun_settings.dart';
 import 'package:my_pnl/features/spending/presentation/bloc/overrun_settings/overrun_settings_bloc.dart';
 import 'package:my_pnl/features/spending/presentation/theme/overrun_style.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Modal for setting when a month counts as having run past the usual.
 class OverrunSettingsSheet extends StatelessWidget {
@@ -59,11 +60,12 @@ class _OverrunSettingsForm extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Unusual months', style: theme.textTheme.titleLarge),
+          Text(t.overrun.title, style: theme.textTheme.titleLarge),
           const SizedBox(height: 4),
           Text(
-            'A category is outlined when this month costs more than the '
-            '${SpendBaseline.lookbackMonths} before it usually did.',
+            t.overrun.description(
+              months: t.overrun.monthsBack(n: SpendBaseline.lookbackMonths),
+            ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -72,7 +74,7 @@ class _OverrunSettingsForm extends StatelessWidget {
           SwitchListTile(
             value: settings.enabled,
             onChanged: (on) => bloc.add(OverrunWarningsToggled(on: on)),
-            title: const Text('Warn me about unusual months'),
+            title: Text(t.overrun.toggle),
             contentPadding: EdgeInsets.zero,
           ),
           // The thresholds are only meaningful while the warnings are on, and a
@@ -103,7 +105,7 @@ class _OverrunSettingsForm extends StatelessWidget {
                 onPressed: state.isDefault || state.isSubmitting
                     ? null
                     : () => bloc.add(const OverrunSettingsRestored()),
-                child: const Text('Reset'),
+                child: Text(t.common.reset),
               ),
               const Spacer(),
               FilledButton(
@@ -115,7 +117,7 @@ class _OverrunSettingsForm extends StatelessWidget {
                         dimension: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Save'),
+                    : Text(t.common.save),
               ),
             ],
           ),
@@ -167,7 +169,7 @@ class _ThresholdSlider extends StatelessWidget {
               Text(_labelFor(level), style: theme.textTheme.bodyMedium),
               const Spacer(),
               Text(
-                '$percent% of usual',
+                t.overrun.percentOfUsual(percent: percent),
                 style: theme.textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
@@ -199,8 +201,8 @@ class _ThresholdSlider extends StatelessWidget {
   /// someone who cannot see it.
   static String _labelFor(SpendOverrun level) => switch (level) {
     SpendOverrun.none => '',
-    SpendOverrun.mild => 'Worth a look',
-    SpendOverrun.high => 'Well over',
-    SpendOverrun.severe => 'Far over',
+    SpendOverrun.mild => t.overrun.levelMild,
+    SpendOverrun.high => t.overrun.levelHigh,
+    SpendOverrun.severe => t.overrun.levelSevere,
   };
 }

@@ -11,6 +11,7 @@ import 'package:my_pnl/features/goals/presentation/widgets/goal_form_sheet.dart'
 import 'package:my_pnl/features/spending/domain/entities/monthly_pnl.dart';
 import 'package:my_pnl/features/spending/domain/repositories/transaction_repository.dart';
 import 'package:my_pnl/features/spending/domain/usecases/watch_monthly_pnl.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// What the good months add up to, against what the user is saving for.
 class GoalPage extends StatelessWidget {
@@ -42,7 +43,7 @@ class GoalView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Goal'),
+        title: Text(t.goal.title),
         actions: [
           BlocBuilder<GoalOverviewBloc, GoalOverviewState>(
             buildWhen: (previous, current) =>
@@ -58,7 +59,7 @@ class GoalView extends StatelessWidget {
                   }
                 },
                 icon: const Icon(Icons.delete_outline, size: 20),
-                tooltip: 'Remove goal',
+                tooltip: t.goal.removeTooltip,
               );
             },
           ),
@@ -81,8 +82,8 @@ class GoalView extends StatelessWidget {
               GoalOverviewStatus.loading => const Center(
                 child: CircularProgressIndicator(),
               ),
-              GoalOverviewStatus.failure => const Center(
-                child: Text('Could not load your months'),
+              GoalOverviewStatus.failure => Center(
+                child: Text(t.goal.loadFailed),
               ),
               GoalOverviewStatus.success => _GoalBody(state: state),
             };
@@ -96,18 +97,16 @@ class GoalView extends StatelessWidget {
     return showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Remove your goal?'),
-        content: const Text(
-          'Your months stay exactly as they are — only the target goes.',
-        ),
+        title: Text(t.goal.removeTitle),
+        content: Text(t.goal.removeBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: Text(t.common.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Remove'),
+            child: Text(t.common.remove),
           ),
         ],
       ),
@@ -169,7 +168,7 @@ class _ProgressCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Saved from good months',
+              t.goal.saved,
               style: theme.textTheme.labelMedium?.copyWith(
                 color: colors.onSurfaceVariant,
               ),
@@ -189,7 +188,9 @@ class _ProgressCard extends StatelessWidget {
             else ...[
               const SizedBox(height: 4),
               Text(
-                'of ${formatAmount(state.goal!.targetAmountScaled)}',
+                t.goal.ofTarget(
+                  amount: formatAmount(state.goal!.targetAmountScaled),
+                ),
                 style: theme.textTheme.titleMedium?.copyWith(
                   color: colors.onSurfaceVariant,
                 ),
@@ -218,8 +219,10 @@ class _ProgressCard extends StatelessWidget {
                   ),
                   Text(
                     state.isReached
-                        ? 'Goal reached'
-                        : '${formatAmount(state.remainingScaled)} to go',
+                        ? t.goal.reached
+                        : t.goal.toGo(
+                            amount: formatAmount(state.remainingScaled),
+                          ),
                     style: theme.textTheme.labelLarge?.copyWith(
                       color: state.isReached
                           ? colors.tertiary
@@ -234,7 +237,7 @@ class _ProgressCard extends StatelessWidget {
                 child: OutlinedButton(
                   onPressed: () =>
                       GoalFormSheet.show(context, initial: state.goal),
-                  child: const Text('Edit goal'),
+                  child: Text(t.goal.edit),
                 ),
               ),
             ],
@@ -274,7 +277,7 @@ class _IfInvestedCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'If invested',
+                    t.goal.ifInvested,
                     style: theme.textTheme.labelMedium?.copyWith(
                       color: colors.onSurfaceVariant,
                     ),
@@ -301,7 +304,7 @@ class _IfInvestedCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  'a day',
+                  t.goal.aDay,
                   style: theme.textTheme.titleMedium?.copyWith(
                     color: colors.onSurfaceVariant,
                   ),
@@ -314,23 +317,25 @@ class _IfInvestedCard extends StatelessWidget {
               // is the whole reason the figure is worth reading: the day's rate
               // never changes, but by then it applies to a much larger balance.
               // Kept to one line — the months below are what the page is for.
-              '${_years(projection.years)} on, with '
-              '${formatAmount(state.totalLaterScaled)} in the pot',
+              t.goal.projection(
+                years: _years(projection.years),
+                amount: formatAmount(state.totalLaterScaled),
+              ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colors.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 12),
             _AssumptionSlider(
-              label: 'Return',
-              value: '${projection.annualPercent}% a year',
+              label: t.goal.returnLabel,
+              value: t.goal.returnValue(percent: projection.annualPercent),
               current: projection.annualPercent,
               min: InvestmentProjection.minPercent,
               max: InvestmentProjection.maxPercent,
               onChanged: (percent) => bloc.add(GoalReturnRateChanged(percent)),
             ),
             _AssumptionSlider(
-              label: 'Left alone for',
+              label: t.goal.leftAloneFor,
               value: _years(projection.years),
               current: projection.years,
               min: InvestmentProjection.minYears,
@@ -343,7 +348,7 @@ class _IfInvestedCard extends StatelessWidget {
     );
   }
 
-  static String _years(int years) => years == 1 ? '1 year' : '$years years';
+  static String _years(int years) => t.goal.years(n: years);
 }
 
 /// One assumption behind the projection: what it is worth now, and a track to
@@ -430,10 +435,7 @@ class _NoGoalYet extends StatelessWidget {
       children: [
         const SizedBox(height: 8),
         Text(
-          savedScaled > 0
-              ? 'Set a target and this becomes progress towards it.'
-              : 'Set a target, then every month you finish up counts '
-                    'towards it.',
+          savedScaled > 0 ? t.goal.noGoalWithSavings : t.goal.noGoalEmpty,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -443,7 +445,7 @@ class _NoGoalYet extends StatelessWidget {
           width: double.infinity,
           child: FilledButton(
             onPressed: () => GoalFormSheet.show(context),
-            child: const Text('Set a goal'),
+            child: Text(t.goal.setGoal),
           ),
         ),
       ],
@@ -465,7 +467,7 @@ class _MonthsHeader extends StatelessWidget {
       child: Row(
         children: [
           Text(
-            'Months you finished up',
+            t.goal.monthsHeader,
             style: theme.textTheme.titleSmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -503,7 +505,7 @@ class _MonthTile extends StatelessWidget {
         ),
       ),
       title: Text(DateFormat.yMMMM().format(month.startsOn)),
-      subtitle: const Text('Income over spending'),
+      subtitle: Text(t.goal.incomeOverSpending),
       trailing: Text(
         // Signed on purpose: a bare figure in a list of months reads as a
         // balance rather than what the month added.
@@ -527,8 +529,7 @@ class _NoPositiveMonths extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 24),
       child: Text(
-        'No month has finished up yet. A month counts once its income beats '
-        'its spending.',
+        t.goal.noPositiveMonths,
         textAlign: TextAlign.center,
         style: theme.textTheme.bodySmall?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,
@@ -565,9 +566,10 @@ class _NegativeMonthsNote extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            '${count == 1 ? '1 month' : '$count months'} ended down, '
-            '${formatAmount(lostScaled.abs())} in total. Those are left out of '
-            'the figure above.',
+            t.goal.negativeNote(
+              months: t.goal.negativeMonths(n: count),
+              amount: formatAmount(lostScaled.abs()),
+            ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),

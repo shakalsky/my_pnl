@@ -1,4 +1,5 @@
 import 'package:my_pnl/features/auth/domain/repositories/auth_repository.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Signs an existing user in.
 class SignIn {
@@ -9,10 +10,10 @@ class SignIn {
   Future<void> call({required String email, required String password}) {
     final trimmed = email.trim();
     if (!isValidEmail(trimmed)) {
-      throw const AuthFailure('Enter a valid email address');
+      throw AuthFailure(t.auth.invalidEmail);
     }
     if (password.isEmpty) {
-      throw const AuthFailure('Enter your password');
+      throw AuthFailure(t.auth.enterPassword);
     }
 
     return _repository.signIn(email: trimmed, password: password);

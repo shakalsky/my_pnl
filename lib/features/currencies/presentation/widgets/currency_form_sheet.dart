@@ -7,6 +7,7 @@ import 'package:my_pnl/features/currencies/domain/entities/currency.dart';
 import 'package:my_pnl/features/currencies/domain/repositories/currency_repository.dart';
 import 'package:my_pnl/features/currencies/domain/usecases/save_currency.dart';
 import 'package:my_pnl/features/currencies/presentation/bloc/currency_form/currency_form_bloc.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Modal for adding or editing a currency.
 class CurrencyFormSheet extends StatelessWidget {
@@ -97,7 +98,9 @@ class _CurrencyFormState extends State<_CurrencyForm> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              state.isEditing ? 'Edit currency' : 'New currency',
+              state.isEditing
+                  ? t.currencies.formEditTitle
+                  : t.currencies.formCreateTitle,
               style: theme.textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
@@ -108,7 +111,7 @@ class _CurrencyFormState extends State<_CurrencyForm> {
                   width: 80,
                   child: AppInput.white(
                     controller: _icon,
-                    label: 'Sign',
+                    label: t.currencies.sign,
                     inputHintText: '€',
                     textAlign: TextAlign.center,
                     textStyle: theme.textTheme.titleLarge,
@@ -124,7 +127,7 @@ class _CurrencyFormState extends State<_CurrencyForm> {
                 Expanded(
                   child: AppInput.white(
                     controller: _ticker,
-                    label: 'Ticker',
+                    label: t.currencies.ticker,
                     inputHintText: 'EUR',
                     autofocus: true,
                     textCapitalization: TextCapitalization.characters,
@@ -154,10 +157,11 @@ class _CurrencyFormState extends State<_CurrencyForm> {
             const SizedBox(height: 12),
             AppInput.white(
               controller: _rate,
-              label: 'Exchange rate',
-              hint:
-                  'What 1 ${state.ticker.isEmpty ? 'unit' : state.ticker} '
-                  'is worth in $baseCurrency',
+              label: t.currencies.exchangeRate,
+              hint: t.currencies.rateHint(
+                unit: state.ticker.isEmpty ? t.currencies.unit : state.ticker,
+                base: baseCurrency,
+              ),
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
@@ -189,7 +193,11 @@ class _CurrencyFormState extends State<_CurrencyForm> {
                         dimension: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Text(state.isEditing ? 'Save' : 'Add currency'),
+                    : Text(
+                        state.isEditing
+                            ? t.common.save
+                            : t.currencies.formCreate,
+                      ),
               ),
             ),
           ],

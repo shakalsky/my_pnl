@@ -9,6 +9,7 @@ import 'package:my_pnl/features/debts/domain/entities/debt.dart';
 import 'package:my_pnl/features/debts/domain/repositories/debt_repository.dart';
 import 'package:my_pnl/features/debts/domain/usecases/save_debt.dart';
 import 'package:my_pnl/features/debts/presentation/bloc/debt_form/debt_form_bloc.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Modal for recording or editing a debt.
 class DebtFormSheet extends StatelessWidget {
@@ -97,7 +98,7 @@ class _DebtFormState extends State<_DebtForm> {
       // A debt can be dated in the past — one recorded late is still owed.
       firstDate: DateTime(now.year - 5),
       lastDate: DateTime(now.year + 10),
-      helpText: 'Due date',
+      helpText: t.debts.dueDate,
     );
 
     if (picked != null && mounted) {
@@ -125,21 +126,21 @@ class _DebtFormState extends State<_DebtForm> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              state.isEditing ? 'Edit debt' : 'New debt',
+              state.isEditing ? t.debts.formEditTitle : t.debts.formCreateTitle,
               style: theme.textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               child: SegmentedButton<DebtDirection>(
-                segments: const [
+                segments: [
                   ButtonSegment(
                     value: DebtDirection.owedToMe,
-                    label: Text('They owe me'),
+                    label: Text(t.debts.directionOwedToMe),
                   ),
                   ButtonSegment(
                     value: DebtDirection.owedByMe,
-                    label: Text('I owe'),
+                    label: Text(t.debts.directionOwedByMe),
                   ),
                 ],
                 selected: {state.direction},
@@ -150,8 +151,8 @@ class _DebtFormState extends State<_DebtForm> {
             const SizedBox(height: 16),
             AppInput.white(
               controller: _counterparty,
-              label: 'Who',
-              inputHintText: 'Alex',
+              label: t.debts.who,
+              inputHintText: t.debts.whoHint,
               autofocus: true,
               textCapitalization: TextCapitalization.words,
               inputFormatters: [LengthLimitingTextInputFormatter(60)],
@@ -160,7 +161,7 @@ class _DebtFormState extends State<_DebtForm> {
             const SizedBox(height: 16),
             AppInput.white(
               controller: _amount,
-              label: 'Amount',
+              label: t.common.amount,
               prefixText: '$baseCurrencySymbol ',
               inputHintText: '0.00',
               keyboardType: const TextInputType.numberWithOptions(
@@ -176,8 +177,8 @@ class _DebtFormState extends State<_DebtForm> {
             const SizedBox(height: 16),
             AppInput.white(
               controller: _note,
-              label: 'What for',
-              inputHintText: 'Optional',
+              label: t.debts.whatFor,
+              inputHintText: t.common.optional,
               textCapitalization: TextCapitalization.sentences,
               textInputAction: TextInputAction.done,
               onChanged: (value) => bloc.add(DebtNoteChanged(value)),
@@ -192,8 +193,10 @@ class _DebtFormState extends State<_DebtForm> {
                     icon: const Icon(Icons.event_outlined, size: 18),
                     label: Text(
                       state.dueAt == null
-                          ? 'Add a due date'
-                          : 'Due ${dateFormat.format(state.dueAt!.toLocal())}',
+                          ? t.debts.addDueDate
+                          : t.debts.due(
+                              date: dateFormat.format(state.dueAt!.toLocal()),
+                            ),
                     ),
                   ),
                 ),
@@ -201,7 +204,7 @@ class _DebtFormState extends State<_DebtForm> {
                   IconButton(
                     onPressed: () => bloc.add(const DebtDueDateChanged(null)),
                     icon: const Icon(Icons.close, size: 18),
-                    tooltip: 'Clear due date',
+                    tooltip: t.debts.clearDueDate,
                     visualDensity: VisualDensity.compact,
                   ),
               ],
@@ -234,7 +237,9 @@ class _DebtFormState extends State<_DebtForm> {
                         dimension: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Text(state.isEditing ? 'Save' : 'Add debt'),
+                    : Text(
+                        state.isEditing ? t.common.save : t.debts.formCreate,
+                      ),
               ),
             ),
           ],
@@ -247,9 +252,11 @@ class _DebtFormState extends State<_DebtForm> {
   String _summary(DebtFormState state) {
     final amount = formatAmount(state.amountScaled ?? 0);
     final who = state.counterparty.trim().isEmpty
-        ? 'they'
+        ? t.debts.whoFallback
         : state.counterparty.trim();
 
-    return state.isOwedToMe ? '$who owes you $amount' : 'You owe $who $amount';
+    return state.isOwedToMe
+        ? t.debts.summaryOwedToMe(who: who, amount: amount)
+        : t.debts.summaryOwedByMe(who: who, amount: amount);
   }
 }

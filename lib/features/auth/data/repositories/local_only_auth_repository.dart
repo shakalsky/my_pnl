@@ -1,5 +1,6 @@
 import 'package:my_pnl/features/auth/domain/entities/auth_user.dart';
 import 'package:my_pnl/features/auth/domain/repositories/auth_repository.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Auth for builds with no backend configured.
 ///
@@ -19,7 +20,7 @@ class LocalOnlyAuthRepository implements AuthRepository {
 
   @override
   Future<void> signIn({required String email, required String password}) async {
-    throw const AuthFailure('This build has no backend configured');
+    throw AuthFailure(t.auth.noBackend);
   }
 
   @override
@@ -27,7 +28,7 @@ class LocalOnlyAuthRepository implements AuthRepository {
     required String email,
     required String password,
   }) async {
-    throw const AuthFailure('This build has no backend configured');
+    throw AuthFailure(t.auth.noBackend);
   }
 
   /// A no-op. There is no session to end, and clearing the local database

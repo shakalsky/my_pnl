@@ -9,6 +9,7 @@ import 'package:my_pnl/features/debts/domain/usecases/mark_debt_settled.dart';
 import 'package:my_pnl/features/debts/domain/usecases/watch_debts.dart';
 import 'package:my_pnl/features/debts/presentation/bloc/debt_list/debt_list_bloc.dart';
 import 'package:my_pnl/features/debts/presentation/widgets/debt_form_sheet.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// What the user owes and what is owed to them.
 class DebtsPage extends StatelessWidget {
@@ -36,10 +37,10 @@ class DebtsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Debts')),
+      appBar: AppBar(title: Text(t.debts.title)),
       floatingActionButton: FloatingActionButton(
         onPressed: () => DebtFormSheet.showCreate(context),
-        tooltip: 'Add debt',
+        tooltip: t.debts.addTooltip,
         child: const Icon(Icons.add),
       ),
       body: SafeArea(
@@ -59,8 +60,8 @@ class DebtsView extends StatelessWidget {
               DebtListStatus.loading => const Center(
                 child: CircularProgressIndicator(),
               ),
-              DebtListStatus.failure => const Center(
-                child: Text('Could not load your debts'),
+              DebtListStatus.failure => Center(
+                child: Text(t.debts.loadFailed),
               ),
               DebtListStatus.success => _DebtsBody(state: state),
             };
@@ -86,9 +87,9 @@ class _DebtsBody extends StatelessWidget {
         _Totals(state: state),
         const SizedBox(height: 20),
         if (state.hasNoDebts) const _NoDebtsYet(),
-        ..._section('They owe you', state.owedToMe),
-        ..._section('You owe', state.owedByMe),
-        ..._section('Settled', state.settled),
+        ..._section(t.debts.sectionOwedToMe, state.owedToMe),
+        ..._section(t.debts.sectionOwedByMe, state.owedByMe),
+        ..._section(t.debts.sectionSettled, state.settled),
       ],
     );
   }
@@ -128,7 +129,7 @@ class _Totals extends StatelessWidget {
               children: [
                 Expanded(
                   child: _Figure(
-                    label: 'Owed to you',
+                    label: t.debts.figureOwedToYou,
                     amountScaled: state.owedToMeTotalScaled,
                     color: colors.primary,
                   ),
@@ -140,7 +141,7 @@ class _Totals extends StatelessWidget {
                 ),
                 Expanded(
                   child: _Figure(
-                    label: 'Owed by you',
+                    label: t.debts.figureOwedByYou,
                     amountScaled: state.owedByMeTotalScaled,
                     color: colors.error,
                   ),
@@ -152,9 +153,9 @@ class _Totals extends StatelessWidget {
               // Spelt out rather than labelled "net": a signed figure on its
               // own leaves the reader working out which way it points.
               switch (net) {
-                0 => 'You are square',
-                > 0 => 'You are owed ${formatAmount(net)} overall',
-                _ => 'You owe ${formatAmount(net.abs())} overall',
+                0 => t.debts.netSquare,
+                > 0 => t.debts.netOwedToYou(amount: formatAmount(net)),
+                _ => t.debts.netOwedByYou(amount: formatAmount(net.abs())),
               },
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colors.onSurfaceVariant,
@@ -304,15 +305,17 @@ class _DebtTile extends StatelessWidget {
     final parts = <String>[
       ?debt.note,
       if (debt.settledAt case final settledAt?)
-        'Settled ${dateFormat.format(settledAt.toLocal())}'
+        t.debts.settledOn(date: dateFormat.format(settledAt.toLocal()))
       else if (debt.dueAt case final dueAt?)
-        '${overdue ? 'Overdue' : 'Due'} ${dateFormat.format(dueAt.toLocal())}',
+        overdue
+            ? t.debts.overdueOn(date: dateFormat.format(dueAt.toLocal()))
+            : t.debts.dueOn(date: dateFormat.format(dueAt.toLocal())),
     ];
 
     // Something is always shown, so the tile does not change height depending
     // on whether a note was filled in.
     return parts.isEmpty
-        ? (debt.isOwedToMe ? 'Owes you' : 'You owe them')
+        ? (debt.isOwedToMe ? t.debts.owesYou : t.debts.youOweThem)
         : parts.join(' · ');
   }
 }
@@ -325,16 +328,16 @@ class _DebtMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<_DebtAction>(
-      tooltip: 'Actions for ${debt.counterparty}',
+      tooltip: t.debts.actionsFor(name: debt.counterparty),
       icon: const Icon(Icons.more_vert, size: 20),
       onSelected: (action) => _run(context, action),
       itemBuilder: (_) => [
         PopupMenuItem(
           value: debt.isSettled ? _DebtAction.reopen : _DebtAction.settle,
-          child: Text(debt.isSettled ? 'Reopen' : 'Mark settled'),
+          child: Text(debt.isSettled ? t.debts.reopen : t.debts.markSettled),
         ),
-        const PopupMenuItem(value: _DebtAction.edit, child: Text('Edit')),
-        const PopupMenuItem(value: _DebtAction.delete, child: Text('Delete')),
+        PopupMenuItem(value: _DebtAction.edit, child: Text(t.common.edit)),
+        PopupMenuItem(value: _DebtAction.delete, child: Text(t.common.delete)),
       ],
     );
   }
@@ -362,19 +365,18 @@ class _DebtMenu extends StatelessWidget {
     return showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text('Delete the debt with ${debt.counterparty}?'),
+        title: Text(t.debts.deleteTitle(name: debt.counterparty)),
         content: Text(
-          '${formatAmount(debt.amountScaled)} will stop being tracked. '
-          'Nothing in your spending changes — a debt was never part of it.',
+          t.debts.deleteBody(amount: formatAmount(debt.amountScaled)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: Text(t.common.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Delete'),
+            child: Text(t.common.delete),
           ),
         ],
       ),
@@ -402,14 +404,13 @@ class _NoDebtsYet extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'No debts yet',
+            t.debts.emptyTitle,
             style: theme.textTheme.titleMedium,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 4),
           Text(
-            'Add what you owe and what people owe you. Debts are tracked '
-            'here only — they never move your spending totals.',
+            t.debts.emptyBody,
             textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,

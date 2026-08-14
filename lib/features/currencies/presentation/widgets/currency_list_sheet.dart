@@ -9,6 +9,7 @@ import 'package:my_pnl/features/currencies/domain/usecases/watch_currencies.dart
 import 'package:my_pnl/features/currencies/presentation/bloc/currency_list/currency_list_bloc.dart';
 import 'package:my_pnl/features/currencies/presentation/widgets/base_currency_sheet.dart';
 import 'package:my_pnl/features/currencies/presentation/widgets/currency_form_sheet.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Modal listing the user's currencies.
 class CurrencyListSheet extends StatelessWidget {
@@ -59,9 +60,9 @@ class CurrencyListSheet extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('Currencies', style: theme.textTheme.titleLarge),
+                        Text(t.currencies.title, style: theme.textTheme.titleLarge),
                         Text(
-                          'Rates are against $baseCurrency',
+                          t.currencies.ratesAgainst(base: baseCurrency),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -72,7 +73,7 @@ class CurrencyListSheet extends StatelessWidget {
                   IconButton.filledTonal(
                     onPressed: () => CurrencyFormSheet.showCreate(context),
                     icon: const Icon(Icons.add),
-                    tooltip: 'Add currency',
+                    tooltip: t.currencies.addTooltip,
                   ),
                 ],
               ),
@@ -92,9 +93,9 @@ class CurrencyListSheet extends StatelessWidget {
                     padding: EdgeInsets.all(32),
                     child: Center(child: CircularProgressIndicator()),
                   ),
-                  CurrencyListStatus.failure => const Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Center(child: Text('Could not load currencies')),
+                  CurrencyListStatus.failure => Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Center(child: Text(t.currencies.loadFailed)),
                   ),
                   CurrencyListStatus.success => _CurrencyList(
                     currencies: state.currencies,
@@ -132,8 +133,8 @@ class _BaseCurrencyTile extends StatelessWidget {
           ),
         ),
       ),
-      title: const Text('Base currency'),
-      subtitle: Text('Everything is recorded in $baseCurrency'),
+      title: Text(t.currencies.baseTitle),
+      subtitle: Text(t.currencies.baseSubtitle(base: baseCurrency)),
       trailing: const Icon(Icons.chevron_right),
       onTap: () async {
         // Held before awaiting: this sheet is what closes, so it cannot be asked
@@ -168,7 +169,7 @@ class _CurrencyList extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 32),
         child: Center(
           child: Text(
-            'No currencies yet. Everything is in $baseCurrency.',
+            t.currencies.empty(base: baseCurrency),
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
@@ -200,8 +201,11 @@ class _CurrencyList extends StatelessWidget {
           ),
           title: Text(currency.ticker),
           subtitle: Text(
-            '1 ${currency.ticker} = '
-            '${formatRate(currency.exchangeRateScaled)} $baseCurrency',
+            t.currencies.rateLine(
+              ticker: currency.ticker,
+              rate: formatRate(currency.exchangeRateScaled),
+              base: baseCurrency,
+            ),
           ),
           trailing: IconButton(
             onPressed: () async {
@@ -211,7 +215,7 @@ class _CurrencyList extends StatelessWidget {
               }
             },
             icon: const Icon(Icons.delete_outline, size: 20),
-            tooltip: 'Remove ${currency.ticker}',
+            tooltip: t.currencies.removeTooltip(ticker: currency.ticker),
             visualDensity: VisualDensity.compact,
           ),
         );
@@ -223,18 +227,16 @@ class _CurrencyList extends StatelessWidget {
     return showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text('Remove ${currency.ticker}?'),
-        content: const Text(
-          'Amounts already recorded keep the values they were saved with.',
-        ),
+        title: Text(t.currencies.removeTitle(ticker: currency.ticker)),
+        content: Text(t.currencies.removeBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: Text(t.common.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Remove'),
+            child: Text(t.common.remove),
           ),
         ],
       ),

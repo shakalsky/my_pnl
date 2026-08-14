@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_pnl/app/routing/app_router.dart';
 import 'package:my_pnl/core/money/base_currency.dart';
@@ -21,6 +22,8 @@ import 'package:my_pnl/features/spending/domain/repositories/category_repository
 import 'package:my_pnl/features/spending/domain/repositories/overrun_settings_store.dart';
 import 'package:my_pnl/features/spending/domain/repositories/transaction_repository.dart';
 import 'package:my_pnl/features/sync/domain/repositories/sync_repository.dart';
+import 'package:my_pnl/i18n/app_locale_setup.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 class App extends StatefulWidget {
   const App({
@@ -70,6 +73,11 @@ class _AppState extends State<App> {
   AppLifecycleListener? _lifecycle;
   StreamSubscription<BaseCurrency>? _baseCurrencyChanges;
   StreamSubscription<AuthUser?>? _sessionChanges;
+  StreamSubscription<AppLocale>? _localeChanges;
+
+  /// The language the tree below is built in. Held rather than read off
+  /// [LocaleSettings] at build time so it can key the shell — see [build].
+  AppLocale _locale = LocaleSettings.currentLocale;
 
   /// Who the tree below is built for. Only used to tell one session from the
   /// next; the pages read the session through [AuthBloc].
@@ -114,6 +122,19 @@ class _AppState extends State<App> {
     // read and write would go to a book the account has no access to.
     _sessionUserId = widget.authRepository.currentUser?.id;
     _sessionChanges = widget.authRepository.watchUser().listen(_applySession);
+
+    // Startup has already settled the language; this is for one changed in the
+    // system settings while the app is open, which slang picks up on its own.
+    _localeChanges = LocaleSettings.getLocaleStream().listen(_applyLocale);
+  }
+
+  Future<void> _applyLocale(AppLocale locale) async {
+    if (locale == _locale) return;
+
+    // Awaited before the rebuild: the pages below format dates, and a
+    // [DateFormat] built for a locale whose symbols are not loaded throws.
+    await applyToIntl(locale);
+    if (mounted) setState(() => _locale = locale);
   }
 
   void _applySession(AuthUser? user) {
@@ -136,57 +157,71 @@ class _AppState extends State<App> {
   void dispose() {
     unawaited(_baseCurrencyChanges?.cancel());
     unawaited(_sessionChanges?.cancel());
+    unawaited(_localeChanges?.cancel());
     _lifecycle?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return MultiRepositoryProvider(
-      providers: [
-        RepositoryProvider.value(value: widget.database),
-        RepositoryProvider.value(value: widget.appUpdateRepository),
-        RepositoryProvider.value(value: widget.authRepository),
-        RepositoryProvider.value(value: widget.baseCurrencyStore),
-        RepositoryProvider.value(value: widget.categoryRepository),
-        RepositoryProvider.value(value: widget.currencyRepository),
-        RepositoryProvider.value(value: widget.displayCurrencyStore),
-        RepositoryProvider.value(value: widget.debtRepository),
-        RepositoryProvider.value(value: widget.goalRepository),
-        RepositoryProvider.value(value: widget.ledgerRepository),
-        RepositoryProvider.value(value: widget.overrunSettingsStore),
-        RepositoryProvider.value(value: widget.transactionRepository),
-        RepositoryProvider.value(value: widget.syncRepository),
-      ],
-      // Above the router, because every page's presence depends on it.
-      child: BlocProvider(
-        create: (_) =>
-            AuthBloc(authRepository: widget.authRepository)
-              ..add(const AuthSubscriptionRequested()),
-        child: MaterialApp.router(
-          routerConfig: _router,
-          // Rebuilt when the base currency changes, and only then.
-          //
-          // Every figure goes through `formatAmount`, which reads the base from a
-          // single value rather than being handed it, so a rebuild is all it
-          // takes to relabel what is on screen. Keying it is what makes the
-          // rebuild happen at all — the router hands the Navigator the same page
-          // objects it did before, so without a key change nothing beneath is
-          // asked to build again.
-          //
-          // Note what this does *not* do: the pages themselves survive it,
-          // because the router's Navigator sits behind a GlobalKey. Anything that
-          // has to be re-read rather than re-rendered — the open ledger — cannot
-          // be done from here.
-          builder: (context, child) => KeyedSubtree(
-            key: ValueKey(activeBaseCurrency.ticker),
-            child: child!,
-          ),
-          theme: ThemeData(
-            appBarTheme: AppBarTheme(
-              backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+    // Outermost, so `context.t` resolves anywhere below — including inside the
+    // routes, which are built beneath the router's own Navigator.
+    return TranslationProvider(
+      child: MultiRepositoryProvider(
+        providers: [
+          RepositoryProvider.value(value: widget.database),
+          RepositoryProvider.value(value: widget.appUpdateRepository),
+          RepositoryProvider.value(value: widget.authRepository),
+          RepositoryProvider.value(value: widget.baseCurrencyStore),
+          RepositoryProvider.value(value: widget.categoryRepository),
+          RepositoryProvider.value(value: widget.currencyRepository),
+          RepositoryProvider.value(value: widget.displayCurrencyStore),
+          RepositoryProvider.value(value: widget.debtRepository),
+          RepositoryProvider.value(value: widget.goalRepository),
+          RepositoryProvider.value(value: widget.ledgerRepository),
+          RepositoryProvider.value(value: widget.overrunSettingsStore),
+          RepositoryProvider.value(value: widget.transactionRepository),
+          RepositoryProvider.value(value: widget.syncRepository),
+        ],
+        // Above the router, because every page's presence depends on it.
+        child: BlocProvider(
+          create: (_) =>
+              AuthBloc(authRepository: widget.authRepository)
+                ..add(const AuthSubscriptionRequested()),
+          child: MaterialApp.router(
+            routerConfig: _router,
+            // What Flutter's own widgets are shown in — the date picker's month
+            // grid, the text selection menu. The app's own wording comes from
+            // `t` and is settled before the first frame; this is the half
+            // Flutter draws.
+            locale: _locale.flutterLocale,
+            supportedLocales: AppLocaleUtils.supportedLocales,
+            localizationsDelegates: GlobalMaterialLocalizations.delegates,
+            // Rebuilt when the base currency or the language changes, and only
+            // then.
+            //
+            // Both are read from a single value rather than handed down: every
+            // figure goes through `formatAmount`, which reads the base, and
+            // every label goes through `t`, which reads the locale. A rebuild
+            // is all it takes to relabel what is on screen. Keying it is what
+            // makes the rebuild happen at all — the router hands the Navigator
+            // the same page objects it did before, so without a key change
+            // nothing beneath is asked to build again.
+            //
+            // Note what this does *not* do: the pages themselves survive it,
+            // because the router's Navigator sits behind a GlobalKey. Anything
+            // that has to be re-read rather than re-rendered — the open ledger
+            // — cannot be done from here.
+            builder: (context, child) => KeyedSubtree(
+              key: ValueKey('${activeBaseCurrency.ticker}:${_locale.name}'),
+              child: child!,
             ),
-            useMaterial3: true,
+            theme: ThemeData(
+              appBarTheme: AppBarTheme(
+                backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+              ),
+              useMaterial3: true,
+            ),
           ),
         ),
       ),

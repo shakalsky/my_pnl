@@ -5,6 +5,7 @@ import 'package:my_pnl/features/sync/domain/entities/sync_state.dart';
 import 'package:my_pnl/features/sync/domain/repositories/sync_repository.dart';
 import 'package:my_pnl/features/sync/domain/usecases/watch_sync_state.dart';
 import 'package:my_pnl/features/sync/presentation/bloc/sync_indicator/sync_indicator_bloc.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// A coloured dot reporting sync, with the detail behind a tap.
 ///
@@ -34,7 +35,7 @@ class SyncIndicatorView extends StatelessWidget {
     final state = context.watch<SyncIndicatorBloc>().state;
 
     return Semantics(
-      label: 'Sync status: ${_label(state.health)}',
+      label: t.sync.semantics(state: _label(state.health)),
       button: true,
       child: InkResponse(
         onTap: () => _showDetail(context, state),
@@ -55,10 +56,10 @@ class SyncIndicatorView extends StatelessWidget {
   }
 
   static String _label(SyncHealth health) => switch (health) {
-    SyncHealth.idle => 'not syncing',
-    SyncHealth.syncing => 'syncing',
-    SyncHealth.synced => 'synced',
-    SyncHealth.failed => 'failed',
+    SyncHealth.idle => t.sync.stateIdle,
+    SyncHealth.syncing => t.sync.stateSyncing,
+    SyncHealth.synced => t.sync.stateSynced,
+    SyncHealth.failed => t.sync.stateFailed,
   };
 
   Color _color(BuildContext context, SyncHealth health) {
@@ -89,17 +90,19 @@ class SyncIndicatorView extends StatelessWidget {
     final format = DateFormat.yMMMd().add_jm();
 
     return switch (state.health) {
-      SyncHealth.syncing => 'Syncing',
+      SyncHealth.syncing => t.sync.detailSyncing,
       SyncHealth.synced => switch (state.lastSyncedAt) {
         // Stored UTC, shown in the reader's zone.
-        final at? => 'Last synced ${format.format(at.toLocal())}',
-        _ => 'Synced',
+        final at? => t.sync.detailLastSynced(
+          at: format.format(at.toLocal()),
+        ),
+        _ => t.sync.detailSynced,
       },
       SyncHealth.failed => switch (state.lastFailedAt) {
-        final at? => 'Sync failed ${format.format(at.toLocal())}',
-        _ => 'Sync failed',
+        final at? => t.sync.detailFailedAt(at: format.format(at.toLocal())),
+        _ => t.sync.detailFailed,
       },
-      SyncHealth.idle => 'Not syncing',
+      SyncHealth.idle => t.sync.detailIdle,
     };
   }
 }

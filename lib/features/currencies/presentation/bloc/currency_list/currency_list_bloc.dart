@@ -6,6 +6,7 @@ import 'package:equatable/equatable.dart';
 import 'package:my_pnl/features/currencies/domain/entities/currency.dart';
 import 'package:my_pnl/features/currencies/domain/usecases/delete_currency.dart';
 import 'package:my_pnl/features/currencies/domain/usecases/watch_currencies.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 part 'currency_list_event.dart';
 part 'currency_list_state.dart';
@@ -56,7 +57,7 @@ class CurrencyListBloc extends Bloc<CurrencyListEvent, CurrencyListState> {
       await _deleteCurrency(event.id);
       // No emit on success: the watch stream carries the new list.
     } on Object {
-      emit(state.copyWith(errorMessage: 'Could not remove that currency'));
+      emit(state.copyWith(errorMessage: t.currencies.removeFailed));
     }
   }
 }

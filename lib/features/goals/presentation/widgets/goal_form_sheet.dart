@@ -9,6 +9,7 @@ import 'package:my_pnl/features/goals/domain/entities/savings_goal.dart';
 import 'package:my_pnl/features/goals/domain/repositories/goal_repository.dart';
 import 'package:my_pnl/features/goals/domain/usecases/save_goal.dart';
 import 'package:my_pnl/features/goals/presentation/bloc/goal_form/goal_form_bloc.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Modal for setting how much to save up.
 class GoalFormSheet extends StatelessWidget {
@@ -111,12 +112,12 @@ class _GoalFormState extends State<_GoalForm> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              state.isEditing ? 'Edit your goal' : 'Set a goal',
+              state.isEditing ? t.goal.formEditTitle : t.goal.formCreateTitle,
               style: theme.textTheme.titleLarge,
             ),
             const SizedBox(height: 4),
             Text(
-              'Every month you finish up adds to it.',
+              t.goal.formSubtitle,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -124,7 +125,7 @@ class _GoalFormState extends State<_GoalForm> {
             const SizedBox(height: 20),
             AppInput.white(
               controller: _amount,
-              label: 'Target',
+              label: t.goal.target,
               prefixText: '$baseCurrencySymbol ',
               inputHintText: '0.00',
               autofocus: true,
@@ -145,7 +146,7 @@ class _GoalFormState extends State<_GoalForm> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Saving up ${formatAmount(state.amountScaled ?? 0)}',
+              t.goal.savingUp(amount: formatAmount(state.amountScaled ?? 0)),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -171,7 +172,9 @@ class _GoalFormState extends State<_GoalForm> {
                         dimension: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Text(state.isEditing ? 'Save goal' : 'Set goal'),
+                    : Text(
+                        state.isEditing ? t.goal.formSave : t.goal.formCreate,
+                      ),
               ),
             ),
           ],

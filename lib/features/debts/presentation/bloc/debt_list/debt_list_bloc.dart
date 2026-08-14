@@ -7,6 +7,7 @@ import 'package:my_pnl/features/debts/domain/entities/debt.dart';
 import 'package:my_pnl/features/debts/domain/usecases/delete_debt.dart';
 import 'package:my_pnl/features/debts/domain/usecases/mark_debt_settled.dart';
 import 'package:my_pnl/features/debts/domain/usecases/watch_debts.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 part 'debt_list_event.dart';
 part 'debt_list_state.dart';
@@ -69,7 +70,7 @@ class DebtListBloc extends Bloc<DebtListEvent, DebtListState> {
       // one source of truth for what the page shows.
     } on Object catch (e, s) {
       log('Settling ${event.id} failed', error: e, stackTrace: s);
-      emit(state.copyWith(errorMessage: 'Could not update that debt'));
+      emit(state.copyWith(errorMessage: t.debts.updateFailed));
     }
   }
 
@@ -81,7 +82,7 @@ class DebtListBloc extends Bloc<DebtListEvent, DebtListState> {
       await _deleteDebt(event.id);
     } on Object catch (e, s) {
       log('Deleting ${event.id} failed', error: e, stackTrace: s);
-      emit(state.copyWith(errorMessage: 'Could not remove that debt'));
+      emit(state.copyWith(errorMessage: t.debts.removeFailed));
     }
   }
 }
