@@ -6,6 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_pnl/app/routing/app_router.dart';
 import 'package:my_pnl/core/money/base_currency.dart';
+import 'package:my_pnl/core/theme/app_theme.dart';
 import 'package:my_pnl/database/database.dart';
 import 'package:my_pnl/features/app_update/domain/repositories/app_update_repository.dart';
 import 'package:my_pnl/features/auth/domain/entities/auth_user.dart';
@@ -18,6 +19,10 @@ import 'package:my_pnl/features/currencies/domain/usecases/watch_base_currency.d
 import 'package:my_pnl/features/debts/domain/repositories/debt_repository.dart';
 import 'package:my_pnl/features/goals/domain/repositories/goal_repository.dart';
 import 'package:my_pnl/features/ledgers/domain/repositories/ledger_repository.dart';
+import 'package:my_pnl/features/settings/domain/entities/app_theme_mode.dart';
+import 'package:my_pnl/features/settings/domain/repositories/language_store.dart';
+import 'package:my_pnl/features/settings/domain/repositories/theme_mode_store.dart';
+import 'package:my_pnl/features/settings/domain/usecases/watch_theme_mode.dart';
 import 'package:my_pnl/features/spending/domain/repositories/category_repository.dart';
 import 'package:my_pnl/features/spending/domain/repositories/overrun_settings_store.dart';
 import 'package:my_pnl/features/spending/domain/repositories/transaction_repository.dart';
@@ -36,8 +41,10 @@ class App extends StatefulWidget {
     required this.displayCurrencyStore,
     required this.debtRepository,
     required this.goalRepository,
+    required this.languageStore,
     required this.ledgerRepository,
     required this.overrunSettingsStore,
+    required this.themeModeStore,
     required this.transactionRepository,
     required this.syncRepository,
     this.router,
@@ -56,8 +63,16 @@ class App extends StatefulWidget {
   final DisplayCurrencyStore displayCurrencyStore;
   final DebtRepository debtRepository;
   final GoalRepository goalRepository;
+
+  /// Which language the app is read in. A device preference, like the two
+  /// above; startup has already applied whatever it holds.
+  final LanguageStore languageStore;
   final LedgerRepository ledgerRepository;
   final OverrunSettingsStore overrunSettingsStore;
+
+  /// Whether the app is drawn light, dark, or however the device is. Watched
+  /// here rather than read, because this is the widget that has to redraw.
+  final ThemeModeStore themeModeStore;
   final TransactionRepository transactionRepository;
   final SyncRepository syncRepository;
 
@@ -74,6 +89,14 @@ class _AppState extends State<App> {
   StreamSubscription<BaseCurrency>? _baseCurrencyChanges;
   StreamSubscription<AuthUser?>? _sessionChanges;
   StreamSubscription<AppLocale>? _localeChanges;
+  StreamSubscription<AppThemeMode>? _themeModeChanges;
+
+  /// Which theme the tree below is drawn in.
+  ///
+  /// Unlike the language and the base currency, nothing below reads this for
+  /// itself — it is handed to [MaterialApp] and inherited from there — so a
+  /// change is an ordinary rebuild rather than a keyed one.
+  AppThemeMode _themeMode = AppThemeMode.system;
 
   /// The language the tree below is built in. Held rather than read off
   /// [LocaleSettings] at build time so it can key the shell — see [build].
@@ -124,8 +147,23 @@ class _AppState extends State<App> {
     _sessionChanges = widget.authRepository.watchUser().listen(_applySession);
 
     // Startup has already settled the language; this is for one changed in the
-    // system settings while the app is open, which slang picks up on its own.
+    // system settings while the app is open, which slang picks up on its own —
+    // and for one chosen on the settings page, which reaches this the same way.
     _localeChanges = LocaleSettings.getLocaleStream().listen(_applyLocale);
+
+    // Emits what is stored before anything changes, which is what settles the
+    // theme on the first frame as well as on every later switch. Unlike the
+    // language, there is nothing to await: a theme is applied by rebuilding,
+    // and the first build is the one this is racing.
+    _themeModeChanges = WatchThemeMode(
+      widget.themeModeStore,
+    )().listen(_applyThemeMode);
+  }
+
+  void _applyThemeMode(AppThemeMode mode) {
+    if (mode == _themeMode || !mounted) return;
+
+    setState(() => _themeMode = mode);
   }
 
   Future<void> _applyLocale(AppLocale locale) async {
@@ -158,6 +196,7 @@ class _AppState extends State<App> {
     unawaited(_baseCurrencyChanges?.cancel());
     unawaited(_sessionChanges?.cancel());
     unawaited(_localeChanges?.cancel());
+    unawaited(_themeModeChanges?.cancel());
     _lifecycle?.dispose();
     super.dispose();
   }
@@ -178,8 +217,10 @@ class _AppState extends State<App> {
           RepositoryProvider.value(value: widget.displayCurrencyStore),
           RepositoryProvider.value(value: widget.debtRepository),
           RepositoryProvider.value(value: widget.goalRepository),
+          RepositoryProvider.value(value: widget.languageStore),
           RepositoryProvider.value(value: widget.ledgerRepository),
           RepositoryProvider.value(value: widget.overrunSettingsStore),
+          RepositoryProvider.value(value: widget.themeModeStore),
           RepositoryProvider.value(value: widget.transactionRepository),
           RepositoryProvider.value(value: widget.syncRepository),
         ],
@@ -216,12 +257,16 @@ class _AppState extends State<App> {
               key: ValueKey('${activeBaseCurrency.ticker}:${_locale.name}'),
               child: child!,
             ),
-            theme: ThemeData(
-              appBarTheme: AppBarTheme(
-                backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-              ),
-              useMaterial3: true,
-            ),
+            // Both handed over, and which one is shown left to [themeMode].
+            // Flutter is what watches the device for a change of its own, so
+            // "match the device" needs nothing here beyond passing it on.
+            theme: appLightTheme,
+            darkTheme: appDarkTheme,
+            themeMode: switch (_themeMode) {
+              AppThemeMode.system => ThemeMode.system,
+              AppThemeMode.light => ThemeMode.light,
+              AppThemeMode.dark => ThemeMode.dark,
+            },
           ),
         ),
       ),

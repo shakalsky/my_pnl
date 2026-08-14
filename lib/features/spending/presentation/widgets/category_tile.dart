@@ -60,7 +60,10 @@ class CategoryTile extends StatelessWidget {
     final amountStyle = theme.textTheme.labelLarge!.copyWith(
       fontWeight: FontWeight.w600,
     );
-    final flagColor = overrunBorderColor(overrun);
+    final flagColor = overrunBorderColor(
+      overrun,
+      brightness: theme.brightness,
+    );
 
     return Semantics(
       // Read out with the tile, ahead of its name and amount: the border says

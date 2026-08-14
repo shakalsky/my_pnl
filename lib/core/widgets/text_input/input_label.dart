@@ -24,7 +24,9 @@ class InputLabel extends StatelessWidget {
               padding: EdgeInsets.only(left: 4.0),
               child: Text(
                 '*',
-                style: TextStyle().copyWith(color: Colors.red[600]),
+                style: TextStyle().copyWith(
+                  color: Theme.of(context).colorScheme.error,
+                ),
               ),
             ),
         ],

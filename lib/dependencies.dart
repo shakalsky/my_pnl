@@ -32,6 +32,10 @@ import 'package:my_pnl/features/ledgers/data/datasources/ledger_local_data_sourc
 import 'package:my_pnl/features/ledgers/data/datasources/preferences_active_ledger_store.dart';
 import 'package:my_pnl/features/ledgers/data/repositories/ledger_repository_impl.dart';
 import 'package:my_pnl/features/ledgers/domain/repositories/ledger_repository.dart';
+import 'package:my_pnl/features/settings/data/datasources/preferences_language_store.dart';
+import 'package:my_pnl/features/settings/data/datasources/preferences_theme_mode_store.dart';
+import 'package:my_pnl/features/settings/domain/repositories/language_store.dart';
+import 'package:my_pnl/features/settings/domain/repositories/theme_mode_store.dart';
 import 'package:my_pnl/features/spending/data/datasources/category_local_data_source.dart';
 import 'package:my_pnl/features/spending/data/datasources/preferences_overrun_settings_store.dart';
 import 'package:my_pnl/features/spending/data/datasources/transaction_local_data_source.dart';
@@ -42,6 +46,7 @@ import 'package:my_pnl/features/spending/domain/repositories/overrun_settings_st
 import 'package:my_pnl/features/spending/domain/repositories/transaction_repository.dart';
 import 'package:my_pnl/features/sync/data/repositories/powersync_sync_repository.dart';
 import 'package:my_pnl/features/sync/domain/repositories/sync_repository.dart';
+import 'package:my_pnl/i18n/app_locale_setup.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -60,8 +65,10 @@ class AppDependencies {
     required this.displayCurrencyStore,
     required this.debtRepository,
     required this.goalRepository,
+    required this.languageStore,
     required this.ledgerRepository,
     required this.overrunSettingsStore,
+    required this.themeModeStore,
     required this.transactionRepository,
     required this.syncRepository,
   });
@@ -88,6 +95,10 @@ class AppDependencies {
   final DebtRepository debtRepository;
   final GoalRepository goalRepository;
 
+  /// Which language the app is read in, when the reader has said rather than
+  /// left it to the device. A device preference, like the display currency.
+  final LanguageStore languageStore;
+
   /// Which books the reader has, and which one everything above is reading.
   /// Every other repository here is narrowed by the ledger this one holds.
   final LedgerRepository ledgerRepository;
@@ -95,12 +106,26 @@ class AppDependencies {
   /// When to warn that a month has run past what a category usually costs.
   /// A device preference, like the display currency above.
   final OverrunSettingsStore overrunSettingsStore;
+
+  /// Whether the app is drawn light, dark, or however the device is. A device
+  /// preference for the same reason as the rest: it says nothing about the
+  /// books, and a phone dimmed at night should not dim a laptop with it.
+  final ThemeModeStore themeModeStore;
   final TransactionRepository transactionRepository;
   final SyncRepository syncRepository;
 }
 
 /// Opens the local database and, when a backend is configured, starts syncing.
 Future<AppDependencies> initializeDependencies() async {
+  // First of everything, and awaited. `bootstrap` has already settled on the
+  // device's own language; this is where a language the reader chose instead
+  // takes over, and it has to be in force before anything below writes a row.
+  // The seeded account is named in words that come from `t`, and a name settled
+  // in the wrong language is not something a later rebuild can put right — it
+  // is stored.
+  final languageStore = PreferencesLanguageStore();
+  await applyLanguageChoice(await languageStore.read());
+
   final powerSync = await openPowerSyncDatabase();
   final hasBackend = await initializeSupabase();
 
@@ -181,8 +206,14 @@ Future<AppDependencies> initializeDependencies() async {
       sessionOwner: sessionOwner,
       ledgerScope: activeLedger,
     ),
+    languageStore: languageStore,
     ledgerRepository: ledgerRepository,
     overrunSettingsStore: PreferencesOverrunSettingsStore(),
+    // Not awaited anywhere in startup, unlike the language above: the app shell
+    // subscribes to it and the first value arrives with the first frames, so
+    // the worst a slow store can do is open in the device's own brightness for
+    // an instant rather than in the chosen one.
+    themeModeStore: PreferencesThemeModeStore(),
     transactionRepository: TransactionRepositoryImpl(
       localDataSource: TransactionLocalDataSource(database),
       sessionOwner: sessionOwner,

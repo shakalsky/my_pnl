@@ -12,7 +12,9 @@ class InputPlaceholder extends StatelessWidget {
       padding: EdgeInsets.only(top:6.0),
       child: Text(
         text,
-        style: TextStyle().copyWith(color: Colors.grey[600]),
+        style: TextStyle().copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
       ),
     );
   }

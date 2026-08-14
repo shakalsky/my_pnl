@@ -378,5 +378,17 @@
     "noStore": "Get the latest version from your app store.",
     "recheck": "I have updated",
     "openFailed": "Could not open the store"
+  },
+  "settings": {
+    "title": "Settings",
+    "tooltip": "Settings",
+    "appearance": "Appearance",
+    "appearanceSubtitle": "How the app is drawn. Kept on this device.",
+    "themeSystem": "Match the device",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "language": "Language",
+    "languageSubtitle": "What the app is read in. Kept on this device.",
+    "languageSystem": "Match the device"
   }
 }

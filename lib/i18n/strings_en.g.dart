@@ -51,6 +51,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$auth$en auth = Translations$auth$en.internal(_root);
 	late final Translations$sync$en sync = Translations$sync$en.internal(_root);
 	late final Translations$update$en update = Translations$update$en.internal(_root);
+	late final Translations$settings$en settings = Translations$settings$en.internal(_root);
 }
 
 // Path: common
@@ -1154,4 +1155,43 @@ class Translations$update$en {
 
 	/// en: 'Could not open the store'
 	String get openFailed => 'Could not open the store';
+}
+
+// Path: settings
+class Translations$settings$en {
+	Translations$settings$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Settings'
+	String get title => 'Settings';
+
+	/// en: 'Settings'
+	String get tooltip => 'Settings';
+
+	/// en: 'Appearance'
+	String get appearance => 'Appearance';
+
+	/// en: 'How the app is drawn. Kept on this device.'
+	String get appearanceSubtitle => 'How the app is drawn. Kept on this device.';
+
+	/// en: 'Match the device'
+	String get themeSystem => 'Match the device';
+
+	/// en: 'Light'
+	String get themeLight => 'Light';
+
+	/// en: 'Dark'
+	String get themeDark => 'Dark';
+
+	/// en: 'Language'
+	String get language => 'Language';
+
+	/// en: 'What the app is read in. Kept on this device.'
+	String get languageSubtitle => 'What the app is read in. Kept on this device.';
+
+	/// en: 'Match the device'
+	String get languageSystem => 'Match the device';
 }

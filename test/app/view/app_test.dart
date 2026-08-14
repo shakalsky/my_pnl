@@ -11,8 +11,11 @@ import 'package:my_pnl/features/auth/domain/entities/auth_user.dart';
 import 'package:my_pnl/features/auth/presentation/pages/sign_in_page.dart';
 import 'package:my_pnl/features/currencies/domain/entities/currency.dart';
 import 'package:my_pnl/features/currencies/presentation/widgets/base_currency_sheet.dart';
+import 'package:my_pnl/features/settings/domain/entities/app_theme_mode.dart';
+import 'package:my_pnl/features/settings/presentation/pages/settings_page.dart';
 import 'package:my_pnl/features/spending/presentation/pages/income_overview_page.dart';
 import 'package:my_pnl/features/spending/presentation/pages/spending_overview_page.dart';
+import 'package:my_pnl/i18n/strings.g.dart';
 
 import '../../helpers/helpers.dart';
 
@@ -62,8 +65,9 @@ void main() {
 
     Future<void> pumpAppWith(
       WidgetTester tester,
-      FakeAuthRepository auth,
-    ) async {
+      FakeAuthRepository auth, {
+      FakeThemeModeStore? themeMode,
+    }) async {
       await tester.pumpWidget(
         App(
           database: database,
@@ -75,8 +79,10 @@ void main() {
           displayCurrencyStore: FakeDisplayCurrencyStore(),
           debtRepository: debts,
           goalRepository: goals,
+          languageStore: FakeLanguageStore(),
           ledgerRepository: ledgers,
           overrunSettingsStore: FakeOverrunSettingsStore(),
+          themeModeStore: themeMode ?? FakeThemeModeStore(),
           transactionRepository: spending,
           syncRepository: FakeSyncRepository(),
         ),
@@ -92,6 +98,84 @@ void main() {
 
       expect(find.byType(SignInPage), findsOneWidget);
       expect(find.byType(SpendingOverviewPage), findsNothing);
+    });
+
+    group('the theme', () {
+      ThemeMode themeModeOf(WidgetTester tester) =>
+          tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode!;
+
+      testWidgets('opens in the appearance this device remembers', (
+        tester,
+      ) async {
+        final themes = FakeThemeModeStore(initial: AppThemeMode.dark);
+        addTearDown(themes.close);
+        final auth = FakeAuthRepository();
+        addTearDown(auth.close);
+
+        await pumpAppWith(tester, auth, themeMode: themes);
+
+        expect(themeModeOf(tester), ThemeMode.dark);
+        // Both are handed over whichever is showing, so the switch below is a
+        // rebuild rather than a theme being built for the first time.
+        final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+        expect(app.theme?.brightness, Brightness.light);
+        expect(app.darkTheme?.brightness, Brightness.dark);
+      });
+
+      testWidgets('follows the device until someone chooses', (tester) async {
+        final auth = FakeAuthRepository();
+        addTearDown(auth.close);
+
+        await pumpAppWith(tester, auth);
+
+        expect(themeModeOf(tester), ThemeMode.system);
+      });
+
+      testWidgets('is reached from the overview, and applied from there', (
+        tester,
+      ) async {
+        final themes = FakeThemeModeStore();
+        addTearDown(themes.close);
+        final auth = FakeAuthRepository(
+          initialUser: const AuthUser(id: 'user-1', email: 'a@b.com'),
+        );
+        addTearDown(auth.close);
+
+        await pumpAppWith(tester, auth, themeMode: themes);
+
+        await tester.tap(find.byIcon(Icons.settings_outlined));
+        await tester.pumpAndSettle();
+        expect(find.byType(SettingsPage), findsOneWidget);
+
+        await tester.tap(
+          find.ancestor(
+            of: find.text(t.settings.themeDark),
+            matching: find.byType(ListTile),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // The whole path, end to end: a tap on the page, through the store, and
+        // out at the shell that draws everything.
+        expect(themeModeOf(tester), ThemeMode.dark);
+      });
+
+      testWidgets('changes under a page that is already up', (tester) async {
+        final themes = FakeThemeModeStore();
+        addTearDown(themes.close);
+        final auth = FakeAuthRepository();
+        addTearDown(auth.close);
+
+        await pumpAppWith(tester, auth, themeMode: themes);
+        expect(themeModeOf(tester), ThemeMode.system);
+
+        // What the settings page does. The shell hears it through the store's
+        // own stream rather than being told.
+        await themes.write(AppThemeMode.light);
+        await tester.pumpAndSettle();
+
+        expect(themeModeOf(tester), ThemeMode.light);
+      });
     });
 
     testWidgets('opens the overview for a restored session', (tester) async {

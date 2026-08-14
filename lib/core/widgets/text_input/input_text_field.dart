@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:my_pnl/core/theme/input_theme.dart';
+import 'package:my_pnl/core/theme/semantic_colors.dart';
 import 'package:my_pnl/core/widgets/text_input/input_error.dart';
 
 
@@ -111,16 +112,36 @@ class _InputTextFieldState extends State<InputTextField> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final semantics = AppSemanticColors.of(context);
+    final enabled = widget.enabled ?? true;
+
+    // What the field is drawn on, and so what everything inside it has to be
+    // legible against. The focused field takes the plain surface and an idle
+    // one a step off it — see [appInputDecoration], which is where the same
+    // choice is made for the borders.
+    final fill = _isActive
+        ? colors.surface
+        : enabled
+        ? colors.surfaceContainerHighest
+        : colors.surfaceContainerLow;
+
+    // Placeholder, hint and the label all say the same thing about the field:
+    // it is empty and this is what goes in it. Held at less than full strength
+    // so they read as an invitation rather than as content already typed.
+    final hintColor = colors.onSurfaceVariant.withValues(alpha: 0.7);
+
     return Stack(
       children: [
         TextFormField(
-          enabled: widget.enabled ?? true,
+          enabled: enabled,
           autofocus: widget.autofocus,
           autofillHints: widget.autofillHints,
           style: widget.textStyle,
           textAlign: widget.textAlign,
           readOnly: widget.readOnly,
-          cursorColor:Colors.black,
+          cursorColor: colors.onSurface,
           minLines: widget.textArea ?? false ? 2 : null,
           obscureText: widget.obscureText,
           keyboardType:
@@ -146,22 +167,18 @@ class _InputTextFieldState extends State<InputTextField> {
           textCapitalization: widget.textCapitalization ?? TextCapitalization.none,
           onTapOutside: (event) => widget.onUnfocus?.call(),
           errorBuilder: (_, error) => InputError(text: error),
-          decoration: getWhiteAppInputDecorationTheme(context, widget.enabled ?? true).copyWith(
+          decoration: appInputDecoration(context, enabled: enabled).copyWith(
             contentPadding: EdgeInsets.only(
               top: 12.0,
               bottom:12.0,
               right:16.0,
             ),
-            fillColor: _isActive
-                ? Colors.white
-                : widget.enabled ?? true
-                ? const Color.fromARGB(255, 240, 240, 240)
-                : Colors.grey[50],
-            hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.grey[400],
+            fillColor: fill,
+            hintStyle: theme.textTheme.bodyMedium?.copyWith(
+              color: hintColor,
             ),
-            labelStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.grey[400],
+            labelStyle: theme.textTheme.bodyMedium?.copyWith(
+              color: hintColor,
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(
@@ -175,7 +192,7 @@ class _InputTextFieldState extends State<InputTextField> {
                 (widget.borderRadius ??  8.0),
               ),
               borderSide:
-                  widget.borderSide ??  BorderSide(width: 1.0, color: Colors.red[600]!),
+                  widget.borderSide ??  BorderSide(width: 1.0, color: colors.error),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(
@@ -183,7 +200,7 @@ class _InputTextFieldState extends State<InputTextField> {
               ),
               borderSide:
                   widget.borderSide ??
-                  BorderSide(width: 1.0, color: Colors.green[500]!),
+                  BorderSide(width: 1.0, color: semantics.focus),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(
@@ -191,9 +208,12 @@ class _InputTextFieldState extends State<InputTextField> {
               ),
               borderSide: BorderSide(
                 width: widget.borderSide?.width ?? 1.0,
+                // Drawn in the fill when idle, which is to say not drawn at
+                // all: what marks this field out is that it is lighter than
+                // the ones around it, not that it is boxed.
                 color:
                     widget.borderSide?.color ??
-                    (_isActive ? Colors.green[500]! : Colors.grey[50]!),
+                    (_isActive ? semantics.focus : fill),
               ),
             ),
             disabledBorder: OutlineInputBorder(
@@ -201,7 +221,7 @@ class _InputTextFieldState extends State<InputTextField> {
                 (widget.borderRadius ??  8.0),
               ),
               borderSide:
-                  widget.borderSide ?? BorderSide(width: 1.0, color: Colors.grey[50]!),
+                  widget.borderSide ?? BorderSide(width: 1.0, color: fill),
             ),
             hintText: widget.hintText,
             label: widget.placeholder == null
@@ -213,7 +233,7 @@ class _InputTextFieldState extends State<InputTextField> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle().copyWith(
-                        color: Colors.grey[400],
+                        color: hintColor,
                       ),
                     ),
                   ),
@@ -233,7 +253,7 @@ class _InputTextFieldState extends State<InputTextField> {
                           child: Icon(
                             Icons.close,
                             size: 18.0,
-                            color: Colors.grey[500],
+                            color: colors.onSurfaceVariant,
                           ),
                           onTap: () {
                             if (widget.onClear != null) {
@@ -261,8 +281,8 @@ class _InputTextFieldState extends State<InputTextField> {
                     padding: EdgeInsets.only(left:16.0),
                     child: Text(
                       widget.prefixText!,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.black87,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colors.onSurface,
                       ),
                     ),
                   ),
@@ -277,7 +297,7 @@ class _InputTextFieldState extends State<InputTextField> {
               child: Icon(
                 Icons.south_east,
                 size: 12.0,
-                color: Colors.grey[400],
+                color: colors.outline,
               ),
             ),
           ),

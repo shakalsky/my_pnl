@@ -141,6 +141,12 @@ class SpendingOverviewView extends StatelessWidget {
                     tooltip: t.spending.unusualMonths,
                     visualDensity: VisualDensity.compact,
                   ),
+                  IconButton(
+                    onPressed: () => context.pushNamed(AppRoute.settings.name),
+                    icon: const Icon(Icons.settings_outlined, size: 20),
+                    tooltip: t.settings.tooltip,
+                    visualDensity: VisualDensity.compact,
+                  ),
                   const Flexible(child: AccountButton()),
                 ],
               ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:my_pnl/core/money/amount_format.dart';
+import 'package:my_pnl/core/theme/semantic_colors.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/entities/ledger_entry.dart';
 import 'package:my_pnl/features/spending/domain/repositories/transaction_repository.dart';
@@ -222,7 +223,7 @@ class _EntryList extends StatelessWidget {
               // Income reads as a gain, spending as a cost.
               color: amount < 0
                   ? theme.colorScheme.onSurface
-                  : const Color(0xFF2E7D32),
+                  : AppSemanticColors.of(context).positive,
             ),
           ),
           IconButton(

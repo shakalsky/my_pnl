@@ -144,7 +144,7 @@ class _ThresholdSlider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = overrunBorderColor(level)!;
+    final color = overrunBorderColor(level, brightness: theme.brightness)!;
 
     return Padding(
       padding: const EdgeInsets.only(top: 8),

@@ -49,6 +49,7 @@ class TranslationsRu extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$auth$ru auth = _Translations$auth$ru._(_root);
 	@override late final _Translations$sync$ru sync = _Translations$sync$ru._(_root);
 	@override late final _Translations$update$ru update = _Translations$update$ru._(_root);
+	@override late final _Translations$settings$ru settings = _Translations$settings$ru._(_root);
 }
 
 // Path: common
@@ -547,4 +548,23 @@ class _Translations$update$ru extends Translations$update$en {
 	@override String get noStore => 'Скачайте свежую версию в магазине приложений.';
 	@override String get recheck => 'Я обновил';
 	@override String get openFailed => 'Не удалось открыть магазин';
+}
+
+// Path: settings
+class _Translations$settings$ru extends Translations$settings$en {
+	_Translations$settings$ru._(TranslationsRu root) : this._root = root, super.internal(root);
+
+	final TranslationsRu _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Настройки';
+	@override String get tooltip => 'Настройки';
+	@override String get appearance => 'Оформление';
+	@override String get appearanceSubtitle => 'Как выглядит приложение. Хранится на этом устройстве.';
+	@override String get themeSystem => 'Как на устройстве';
+	@override String get themeLight => 'Светлое';
+	@override String get themeDark => 'Тёмное';
+	@override String get language => 'Язык';
+	@override String get languageSubtitle => 'На каком языке приложение. Хранится на этом устройстве.';
+	@override String get languageSystem => 'Как на устройстве';
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:my_pnl/core/theme/semantic_colors.dart';
 import 'package:my_pnl/features/sync/domain/entities/sync_state.dart';
 import 'package:my_pnl/features/sync/domain/repositories/sync_repository.dart';
 import 'package:my_pnl/features/sync/domain/usecases/watch_sync_state.dart';
@@ -64,12 +65,15 @@ class SyncIndicatorView extends StatelessWidget {
 
   Color _color(BuildContext context, SyncHealth health) {
     final colors = Theme.of(context).colorScheme;
+    final semantics = AppSemanticColors.of(context);
 
     return switch (health) {
       // Not the theme's primary/secondary: these are status colours and must
-      // mean the same thing whatever the theme does.
-      SyncHealth.synced => const Color(0xFF2E7D32),
-      SyncHealth.syncing => const Color(0xFFF9A825),
+      // mean the same thing whatever the theme does. They still come from the
+      // theme, because a green that means "done" on white is barely visible on
+      // black — what stays fixed is the meaning, not the shade.
+      SyncHealth.synced => semantics.positive,
+      SyncHealth.syncing => semantics.caution,
       SyncHealth.failed => colors.error,
       SyncHealth.idle => colors.outlineVariant,
     };

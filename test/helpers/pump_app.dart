@@ -10,6 +10,8 @@ import 'package:my_pnl/features/currencies/domain/repositories/display_currency_
 import 'package:my_pnl/features/debts/domain/repositories/debt_repository.dart';
 import 'package:my_pnl/features/goals/domain/repositories/goal_repository.dart';
 import 'package:my_pnl/features/ledgers/domain/repositories/ledger_repository.dart';
+import 'package:my_pnl/features/settings/domain/repositories/language_store.dart';
+import 'package:my_pnl/features/settings/domain/repositories/theme_mode_store.dart';
 import 'package:my_pnl/features/spending/domain/repositories/category_repository.dart';
 import 'package:my_pnl/features/spending/domain/repositories/overrun_settings_store.dart';
 import 'package:my_pnl/features/spending/domain/repositories/transaction_repository.dart';
@@ -19,9 +21,11 @@ import 'fake_app_update_repository.dart';
 import 'fake_auth_repository.dart';
 import 'fake_base_currency_store.dart';
 import 'fake_display_currency_store.dart';
+import 'fake_language_store.dart';
 import 'fake_ledger_repository.dart';
 import 'fake_overrun_settings_store.dart';
 import 'fake_sync_repository.dart';
+import 'fake_theme_mode_store.dart';
 
 extension PumpApp on WidgetTester {
   /// Pumps [widget] with the repositories a page expects to find above it.
@@ -39,8 +43,10 @@ extension PumpApp on WidgetTester {
     DisplayCurrencyStore? displayCurrencyStore,
     DebtRepository? debtRepository,
     GoalRepository? goalRepository,
+    LanguageStore? languageStore,
     LedgerRepository? ledgerRepository,
     OverrunSettingsStore? overrunSettingsStore,
+    ThemeModeStore? themeModeStore,
     TransactionRepository? transactionRepository,
     SyncRepository? syncRepository,
   }) {
@@ -65,6 +71,11 @@ extension PumpApp on WidgetTester {
     // And likewise: the overview header carries a ledger switcher, and a reader
     // with nothing but their own book is the ordinary case.
     final ledgers = ledgerRepository ?? FakeLedgerRepository();
+    // And likewise for the two the settings page reads. An untouched pair is a
+    // device that has chosen neither, which is what every other page is pumped
+    // against anyway — the app they are drawn in follows the device.
+    final themeMode = themeModeStore ?? FakeThemeModeStore();
+    final language = languageStore ?? FakeLanguageStore();
 
     // Providers sit ABOVE MaterialApp, exactly as they do in App. Below it
     // they would also sit below the Navigator, and anything pushed as a route
@@ -83,6 +94,8 @@ extension PumpApp on WidgetTester {
           RepositoryProvider<OverrunSettingsStore>.value(
             value: overrunSettings,
           ),
+          RepositoryProvider<ThemeModeStore>.value(value: themeMode),
+          RepositoryProvider<LanguageStore>.value(value: language),
           if (categoryRepository != null)
             RepositoryProvider<CategoryRepository>.value(
               value: categoryRepository,
