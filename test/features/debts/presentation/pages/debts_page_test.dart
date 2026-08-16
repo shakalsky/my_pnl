@@ -1,10 +1,11 @@
 
-import '../../../../helpers/helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_pnl/core/widgets/text_input/app_input.dart';
 import 'package:my_pnl/features/debts/domain/entities/debt.dart';
 import 'package:my_pnl/features/debts/presentation/pages/debts_page.dart';
+
+import '../../../../helpers/helpers.dart';
 
 const _lentToAlex = Debt(
   id: 'debt-1',

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 
 class InputError extends StatelessWidget {
-  final String text;
 
-  const InputError({super.key, required this.text});
+  const InputError({required this.text, super.key});
+  final String text;
 
   @override
   Widget build(BuildContext context) {
@@ -14,23 +14,23 @@ class InputError extends StatelessWidget {
     final error = Theme.of(context).colorScheme.error;
 
     return Padding(
-      padding: EdgeInsets.only(top: 6.0),
+      padding: const EdgeInsets.only(top: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Padding(
-            padding: EdgeInsets.only(top: 2.0),
+            padding: const EdgeInsets.only(top: 2),
             child: Icon(
               Icons.error_outline,
-              size: 14.0,
+              size: 14,
               color: error,
             ),
           ),
-          SizedBox(width: 4.0),
+          const SizedBox(width: 4),
           Expanded(
             child: Text(
               text,
-              style: TextStyle().copyWith(color: error),
+              style: const TextStyle().copyWith(color: error),
               softWrap: true,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,

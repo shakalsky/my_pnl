@@ -1,10 +1,11 @@
 
-import '../../../../helpers/helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_pnl/core/widgets/text_input/app_input.dart';
 import 'package:my_pnl/features/currencies/domain/entities/currency.dart';
 import 'package:my_pnl/features/currencies/presentation/widgets/currency_list_sheet.dart';
+
+import '../../../../helpers/helpers.dart';
 
 const _euro = Currency(
   id: 'currency-1',

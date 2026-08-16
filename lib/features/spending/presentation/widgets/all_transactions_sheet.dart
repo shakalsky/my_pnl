@@ -13,6 +13,7 @@ import 'package:my_pnl/features/spending/presentation/theme/category_style.dart'
 import 'package:my_pnl/features/spending/presentation/widgets/amount_entry_sheet.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/day_divided_list.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/entry_author_label.dart';
+import 'package:my_pnl/features/spending/presentation/widgets/transaction_history_sheet.dart';
 import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Every entry across every category, newest first.
@@ -144,7 +145,11 @@ class _EntryList extends StatelessWidget {
     // The date lives in the day heading now, so the row keeps only the time of
     // day, which is what orders one entry against another within a day.
     final timeFormat = DateFormat.jm();
-    final rows = divideByDay(entries, (item) => item.entry.occurredAt);
+    final rows = divideByDay(
+      entries,
+      (item) => item.entry.occurredAt,
+      amountScaled: (item) => item.entry.amountScaled,
+    );
 
     return ListView.builder(
       shrinkWrap: true,
@@ -152,8 +157,12 @@ class _EntryList extends StatelessWidget {
       itemCount: rows.length,
       itemBuilder: (context, index) {
         switch (rows[index]) {
-          case DayHeadingRow(:final day):
-            return DayHeading(day: day, first: index == 0);
+          case DayHeadingRow(:final day, :final totalScaled):
+            return DayHeading(
+              day: day,
+              totalScaled: totalScaled,
+              first: index == 0,
+            );
           case DayEntryRow(:final entry, :final opensDay):
             return Column(
               mainAxisSize: MainAxisSize.min,
@@ -178,18 +187,7 @@ class _EntryList extends StatelessWidget {
       // recorded one may change it, so no edit is offered rather than one
       // that the server would refuse on upload.
       onTap: item.entry.isOwn ? () => _edit(context, item) : null,
-      leading: CircleAvatar(
-        backgroundColor: category == null
-            ? theme.colorScheme.surfaceContainerHighest
-            : Color(category.colorArgb),
-        child: Icon(
-          category == null ? Icons.help_outline : iconForKey(category.iconKey),
-          size: 18,
-          color: category == null
-              ? theme.colorScheme.onSurfaceVariant
-              : Colors.white,
-        ),
-      ),
+      leading: _CategoryAvatar(category: category),
       title: Text(category?.name ?? t.entries.uncategorised),
       // Stored in UTC, shown in the reader's zone. The entry's own note
       // rides along on the same line — it is what tells two amounts in the
@@ -293,6 +291,55 @@ class _EntryList extends StatelessWidget {
             child: Text(t.common.delete),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The category mark at the head of a row, which opens that category's history.
+///
+/// The whole ledger is where an amount is spotted; the question it raises is
+/// almost always "what else went here?", and the icon is the part of the row
+/// already naming the category. Tapping it is one step to the answer where the
+/// alternative is closing this sheet and finding the tile behind it.
+///
+/// The row's own tap still edits the amount, so this needs its own hit target
+/// inside it — the same arrangement the settings icon has on a category tile.
+/// An entry whose category was deleted has no history to open, so it is left
+/// untappable rather than given a gesture that could only lead to an empty
+/// sheet.
+class _CategoryAvatar extends StatelessWidget {
+  const _CategoryAvatar({required this.category});
+
+  final Category? category;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final category = this.category;
+
+    final avatar = CircleAvatar(
+      backgroundColor: category == null
+          ? theme.colorScheme.surfaceContainerHighest
+          : Color(category.colorArgb),
+      child: Icon(
+        category == null ? Icons.help_outline : iconForKey(category.iconKey),
+        size: 18,
+        color: category == null
+            ? theme.colorScheme.onSurfaceVariant
+            : Colors.white,
+      ),
+    );
+
+    if (category == null) return avatar;
+
+    return Semantics(
+      label: t.entries.categoryHistory(name: category.name),
+      button: true,
+      child: InkResponse(
+        onTap: () => TransactionHistorySheet.show(context, category),
+        radius: 24,
+        child: avatar,
       ),
     );
   }

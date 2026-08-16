@@ -9,52 +9,9 @@ import 'package:my_pnl/core/widgets/text_input/input_text_field.dart';
 enum AppInputColorType { white, gray }
 
 class AppInput extends StatelessWidget {
-  /// Optional: when omitted the field owns its own controller, so callers that
-  /// only listen via [onChanged] need not hold one.
-  final TextEditingController? controller;
-  final FocusNode? focusNode;
-  final String? label;
-  final TextStyle? labelStyle;
-
-  /// Style of the text typed into the field itself.
-  final TextStyle? textStyle;
-  final TextAlign textAlign;
-  final bool autofocus;
-  final Iterable<String>? autofillHints;
-  final double? borderRadius;
-
-  /// Optional outline border customization for the inner text field.
-  final BorderSide? borderSide;
-  final String? inputHintText;
-  final String? hint;
-  final String? labelHint;
-  final String? placeholder;
-  final String? errorText;
-  final Widget? suffixIcon;
-  final Widget? prefixIcon;
-  final String? prefixText;
-  final bool? enabled;
-  final bool readOnly;
-  final bool? textArea;
-  final bool isImportant;
-  final AppInputColorType colorType;
-  final FormFieldValidator<String>? validator;
-  final AutovalidateMode autovalidateMode;
-  final List<TextInputFormatter>? inputFormatters;
-  final TextInputType? keyboardType;
-  final TextCapitalization? textCapitalization;
-  final TextInputAction? textInputAction;
-  final void Function(String value)? onChanged;
-  final void Function(String value)? onFieldSubmitted;
-  final void Function()? onUnfocus;
-  final bool obscureText;
-  final void Function()? onTap;
-  final void Function()? onClear;
-  final bool showClearButton;
-  final bool forceActive;
 
   const AppInput({
-    super.key,
+    required this.colorType, super.key,
     this.controller,
     this.focusNode,
     this.label,
@@ -76,7 +33,6 @@ class AppInput extends StatelessWidget {
     this.enabled,
     this.textArea,
     this.isImportant = false,
-    required this.colorType,
     this.validator,
     this.autovalidateMode = AutovalidateMode.onUserInteraction,
     this.inputFormatters,
@@ -191,7 +147,6 @@ class AppInput extends StatelessWidget {
     Widget? prefixIcon,
     String? prefixText,
     String? hint,
-    String? initialPrefix,
     bool? enabled,
     bool? textArea,
     bool isImportant = false,
@@ -250,6 +205,49 @@ class AppInput extends StatelessWidget {
     onTap: onTap,
     readOnly: readOnly,
   );
+  /// Optional: when omitted the field owns its own controller, so callers that
+  /// only listen via [onChanged] need not hold one.
+  final TextEditingController? controller;
+  final FocusNode? focusNode;
+  final String? label;
+  final TextStyle? labelStyle;
+
+  /// Style of the text typed into the field itself.
+  final TextStyle? textStyle;
+  final TextAlign textAlign;
+  final bool autofocus;
+  final Iterable<String>? autofillHints;
+  final double? borderRadius;
+
+  /// Optional outline border customization for the inner text field.
+  final BorderSide? borderSide;
+  final String? inputHintText;
+  final String? hint;
+  final String? labelHint;
+  final String? placeholder;
+  final String? errorText;
+  final Widget? suffixIcon;
+  final Widget? prefixIcon;
+  final String? prefixText;
+  final bool? enabled;
+  final bool readOnly;
+  final bool? textArea;
+  final bool isImportant;
+  final AppInputColorType colorType;
+  final FormFieldValidator<String>? validator;
+  final AutovalidateMode autovalidateMode;
+  final List<TextInputFormatter>? inputFormatters;
+  final TextInputType? keyboardType;
+  final TextCapitalization? textCapitalization;
+  final TextInputAction? textInputAction;
+  final void Function(String value)? onChanged;
+  final void Function(String value)? onFieldSubmitted;
+  final void Function()? onUnfocus;
+  final bool obscureText;
+  final void Function()? onTap;
+  final void Function()? onClear;
+  final bool showClearButton;
+  final bool forceActive;
 
   @override
   Widget build(BuildContext context) {
@@ -261,12 +259,12 @@ class AppInput extends StatelessWidget {
           Tooltip(
             message: labelHint ?? '',
             triggerMode: TooltipTriggerMode.tap,
-            padding: EdgeInsets.symmetric(
-              vertical: 4.0,
-              horizontal: 8.0,
+            padding: const EdgeInsets.symmetric(
+              vertical: 4,
+              horizontal: 8,
             ),
             showDuration: const Duration(seconds: 3),
-            verticalOffset: 8.0,
+            verticalOffset: 8,
             child: InputLabel(text: label!, isImportant: isImportant, style: labelStyle),
           ),
         InputTextField(

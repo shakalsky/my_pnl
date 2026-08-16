@@ -416,7 +416,15 @@ void main() {
         currencies = FakeCurrencyRepository(initial: const [_euro]);
 
         await openOverview(tester);
-        await tester.tap(find.byTooltip('Currencies'));
+        // Through settings, which is where the currency list is reached from.
+        await tester.tap(find.byTooltip('Settings'));
+        await tester.pumpAndSettle();
+        // Below the fold on a test-sized screen: scrolled to until it is built,
+        // then the rest of the way until it is drawn where a tap can land.
+        await tester.scrollUntilVisible(find.text('Currencies'), 100);
+        await tester.ensureVisible(find.text('Currencies'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Currencies'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Base currency'));
         await tester.pumpAndSettle();
@@ -440,8 +448,11 @@ void main() {
           isEmpty,
           reason: 'their rate was quoted against the dollar',
         );
-        // Both sheets are gone and the figures behind them read in the euro.
+        // Both sheets are gone, and the overview the settings page was opened
+        // from reads in the euro on the way back.
         expect(find.byType(BaseCurrencySheet), findsNothing);
+        await tester.pageBack();
+        await tester.pumpAndSettle();
         expect(find.text('€0.00'), findsWidgets);
       });
     });

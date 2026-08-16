@@ -87,7 +87,7 @@ void main() {
       expect(mine, hasLength(1));
     });
 
-    test("refuses a ticker a partner already added to the same book", () async {
+    test('refuses a ticker a partner already added to the same book', () async {
       // Rates are shared furniture, so the clash is per ledger and not per
       // person: two rates for one ticker in one book would make the totals
       // depend on which of them a device happened to read.
@@ -142,7 +142,7 @@ void main() {
       );
     });
 
-    test("lets a partner correct a rate the other one added", () async {
+    test('lets a partner correct a rate the other one added', () async {
       final created = await add(ticker: 'EUR');
 
       // Nothing here says who is asking, and that is the point: a rate in a

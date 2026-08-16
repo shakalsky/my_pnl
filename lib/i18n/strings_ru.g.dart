@@ -141,6 +141,7 @@ class _Translations$entries$ru extends Translations$entries$en {
 	@override String get loadFailed => 'Не удалось загрузить операции';
 	@override String get empty => 'Пока ничего не записано';
 	@override String get historyTitle => 'История';
+	@override String categoryHistory({required Object name}) => 'История категории «${name}»';
 	@override String get historyLoadFailed => 'Не удалось загрузить историю';
 	@override String get historyEmpty => 'Здесь пока ничего не записано';
 	@override String get uncategorised => 'Без категории';
@@ -165,6 +166,7 @@ class _Translations$amountEntry$ru extends Translations$amountEntry$en {
 	@override String get createSubtitle => 'Добавить сумму';
 	@override String changingTo({required Object amount}) => 'Новая сумма записи — ${amount}';
 	@override String addingTo({required Object amount, required Object category}) => 'Добавляем ${amount} в «${category}»';
+	@override String get details => 'Детали';
 	@override String get description => 'Описание';
 	@override String get descriptionHint => 'Необязательно. На что именно.';
 	@override String get submit => 'Сохранить сумму';
@@ -567,4 +569,8 @@ class _Translations$settings$ru extends Translations$settings$en {
 	@override String get language => 'Язык';
 	@override String get languageSubtitle => 'На каком языке приложение. Хранится на этом устройстве.';
 	@override String get languageSystem => 'Как на устройстве';
+	@override String get spending => 'Расходы';
+	@override String get spendingSubtitle => 'С чем сравниваются ваши суммы. Общее для всех, у кого открыта эта книга.';
+	@override String get currenciesSubtitle => 'В каких валютах можно смотреть итоги.';
+	@override String get unusualMonthsSubtitle => 'Насколько категория должна превысить обычный месяц, чтобы её отметили.';
 }

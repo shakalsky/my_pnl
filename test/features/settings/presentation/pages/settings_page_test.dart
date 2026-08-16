@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:my_pnl/features/currencies/presentation/widgets/currency_list_sheet.dart';
 import 'package:my_pnl/features/settings/domain/entities/app_theme_mode.dart';
 import 'package:my_pnl/features/settings/presentation/pages/settings_page.dart';
+import 'package:my_pnl/features/spending/presentation/widgets/overrun_settings_sheet.dart';
 import 'package:my_pnl/i18n/strings.g.dart';
 
 import '../../../../helpers/helpers.dart';
@@ -10,14 +12,17 @@ void main() {
   group('SettingsPage', () {
     late FakeThemeModeStore themes;
     late FakeLanguageStore languages;
+    late FakeCurrencyRepository currencies;
 
     setUp(() {
       themes = FakeThemeModeStore();
       languages = FakeLanguageStore();
+      currencies = FakeCurrencyRepository();
     });
 
     tearDown(() async {
       await themes.close();
+      await currencies.close();
       // The locale is one value for the whole process, and tapping a language
       // here really does move it.
       await LocaleSettings.setLocale(AppLocale.en);
@@ -28,6 +33,9 @@ void main() {
         const SettingsPage(),
         themeModeStore: themes,
         languageStore: languages,
+        // What the two spending rows open onto. Provided at the root of the
+        // app, so the page finds it there rather than making one of its own.
+        currencyRepository: currencies,
       );
       await tester.pumpAndSettle();
     }
@@ -57,6 +65,32 @@ void main() {
       // build ships, plus following the device.
       expect(find.byType(RadioListTile<AppThemeMode>), findsNWidgets(3));
       expect(find.byType(RadioListTile<String?>), findsNWidgets(3));
+    });
+
+    testWidgets('opens the currencies sheet from its own row', (tester) async {
+      await pumpPage(tester);
+      await tester.scrollUntilVisible(find.text(t.spending.currencies), 100);
+      await tester.ensureVisible(find.text(t.spending.currencies));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(t.spending.currencies));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CurrencyListSheet), findsOneWidget);
+    });
+
+    testWidgets('opens the unusual-months sheet from its own row', (
+      tester,
+    ) async {
+      await pumpPage(tester);
+      await tester.scrollUntilVisible(find.text(t.spending.unusualMonths), 100);
+      await tester.ensureVisible(find.text(t.spending.unusualMonths));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(t.spending.unusualMonths));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(OverrunSettingsSheet), findsOneWidget);
     });
 
     testWidgets('opens on the appearance in force', (tester) async {

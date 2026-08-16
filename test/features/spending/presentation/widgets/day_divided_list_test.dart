@@ -8,7 +8,10 @@ void main() {
 
   group('divideByDay', () {
     test('gives nothing back for nothing', () {
-      expect(divideByDay<DateTime>(const [], (at) => at), isEmpty);
+      expect(
+        divideByDay<DateTime>(const [], (at) => at, amountScaled: (_) => 0),
+        isEmpty,
+      );
     });
 
     test('opens a day with a heading and hangs its entries off it', () {
@@ -19,6 +22,7 @@ void main() {
           DateTime(2026, 3, 13, 20),
         ],
         (at) => at,
+        amountScaled: (_) => 0,
       );
 
       expect(rows, hasLength(5));
@@ -40,6 +44,7 @@ void main() {
       final kept = divideByDay(
         entries,
         (at) => at,
+        amountScaled: (_) => 0,
       ).whereType<DayEntryRow<DateTime>>().map((row) => row.entry);
 
       expect(kept, entries);
@@ -49,10 +54,44 @@ void main() {
       // Whichever zone the test runs in, the entry belongs under the day its
       // local clock names — never under the UTC one when they differ.
       final at = DateTime(2026, 3, 14, 23, 30).toUtc();
-      final rows = divideByDay([at], (entry) => entry);
+      final rows = divideByDay(
+        [at],
+        (entry) => entry,
+        amountScaled: (_) => 0,
+      );
 
       expect((rows[0] as DayHeadingRow<DateTime>).day, DateTime(2026, 3, 14));
     });
+
+    test('totals each day over its own entries', () {
+      final rows = divideByDay(
+        [
+          (at: DateTime(2026, 3, 14, 18), amount: -1250),
+          (at: DateTime(2026, 3, 14, 9, 30), amount: -400),
+          (at: DateTime(2026, 3, 13, 20), amount: -900),
+        ],
+        (entry) => entry.at,
+        amountScaled: (entry) => entry.amount,
+      ).whereType<DayHeadingRow<({DateTime at, int amount})>>();
+
+      expect(rows.map((row) => row.totalScaled), [-1650, -900]);
+    });
+
+    test(
+      'nets income against spending within a day, as the sheet total does',
+      () {
+        final rows = divideByDay(
+          [
+            (at: DateTime(2026, 3, 14, 18), amount: 5000),
+            (at: DateTime(2026, 3, 14, 9, 30), amount: -1250),
+          ],
+          (entry) => entry.at,
+          amountScaled: (entry) => entry.amount,
+        ).whereType<DayHeadingRow<({DateTime at, int amount})>>();
+
+        expect(rows.single.totalScaled, 3750);
+      },
+    );
   });
 
   group('formatDay', () {

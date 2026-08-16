@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/entities/category_spend.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/all_transactions_sheet.dart';
+import 'package:my_pnl/features/spending/presentation/widgets/day_divided_list.dart';
+import 'package:my_pnl/features/spending/presentation/widgets/transaction_history_sheet.dart';
 
 import '../../../../helpers/helpers.dart';
 
@@ -25,6 +27,18 @@ const _salary = CategorySpend(
     kind: CategoryKind.income,
   ),
   totalScaled: 0,
+);
+
+/// The figure at the top of the sheet, told apart from the day totals in the
+/// headings, which read the same whenever a single day holds everything.
+Finder headerTotal(String amount) => find.descendant(
+  of: find
+      .ancestor(
+        of: find.text('All transactions'),
+        matching: find.byType(Row),
+      )
+      .first,
+  matching: find.text(amount),
 );
 
 void main() {
@@ -91,7 +105,35 @@ void main() {
 
       await openSheet(tester);
 
-      expect(find.text(r'$3,487.50'), findsOneWidget);
+      expect(headerTotal(r'$3,487.50'), findsOneWidget);
+    });
+
+    testWidgets('totals each day over its own heading', (tester) async {
+      await repository.recordSpend(
+        categoryId: _groceries.category.id,
+        amountScaled: 1250,
+        occurredAt: DateTime(2026, 3, 14, 9, 30),
+      );
+      await repository.recordSpend(
+        categoryId: _groceries.category.id,
+        amountScaled: 400,
+        occurredAt: DateTime(2026, 3, 14, 18),
+      );
+      await repository.recordSpend(
+        categoryId: _groceries.category.id,
+        amountScaled: 900,
+        occurredAt: DateTime(2026, 3, 13, 20),
+      );
+
+      await openSheet(tester);
+
+      Finder dayTotal(String amount) => find.descendant(
+        of: find.byType(DayHeading),
+        matching: find.text(amount),
+      );
+
+      expect(dayTotal(r'-$16.50'), findsOneWidget);
+      expect(dayTotal(r'-$9.00'), findsOneWidget);
     });
 
     testWidgets('updates an entry through the amount modal', (tester) async {
@@ -114,6 +156,53 @@ void main() {
       // Scoped to the row: with one entry the header net reads the same.
       expect(find.widgetWithText(ListTile, r'-$9.99'), findsOneWidget);
       expect(find.text(r'-$12.50'), findsNothing);
+    });
+
+    testWidgets("opens the category's history from the row icon", (
+      tester,
+    ) async {
+      await repository.recordSpend(
+        categoryId: _groceries.category.id,
+        amountScaled: 1250,
+      );
+      await repository.recordSpend(
+        categoryId: _salary.category.id,
+        amountScaled: 350000,
+      );
+      await openSheet(tester);
+
+      await tester.tap(find.bySemanticsLabel('Groceries history'));
+      await tester.pumpAndSettle();
+
+      // The history sheet opens over the ledger rather than in place of it, so
+      // what it holds is read inside it: the category whose icon was tapped,
+      // and only what was booked there.
+      Finder inHistory(Finder finder) => find.descendant(
+        of: find.byType(TransactionHistorySheet),
+        matching: finder,
+      );
+
+      expect(inHistory(find.text('Groceries')), findsOneWidget);
+      expect(inHistory(find.text(r'-$12.50')), findsWidgets);
+      expect(inHistory(find.text(r'$3,500.00')), findsNothing);
+    });
+
+    testWidgets('edits the amount when the row itself is tapped', (
+      tester,
+    ) async {
+      await repository.recordSpend(
+        categoryId: _groceries.category.id,
+        amountScaled: 1250,
+      );
+      await openSheet(tester);
+
+      // The icon carries its own gesture, so the row's has to still be the
+      // editor rather than swallowed by it.
+      await tester.tap(find.text('Groceries'));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(TextField, '12.50'), findsOneWidget);
+      expect(find.text('History'), findsNothing);
     });
 
     testWidgets('deletes an entry after confirming', (tester) async {
@@ -258,7 +347,7 @@ void main() {
 
         // The point of the whole feature, at the one place it is written out as
         // a single number.
-        expect(find.text(r'-$52.50'), findsOneWidget);
+        expect(headerTotal(r'-$52.50'), findsOneWidget);
       });
     });
   });

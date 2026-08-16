@@ -175,6 +175,11 @@ class _AmountEntryFormState extends State<_AmountEntryForm> {
   late final TextEditingController _amount;
   late final TextEditingController _note;
 
+  /// Whether the description and date are on show. Folded away by default:
+  /// the amount is what the sheet is for, and both of these have a working
+  /// answer already — no note, and the moment the entry is saved.
+  bool _showDetails = false;
+
   @override
   void initState() {
     super.initState();
@@ -183,6 +188,9 @@ class _AmountEntryFormState extends State<_AmountEntryForm> {
     final state = context.read<AmountEntryBloc>().state;
     _amount = TextEditingController(text: state.input);
     _note = TextEditingController(text: state.note);
+    // An entry that already carries a note or a date of its own opens with
+    // them visible — hiding what the user wrote would read as having lost it.
+    _showDetails = state.note.trim().isNotEmpty || state.occurredAt != null;
   }
 
   @override
@@ -249,6 +257,41 @@ class _AmountEntryFormState extends State<_AmountEntryForm> {
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
+                // The fold sits on the header row rather than under the
+                // amount: it belongs to the entry as a whole, and out here it
+                // costs no vertical space of its own.
+                TextButton(
+                  onPressed: () => setState(() => _showDetails = !_showDetails),
+                  style: TextButton.styleFrom(
+                    foregroundColor: theme.colorScheme.onSurfaceVariant,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        t.amountEntry.details,
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                      const SizedBox(width: 4),
+                      // Points down while the fields are folded away and turns
+                      // to point up once they are open, so the arrow always
+                      // reads as the direction the tap moves them.
+                      AnimatedRotation(
+                        turns: _showDetails ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 150),
+                        curve: Curves.easeOut,
+                        child: const Icon(Icons.expand_more, size: 20),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 20),
@@ -288,20 +331,39 @@ class _AmountEntryFormState extends State<_AmountEntryForm> {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 16),
-            AppInput.white(
-              controller: _note,
-              label: t.amountEntry.description,
-              hint: t.amountEntry.descriptionHint,
-              textCapitalization: TextCapitalization.sentences,
-              textInputAction: TextInputAction.done,
-              onChanged: (value) => bloc.add(AmountEntryNoteChanged(value)),
-              onFieldSubmitted: (_) => bloc.add(const AmountEntrySubmitted()),
-            ),
-            const SizedBox(height: 16),
-            _DateField(
-              occurredAt: state.occurredAt,
-              onChanged: (at) => bloc.add(AmountEntryDateChanged(at)),
+            // Dropped from the tree when folded rather than merely hidden, so
+            // the sheet is only as tall as what it shows. The controller
+            // outlives the field, so anything typed survives a fold.
+            AnimatedSize(
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOut,
+              alignment: Alignment.topCenter,
+              child: _showDetails
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(height: 8),
+                        AppInput.white(
+                          controller: _note,
+                          label: t.amountEntry.description,
+                          hint: t.amountEntry.descriptionHint,
+                          textCapitalization: TextCapitalization.sentences,
+                          textInputAction: TextInputAction.done,
+                          onChanged: (value) =>
+                              bloc.add(AmountEntryNoteChanged(value)),
+                          onFieldSubmitted: (_) =>
+                              bloc.add(const AmountEntrySubmitted()),
+                        ),
+                        const SizedBox(height: 16),
+                        _DateField(
+                          occurredAt: state.occurredAt,
+                          onChanged: (at) =>
+                              bloc.add(AmountEntryDateChanged(at)),
+                        ),
+                      ],
+                    )
+                  : const SizedBox(width: double.infinity),
             ),
             const SizedBox(height: 24),
             SizedBox(

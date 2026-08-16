@@ -258,7 +258,7 @@ void main() {
     });
 
     group('the limits', () {
-      test('allows up to three books of the reader\'s own', () async {
+      test("allows up to three books of the reader's own", () async {
         await dataSource.ensurePersonalLedger(userId: owner);
         await dataSource.createPersonalLedger(
           ownerId: owner,
@@ -436,7 +436,7 @@ void main() {
       });
     });
 
-    group('removing a book of the reader\'s own', () {
+    group("removing a book of the reader's own", () {
       test('takes it out of the list', () async {
         await dataSource.ensurePersonalLedger(userId: owner);
         final extra = await dataSource.createPersonalLedger(

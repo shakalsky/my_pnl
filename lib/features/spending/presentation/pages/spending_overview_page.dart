@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_pnl/app/routing/app_router.dart';
-import 'package:my_pnl/features/currencies/presentation/widgets/currency_list_sheet.dart';
 import 'package:my_pnl/features/ledgers/domain/repositories/ledger_repository.dart';
 import 'package:my_pnl/features/ledgers/domain/usecases/create_family_ledger.dart';
 import 'package:my_pnl/features/ledgers/domain/usecases/create_personal_ledger.dart';
@@ -25,7 +24,6 @@ import 'package:my_pnl/features/spending/presentation/bloc/spending_overview/spe
 import 'package:my_pnl/features/spending/presentation/widgets/account_button.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/all_transactions_sheet.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/category_overview_body.dart';
-import 'package:my_pnl/features/spending/presentation/widgets/overrun_settings_sheet.dart';
 import 'package:my_pnl/features/sync/presentation/widgets/sync_indicator.dart';
 import 'package:my_pnl/i18n/strings.g.dart';
 
@@ -129,18 +127,10 @@ class SpendingOverviewView extends StatelessWidget {
                     tooltip: t.spending.goal,
                     visualDensity: VisualDensity.compact,
                   ),
-                  IconButton(
-                    onPressed: () => CurrencyListSheet.show(context),
-                    icon: const Icon(Icons.currency_exchange, size: 20),
-                    tooltip: t.spending.currencies,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  IconButton(
-                    onPressed: () => OverrunSettingsSheet.show(context),
-                    icon: const Icon(Icons.warning_amber_rounded, size: 20),
-                    tooltip: t.spending.unusualMonths,
-                    visualDensity: VisualDensity.compact,
-                  ),
+                  // Currencies and unusual months used to sit here; they live
+                  // under settings now. Both are set once and left, and a row
+                  // this crowded is read as a row of buttons rather than as the
+                  // three that are worth a tap on any given day.
                   IconButton(
                     onPressed: () => context.pushNamed(AppRoute.settings.name),
                     icon: const Icon(Icons.settings_outlined, size: 20),

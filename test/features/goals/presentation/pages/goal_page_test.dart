@@ -1,5 +1,4 @@
 
-import '../../../../helpers/helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_pnl/core/widgets/text_input/app_input.dart';
@@ -7,6 +6,8 @@ import 'package:my_pnl/features/goals/domain/entities/savings_goal.dart';
 import 'package:my_pnl/features/goals/presentation/pages/goal_page.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/entities/category_spend.dart';
+
+import '../../../../helpers/helpers.dart';
 
 const _salary = CategorySpend(
   category: Category(

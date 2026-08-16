@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:my_pnl/core/money/amount_format.dart';
 import 'package:my_pnl/i18n/strings.g.dart';
 
 /// A row in a list broken up by day: either a day's heading or one entry under
@@ -14,10 +15,14 @@ sealed class DayRow<T> {
 }
 
 final class DayHeadingRow<T> extends DayRow<T> {
-  const DayHeadingRow(this.day);
+  const DayHeadingRow(this.day, {required this.totalScaled});
 
   /// Local midnight of the day the entries under it fall on.
   final DateTime day;
+
+  /// What the entries under it come to, summed the same way as the total over
+  /// the whole sheet — income against spending, not spending alone.
+  final int totalScaled;
 }
 
 final class DayEntryRow<T> extends DayRow<T> {
@@ -37,27 +42,45 @@ final class DayEntryRow<T> extends DayRow<T> {
 /// where the day does. Days are compared in the reader's zone rather than in the
 /// UTC the entries are stored in, so a late-evening entry stays on the day the
 /// person who booked it would name.
+///
+/// Each heading carries what its day comes to, summed here rather than in the
+/// list that draws it: the heading is built before the entries under it are, so
+/// the run has to be measured ahead of the row that reports it.
 List<DayRow<T>> divideByDay<T>(
   List<T> entries,
-  DateTime Function(T entry) occurredAt,
-) {
+  DateTime Function(T entry) occurredAt, {
+  required int Function(T entry) amountScaled,
+}) {
   final rows = <DayRow<T>>[];
-  DateTime? currentDay;
+  var index = 0;
 
-  for (final entry in entries) {
-    final local = occurredAt(entry).toLocal();
-    final day = DateTime(local.year, local.month, local.day);
-    final opensDay = day != currentDay;
+  while (index < entries.length) {
+    final day = _localDay(occurredAt(entries[index]));
 
-    if (opensDay) {
-      rows.add(DayHeadingRow<T>(day));
-      currentDay = day;
+    // The run this day covers: entries sharing a day arrive next to each
+    // other, so it ends at the first one that names another day.
+    var end = index;
+    var total = 0;
+    while (end < entries.length && _localDay(occurredAt(entries[end])) == day) {
+      total += amountScaled(entries[end]);
+      end++;
     }
 
-    rows.add(DayEntryRow<T>(entry, opensDay: opensDay));
+    rows.add(DayHeadingRow<T>(day, totalScaled: total));
+    for (var at = index; at < end; at++) {
+      rows.add(DayEntryRow<T>(entries[at], opensDay: at == index));
+    }
+
+    index = end;
   }
 
   return rows;
+}
+
+/// Local midnight of the day an instant falls on for the reader.
+DateTime _localDay(DateTime at) {
+  final local = at.toLocal();
+  return DateTime(local.year, local.month, local.day);
 }
 
 /// The heading that opens one day's entries.
@@ -65,12 +88,22 @@ List<DayRow<T>> divideByDay<T>(
 /// A band rather than a bare line of text: the hairline between two rows already
 /// means "next entry", so a day boundary has to say something louder than that
 /// or it reads as one more row. Full width, so the eye can follow it across and
-/// see where one day's spending stops.
+/// see where one day's spending stops — and what it came to, at the far end of
+/// the band where the amounts under it already line up.
 class DayHeading extends StatelessWidget {
-  const DayHeading({required this.day, this.first = false, super.key});
+  const DayHeading({
+    required this.day,
+    required this.totalScaled,
+    this.first = false,
+    super.key,
+  });
 
   /// Local midnight, as [divideByDay] hands it over.
   final DateTime day;
+
+  /// What the day's entries come to, on the same sign convention as the total
+  /// over the whole sheet.
+  final int totalScaled;
 
   /// Whether this opens the list rather than breaking it.
   ///
@@ -102,13 +135,29 @@ class DayHeading extends StatelessWidget {
             ),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              child: Text(
-                formatDay(day),
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.2,
-                ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      formatDay(day),
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    formatAmount(totalScaled),
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                      // Tabular so a column of day totals lines up digit for
+                      // digit down the sheet.
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

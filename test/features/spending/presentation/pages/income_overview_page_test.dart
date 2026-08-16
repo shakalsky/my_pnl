@@ -1,5 +1,4 @@
 
-import '../../../../helpers/helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_pnl/core/widgets/text_input/app_input.dart';
@@ -8,6 +7,8 @@ import 'package:my_pnl/features/spending/domain/entities/category_spend.dart';
 import 'package:my_pnl/features/spending/presentation/pages/income_overview_page.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/category_tile.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/total_circle.dart';
+
+import '../../../../helpers/helpers.dart';
 
 const _salary = CategorySpend(
   category: Category(

@@ -47,6 +47,7 @@
     "loadFailed": "Не удалось загрузить операции",
     "empty": "Пока ничего не записано",
     "historyTitle": "История",
+    "categoryHistory": "История категории «$name»",
     "historyLoadFailed": "Не удалось загрузить историю",
     "historyEmpty": "Здесь пока ничего не записано",
     "uncategorised": "Без категории",
@@ -64,6 +65,7 @@
     "createSubtitle": "Добавить сумму",
     "changingTo": "Новая сумма записи — $amount",
     "addingTo": "Добавляем $amount в «$category»",
+    "details": "Детали",
     "description": "Описание",
     "descriptionHint": "Необязательно. На что именно.",
     "submit": "Сохранить сумму"
@@ -395,6 +397,10 @@
     "themeDark": "Тёмное",
     "language": "Язык",
     "languageSubtitle": "На каком языке приложение. Хранится на этом устройстве.",
-    "languageSystem": "Как на устройстве"
+    "languageSystem": "Как на устройстве",
+    "spending": "Расходы",
+    "spendingSubtitle": "С чем сравниваются ваши суммы. Общее для всех, у кого открыта эта книга.",
+    "currenciesSubtitle": "В каких валютах можно смотреть итоги.",
+    "unusualMonthsSubtitle": "Насколько категория должна превысить обычный месяц, чтобы её отметили."
   }
 }

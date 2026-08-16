@@ -12,6 +12,7 @@ class CategoryTile extends StatelessWidget {
   const CategoryTile({
     required this.spend,
     required this.onAddAmount,
+    required this.onShowHistory,
     required this.onEdit,
     this.totalScaled,
     this.currencyLabel,
@@ -45,9 +46,16 @@ class CategoryTile extends StatelessWidget {
   /// Tap books an amount — the frequent action gets the primary gesture.
   final VoidCallback onAddAmount;
 
-  /// The settings icon, top-right: it edits the category itself. Its history is
-  /// reached from that same modal, one step in rather than off a second icon
-  /// competing for a quarter of a phone's width.
+  /// The category mark, top-left: it lists what has been booked here.
+  ///
+  /// On the icon rather than off a third one, which a quarter of a phone's
+  /// width has no room for: the mark is already what names the category, so
+  /// asking it what went into that category is the gesture people reach for
+  /// first. It stays reachable from the settings modal too, for anyone who
+  /// learnt it there.
+  final VoidCallback onShowHistory;
+
+  /// The settings icon, top-right: it edits the category itself.
   final VoidCallback onEdit;
 
   @override
@@ -95,17 +103,27 @@ class CategoryTile extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 30,
-                      height: 30,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Color(category.colorArgb),
-                      ),
-                      child: Icon(
-                        iconForKey(category.iconKey),
-                        color: Colors.white,
-                        size: 17,
+                    // Sits inside the tile's InkWell, so it needs its own hit
+                    // target to keep the tap from opening the amount modal.
+                    Semantics(
+                      label: t.entries.categoryHistory(name: category.name),
+                      button: true,
+                      child: InkResponse(
+                        onTap: onShowHistory,
+                        radius: 20,
+                        child: Container(
+                          width: 30,
+                          height: 30,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Color(category.colorArgb),
+                          ),
+                          child: Icon(
+                            iconForKey(category.iconKey),
+                            color: Colors.white,
+                            size: 17,
+                          ),
+                        ),
                       ),
                     ),
                     const Spacer(),

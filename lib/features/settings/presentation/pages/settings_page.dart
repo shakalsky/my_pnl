@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:my_pnl/features/currencies/presentation/widgets/currency_list_sheet.dart';
 import 'package:my_pnl/features/settings/domain/entities/app_theme_mode.dart';
 import 'package:my_pnl/features/settings/domain/repositories/language_store.dart';
 import 'package:my_pnl/features/settings/domain/repositories/theme_mode_store.dart';
@@ -8,6 +9,7 @@ import 'package:my_pnl/features/settings/domain/usecases/read_theme_mode.dart';
 import 'package:my_pnl/features/settings/domain/usecases/save_language.dart';
 import 'package:my_pnl/features/settings/domain/usecases/save_theme_mode.dart';
 import 'package:my_pnl/features/settings/presentation/bloc/settings/settings_bloc.dart';
+import 'package:my_pnl/features/spending/presentation/widgets/overrun_settings_sheet.dart';
 import 'package:my_pnl/i18n/strings.g.dart';
 
 /// How the app looks and what language it is read in.
@@ -103,6 +105,30 @@ class SettingsView extends StatelessWidget {
                     ),
                 ],
               ),
+            ),
+            const Divider(height: 24),
+            // Under the two that change the app itself, because these change
+            // what the figures are read against rather than how they are drawn
+            // — and unlike the theme, they belong to the book, not the device.
+            _SectionHeader(
+              title: t.settings.spending,
+              subtitle: t.settings.spendingSubtitle,
+            ),
+            // Modals rather than more of this page: both are lists that are
+            // edited — a currency added, a threshold moved — and they open from
+            // the category modals as well, where a page would mean leaving the
+            // sheet the reader is already in.
+            ListTile(
+              leading: const Icon(Icons.currency_exchange),
+              title: Text(t.spending.currencies),
+              subtitle: Text(t.settings.currenciesSubtitle),
+              onTap: () => CurrencyListSheet.show(context),
+            ),
+            ListTile(
+              leading: const Icon(Icons.warning_amber_rounded),
+              title: Text(t.spending.unusualMonths),
+              subtitle: Text(t.settings.unusualMonthsSubtitle),
+              onTap: () => OverrunSettingsSheet.show(context),
             ),
           ],
         ),

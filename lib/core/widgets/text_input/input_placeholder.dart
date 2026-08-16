@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 
 
 class InputPlaceholder extends StatelessWidget {
-  final String text;
 
-  const InputPlaceholder({super.key, required this.text});
+  const InputPlaceholder({required this.text, super.key});
+  final String text;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(top:6.0),
+      padding: const EdgeInsets.only(top:6),
       child: Text(
         text,
-        style: TextStyle().copyWith(
+        style: const TextStyle().copyWith(
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),

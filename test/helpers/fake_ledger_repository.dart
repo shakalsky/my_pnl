@@ -39,7 +39,7 @@ class FakeLedgerRepository implements LedgerRepository {
     id: personalLedgerId(viewerId),
     name: 'Personal',
     kind: LedgerKind.personal,
-    members: [
+    members: const [
       LedgerMember(userId: viewerId, role: LedgerRole.owner),
     ],
   );

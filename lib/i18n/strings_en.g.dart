@@ -218,6 +218,9 @@ class Translations$entries$en {
 	/// en: 'History'
 	String get historyTitle => 'History';
 
+	/// en: '$name history'
+	String categoryHistory({required Object name}) => '${name} history';
+
 	/// en: 'Could not load the history'
 	String get historyLoadFailed => 'Could not load the history';
 
@@ -271,6 +274,9 @@ class Translations$amountEntry$en {
 
 	/// en: 'Adding $amount to $category'
 	String addingTo({required Object amount, required Object category}) => 'Adding ${amount} to ${category}';
+
+	/// en: 'Details'
+	String get details => 'Details';
 
 	/// en: 'Description'
 	String get description => 'Description';
@@ -1194,4 +1200,16 @@ class Translations$settings$en {
 
 	/// en: 'Match the device'
 	String get languageSystem => 'Match the device';
+
+	/// en: 'Spending'
+	String get spending => 'Spending';
+
+	/// en: 'What your figures are read against. Shared with whoever shares the book.'
+	String get spendingSubtitle => 'What your figures are read against. Shared with whoever shares the book.';
+
+	/// en: 'Which currencies your totals can be shown in.'
+	String get currenciesSubtitle => 'Which currencies your totals can be shown in.';
+
+	/// en: 'How far past its usual month a category runs before it is flagged.'
+	String get unusualMonthsSubtitle => 'How far past its usual month a category runs before it is flagged.';
 }

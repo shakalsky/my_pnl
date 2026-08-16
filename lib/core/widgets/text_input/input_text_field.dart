@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:my_pnl/core/theme/input_theme.dart';
@@ -7,6 +9,40 @@ import 'package:my_pnl/core/widgets/text_input/input_error.dart';
 
 
 class InputTextField extends StatefulWidget {
+
+  const InputTextField({
+    super.key,
+    this.controller,
+    this.focusNode,
+    this.placeholder,
+    this.borderRadius,
+    this.borderSide,
+    this.hintText,
+    this.textStyle,
+    this.textAlign = TextAlign.start,
+    this.autofocus = false,
+    this.autofillHints,
+    this.prefixIcon,
+    this.prefixText,
+    this.suffixIcon,
+    this.enabled,
+    this.textArea,
+    this.keyboardType,
+    this.validator,
+    this.autovalidateMode = AutovalidateMode.onUserInteraction,
+    this.inputFormatters,
+    this.textCapitalization,
+    this.textInputAction,
+    this.onChanged,
+    this.onFieldSubmitted,
+    this.onUnfocus,
+    this.obscureText = false,
+    this.onTap,
+    this.onClear,
+    this.showClearButton = true,
+    this.forceActive = false,
+    this.readOnly = false,
+  });
   /// Optional: when omitted the field owns and disposes its own controller,
   /// so callers that only listen via [onChanged] need not hold one.
   final TextEditingController? controller;
@@ -42,40 +78,6 @@ class InputTextField extends StatefulWidget {
   /// даже если реальный фокус на нём отсутствует.
   final bool forceActive;
   final bool readOnly;
-
-  const InputTextField({
-    super.key,
-    this.controller,
-    this.focusNode,
-    this.placeholder,
-    this.borderRadius,
-    this.borderSide,
-    this.hintText,
-    this.textStyle,
-    this.textAlign = TextAlign.start,
-    this.autofocus = false,
-    this.autofillHints,
-    this.prefixIcon,
-    this.prefixText,
-    this.suffixIcon,
-    this.enabled,
-    this.textArea,
-    this.keyboardType,
-    this.validator,
-    this.autovalidateMode = AutovalidateMode.onUserInteraction,
-    this.inputFormatters,
-    this.textCapitalization,
-    this.textInputAction,
-    this.onChanged,
-    this.onFieldSubmitted,
-    this.onUnfocus,
-    this.obscureText = false,
-    this.onTap,
-    this.onClear,
-    this.showClearButton = true,
-    this.forceActive = false,
-    this.readOnly = false,
-  });
 
   @override
   State<InputTextField> createState() => _InputTextFieldState();
@@ -132,6 +134,13 @@ class _InputTextFieldState extends State<InputTextField> {
     // so they read as an invitation rather than as content already typed.
     final hintColor = colors.onSurfaceVariant.withValues(alpha: 0.7);
 
+    // Everything sitting on the value's own line — the hint standing in for it
+    // and the prefix in front of it — is sized off the value's style, so a
+    // field given a larger [textStyle] does not read as one size of text with
+    // another size bolted to its left.
+    final valueStyle = widget.textStyle ?? theme.textTheme.bodyLarge;
+    final inlineSize = valueStyle?.fontSize ?? 16.0;
+
     return Stack(
       children: [
         TextFormField(
@@ -168,13 +177,13 @@ class _InputTextFieldState extends State<InputTextField> {
           onTapOutside: (event) => widget.onUnfocus?.call(),
           errorBuilder: (_, error) => InputError(text: error),
           decoration: appInputDecoration(context, enabled: enabled).copyWith(
-            contentPadding: EdgeInsets.only(
-              top: 12.0,
-              bottom:12.0,
-              right:16.0,
+            contentPadding: const EdgeInsets.only(
+              top: 12,
+              bottom:12,
+              right:16,
             ),
             fillColor: fill,
-            hintStyle: theme.textTheme.bodyMedium?.copyWith(
+            hintStyle: valueStyle?.copyWith(
               color: hintColor,
             ),
             labelStyle: theme.textTheme.bodyMedium?.copyWith(
@@ -182,29 +191,29 @@ class _InputTextFieldState extends State<InputTextField> {
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(
-                (widget.borderRadius ??  8.0),
+                widget.borderRadius ??  8.0,
               ),
               borderSide:
-                  widget.borderSide ?? const BorderSide(width: 1.0, style: BorderStyle.none),
+                  widget.borderSide ?? const BorderSide(style: BorderStyle.none),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(
-                (widget.borderRadius ??  8.0),
+                widget.borderRadius ??  8.0,
               ),
               borderSide:
-                  widget.borderSide ??  BorderSide(width: 1.0, color: colors.error),
+                  widget.borderSide ??  BorderSide(color: colors.error),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(
-                (widget.borderRadius ??  8.0),
+                widget.borderRadius ??  8.0,
               ),
               borderSide:
                   widget.borderSide ??
-                  BorderSide(width: 1.0, color: semantics.focus),
+                  BorderSide(color: semantics.focus),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(
-                (widget.borderRadius ??  8.0),
+                widget.borderRadius ??  8.0,
               ),
               borderSide: BorderSide(
                 width: widget.borderSide?.width ?? 1.0,
@@ -218,41 +227,46 @@ class _InputTextFieldState extends State<InputTextField> {
             ),
             disabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(
-                (widget.borderRadius ??  8.0),
+                widget.borderRadius ??  8.0,
               ),
               borderSide:
-                  widget.borderSide ?? BorderSide(width: 1.0, color: fill),
+                  widget.borderSide ?? BorderSide(color: fill),
             ),
             hintText: widget.hintText,
             label: widget.placeholder == null
-                ? SizedBox(width: 16.0,)
+                ? const SizedBox(width: 16,)
                 : Padding(
-                    padding: EdgeInsets.only(left: 16.0),
+                    padding: const EdgeInsets.only(left: 16),
                     child: Text(
                       widget.placeholder!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle().copyWith(
+                      style: const TextStyle().copyWith(
                         color: hintColor,
                       ),
                     ),
                   ),
+            prefixIconConstraints: BoxConstraints(
+              maxHeight: math.max(24, inlineSize),
+            ),
             prefixIcon: widget.prefixIcon != null
                 ? Padding(
-                    padding: EdgeInsets.only(left: 12.0),
-                    child: widget.prefixIcon!
+                    padding: const EdgeInsets.only(left: 12),
+                    child: IconTheme.merge(
+                      data: IconThemeData(size: inlineSize),
+                      child: widget.prefixIcon!,
+                    ),
                   )
                 : null,
             suffixIcon: Padding(
-              padding: EdgeInsets.only(right: 12.0),
+              padding: const EdgeInsets.only(right: 12),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  widget.showClearButton && _controller.value.text.isNotEmpty
-                      ? GestureDetector(
+                  if (widget.showClearButton && _controller.value.text.isNotEmpty) GestureDetector(
                           child: Icon(
                             Icons.close,
-                            size: 18.0,
+                            size: 18,
                             color: colors.onSurfaceVariant,
                           ),
                           onTap: () {
@@ -264,24 +278,21 @@ class _InputTextFieldState extends State<InputTextField> {
                             widget.onChanged?.call(_controller.text);
                             setState(() {});
                           },
-                        )
-                      : const SizedBox.shrink(),
-                  widget.suffixIcon != null
-                      ? Padding(
-                          padding: EdgeInsets.only(left:8.0),
-                          child: widget.suffixIcon!,
-                        )
-                      : const SizedBox.shrink(),
+                        ) else const SizedBox.shrink(),
+                  if (widget.suffixIcon != null) Padding(
+                          padding: const EdgeInsets.only(left:8),
+                          child: widget.suffixIcon,
+                        ) else const SizedBox.shrink(),
                 ],
               ),
             ),
             prefix: widget.prefixText == null
-                ? SizedBox(width: 16.0,)
+                ? const SizedBox(width: 16,)
                 : Padding(
-                    padding: EdgeInsets.only(left:16.0),
+                    padding: const EdgeInsets.only(left:16),
                     child: Text(
                       widget.prefixText!,
-                      style: theme.textTheme.bodyMedium?.copyWith(
+                      style: valueStyle?.copyWith(
                         color: colors.onSurface,
                       ),
                     ),
@@ -293,10 +304,10 @@ class _InputTextFieldState extends State<InputTextField> {
             right: 1,
             bottom: 1,
             child: Padding(
-              padding: EdgeInsets.only(right: 6.0, bottom: 6.0),
+              padding: const EdgeInsets.only(right: 6, bottom: 6),
               child: Icon(
                 Icons.south_east,
-                size: 12.0,
+                size: 12,
                 color: colors.outline,
               ),
             ),

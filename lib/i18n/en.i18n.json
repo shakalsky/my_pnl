@@ -47,6 +47,7 @@
     "loadFailed": "Could not load transactions",
     "empty": "Nothing recorded yet",
     "historyTitle": "History",
+    "categoryHistory": "$name history",
     "historyLoadFailed": "Could not load the history",
     "historyEmpty": "Nothing booked here yet",
     "uncategorised": "Uncategorised",
@@ -64,6 +65,7 @@
     "createSubtitle": "Add an amount",
     "changingTo": "Changing this entry to $amount",
     "addingTo": "Adding $amount to $category",
+    "details": "Details",
     "description": "Description",
     "descriptionHint": "Optional. What this one was for.",
     "submit": "Save amount"
@@ -389,6 +391,10 @@
     "themeDark": "Dark",
     "language": "Language",
     "languageSubtitle": "What the app is read in. Kept on this device.",
-    "languageSystem": "Match the device"
+    "languageSystem": "Match the device",
+    "spending": "Spending",
+    "spendingSubtitle": "What your figures are read against. Shared with whoever shares the book.",
+    "currenciesSubtitle": "Which currencies your totals can be shown in.",
+    "unusualMonthsSubtitle": "How far past its usual month a category runs before it is flagged."
   }
 }

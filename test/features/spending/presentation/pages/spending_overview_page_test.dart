@@ -1,5 +1,4 @@
 
-import '../../../../helpers/helpers.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +12,8 @@ import 'package:my_pnl/features/spending/presentation/pages/spending_overview_pa
 import 'package:my_pnl/features/spending/presentation/theme/overrun_style.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/category_tile.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/total_circle.dart';
+
+import '../../../../helpers/helpers.dart';
 
 const _groceries = CategorySpend(
   category: Category(
@@ -190,9 +191,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('History'), findsOneWidget);
-      // Once as the entry, once in the sheet's running total.
+      // Once as the entry, once in its day's heading — the only entry that day
+      // — and once in the sheet's running total.
       expect(find.widgetWithText(ListTile, r'-$7.65'), findsOneWidget);
-      expect(find.text(r'-$7.65'), findsNWidgets(2));
+      expect(find.text(r'-$7.65'), findsNWidgets(3));
     });
 
     testWidgets('history is empty for a category with no entries', (

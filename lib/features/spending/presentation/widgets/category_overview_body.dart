@@ -16,6 +16,7 @@ import 'package:my_pnl/features/spending/presentation/widgets/amount_entry_sheet
 import 'package:my_pnl/features/spending/presentation/widgets/category_form_sheet.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/category_tile.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/total_circle.dart';
+import 'package:my_pnl/features/spending/presentation/widgets/transaction_history_sheet.dart';
 import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Total in a circle, categories in a grid beneath it.
@@ -179,6 +180,10 @@ class CategoryOverviewBody extends StatelessWidget {
                             overrun: state.overrunFor(spend),
                             onAddAmount: () =>
                                 AmountEntrySheet.show(context, spend.category),
+                            onShowHistory: () => TransactionHistorySheet.show(
+                              context,
+                              spend.category,
+                            ),
                             onEdit: () => CategoryFormSheet.showEdit(
                               context,
                               spend.category,

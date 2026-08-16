@@ -93,12 +93,7 @@ class TransactionHistorySheet extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Text(
-                    formatAmount(state.totalScaled),
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                 
                 ],
               ),
               const SizedBox(height: 12),
@@ -156,7 +151,11 @@ class _HistoryList extends StatelessWidget {
       );
     }
 
-    final rows = divideByDay(entries, (entry) => entry.occurredAt);
+    final rows = divideByDay(
+      entries,
+      (entry) => entry.occurredAt,
+      amountScaled: (entry) => entry.amountScaled,
+    );
 
     return ListView.builder(
       shrinkWrap: true,
@@ -164,8 +163,12 @@ class _HistoryList extends StatelessWidget {
       itemCount: rows.length,
       itemBuilder: (context, index) {
         switch (rows[index]) {
-          case DayHeadingRow(:final day):
-            return DayHeading(day: day, first: index == 0);
+          case DayHeadingRow(:final day, :final totalScaled):
+            return DayHeading(
+              day: day,
+              totalScaled: totalScaled,
+              first: index == 0,
+            );
           case DayEntryRow(:final entry, :final opensDay):
             return Column(
               mainAxisSize: MainAxisSize.min,

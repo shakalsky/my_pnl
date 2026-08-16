@@ -27,6 +27,8 @@ extension on WidgetTester {
   Future<void> pumpTile(
     CategorySpend spend, {
     SpendOverrun overrun = SpendOverrun.none,
+    VoidCallback? onAddAmount,
+    VoidCallback? onShowHistory,
   }) async {
     await pumpApp(
       Scaffold(
@@ -37,7 +39,8 @@ extension on WidgetTester {
             child: CategoryTile(
               spend: spend,
               overrun: overrun,
-              onAddAmount: () {},
+              onAddAmount: onAddAmount ?? () {},
+              onShowHistory: onShowHistory ?? () {},
               onEdit: () {},
             ),
           ),
@@ -107,6 +110,44 @@ void main() {
       await tester.pumpTile(_spend('Groceries and household', -123456789));
 
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('asks for the history when the icon is tapped', (tester) async {
+      var history = 0;
+      var amounts = 0;
+
+      await tester.pumpTile(
+        _spend('Rent', -4235),
+        onAddAmount: () => amounts++,
+        onShowHistory: () => history++,
+      );
+
+      await tester.tap(find.byIcon(Icons.local_grocery_store_outlined));
+      await tester.pump();
+
+      // The icon's own target, not the tile's underneath it: a tap that fell
+      // through would book an amount instead of listing them.
+      expect(history, 1);
+      expect(amounts, 0);
+    });
+
+    testWidgets('books an amount when the tile is tapped beside the icon', (
+      tester,
+    ) async {
+      var history = 0;
+      var amounts = 0;
+
+      await tester.pumpTile(
+        _spend('Rent', -4235),
+        onAddAmount: () => amounts++,
+        onShowHistory: () => history++,
+      );
+
+      await tester.tap(find.text('Rent'));
+      await tester.pump();
+
+      expect(amounts, 1);
+      expect(history, 0);
     });
 
     testWidgets('leaves a usual month unoutlined', (tester) async {
