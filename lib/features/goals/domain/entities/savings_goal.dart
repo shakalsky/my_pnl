@@ -6,13 +6,25 @@ import 'package:equatable/equatable.dart';
 /// name: the page shows one thing, and a label nobody reads is a column to keep
 /// in step for nothing.
 class SavingsGoal extends Equatable {
-  const SavingsGoal({required this.id, required this.targetAmountScaled});
+  const SavingsGoal({
+    required this.id,
+    required this.targetAmountScaled,
+    this.startingAmountScaled = 0,
+  });
 
   final String id;
 
   /// The figure being saved towards, scaled by `amountScale`. Always positive —
   /// a goal of zero or less is not a goal.
   final int targetAmountScaled;
+
+  /// What was already put aside when the goal was set, scaled by
+  /// `amountScale`. Zero when the reader started from nothing, or left the
+  /// field empty.
+  ///
+  /// The ledger only knows the months it has seen, so this is the part of the
+  /// pot it cannot work out — counted towards the goal alongside them.
+  final int startingAmountScaled;
 
   /// How far along [savedScaled] is, as a fraction between 0 and 1.
   ///
@@ -30,5 +42,5 @@ class SavingsGoal extends Equatable {
   bool isReachedBy(int savedScaled) => savedScaled >= targetAmountScaled;
 
   @override
-  List<Object?> get props => [id, targetAmountScaled];
+  List<Object?> get props => [id, targetAmountScaled, startingAmountScaled];
 }

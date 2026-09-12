@@ -76,6 +76,7 @@ const appSchema = Schema([
     Column.text('owner_id'),
     Column.text('ledger_id'),
     Column.integer('target_amount_scaled'),
+    Column.integer('starting_amount_scaled'),
     Column.text('created_at'),
     Column.text('updated_at'),
     Column.text('deleted_at'),

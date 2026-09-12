@@ -86,6 +86,50 @@ void main() {
       expect(await dataSource.watchGoal(ledger).first, again);
     });
 
+    test('keeps what was already saved before the app', () async {
+      final saved = await dataSource.saveGoal(
+        ownerId: owner,
+        ledgerId: ledger,
+        targetAmountScaled: 500000,
+        startingAmountScaled: 120000,
+      );
+
+      expect(saved.startingAmountScaled, 120000);
+      expect(
+        (await dataSource.watchGoal(ledger).first)?.startingAmountScaled,
+        120000,
+      );
+    });
+
+    test('reads a goal set without one as nothing put aside', () async {
+      final saved = await dataSource.saveGoal(
+        ownerId: owner,
+        ledgerId: ledger,
+        targetAmountScaled: 500000,
+      );
+
+      expect(saved.startingAmountScaled, 0);
+      // Null on the row, which is what a build predating the column syncs.
+      expect((await db.select(db.goals).getSingle()).startingAmountScaled, 0);
+    });
+
+    test('saving again can take the starting amount back to nothing', () async {
+      await dataSource.saveGoal(
+        ownerId: owner,
+        ledgerId: ledger,
+        targetAmountScaled: 500000,
+        startingAmountScaled: 120000,
+      );
+
+      final cleared = await dataSource.saveGoal(
+        ownerId: owner,
+        ledgerId: ledger,
+        targetAmountScaled: 500000,
+      );
+
+      expect(cleared.startingAmountScaled, 0);
+    });
+
     test("does not see another ledger's goal", () async {
       await dataSource.saveGoal(
         ownerId: owner,

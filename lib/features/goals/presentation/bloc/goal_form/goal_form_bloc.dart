@@ -20,11 +20,21 @@ class GoalFormBloc extends Bloc<GoalFormEvent, GoalFormState> {
           amount: initial == null
               ? ''
               : formatAmountInput(initial.targetAmountScaled),
+          // A zero stays an empty field rather than "0.00": the reader either
+          // never answered it or answered nothing, and both mean the same.
+          startingAmount: switch (initial?.startingAmountScaled) {
+            null || 0 => '',
+            final scaled => formatAmountInput(scaled),
+          },
         ),
       ) {
     on<GoalAmountChanged>(
       (event, emit) =>
           emit(state.copyWith(amount: event.amount, clearError: true)),
+    );
+    on<GoalStartingAmountChanged>(
+      (event, emit) =>
+          emit(state.copyWith(startingAmount: event.amount, clearError: true)),
     );
     on<GoalFormSubmitted>(_onSubmitted);
   }
@@ -41,7 +51,10 @@ class GoalFormBloc extends Bloc<GoalFormEvent, GoalFormState> {
     emit(state.copyWith(status: GoalFormStatus.submitting, clearError: true));
 
     try {
-      await _saveGoal(amount);
+      await _saveGoal(
+        targetAmountScaled: amount,
+        startingAmountScaled: state.startingAmountScaled,
+      );
       emit(state.copyWith(status: GoalFormStatus.success));
     } on GoalFailure catch (e) {
       // Worth naming, and the form stays filled in so it can be corrected.

@@ -29,10 +29,14 @@ class GoalRepositoryImpl implements GoalRepository {
       switchLatest(_ledger.changes, _local.watchGoal);
 
   @override
-  Future<SavingsGoal> saveGoal(int targetAmountScaled) => _local.saveGoal(
+  Future<SavingsGoal> saveGoal({
+    required int targetAmountScaled,
+    int startingAmountScaled = 0,
+  }) => _local.saveGoal(
     ownerId: _owner.id,
     ledgerId: _ledger.id,
     targetAmountScaled: targetAmountScaled,
+    startingAmountScaled: startingAmountScaled,
   );
 
   @override

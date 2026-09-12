@@ -36,13 +36,27 @@ final class GoalOverviewState extends Equatable {
   List<MonthlyPnl> get negativeMonths =>
       months.where((month) => month.isNegative).toList(growable: false);
 
-  /// What the positive months add up to: the progress figure.
-  int get savedScaled => _sum(positiveMonths);
+  /// What was already put aside before the app started counting, or zero when
+  /// there is no goal to have recorded it.
+  int get startingAmountScaled => goal?.startingAmountScaled ?? 0;
+
+  /// The pot: what was already there plus what the positive months added.
+  ///
+  /// One figure rather than two, because it is one pot — the reader's savings
+  /// do not split by whether this app watched them arrive, and a progress bar
+  /// that left half of them out would understate a goal already met.
+  int get savedScaled => startingAmountScaled + _sum(positiveMonths);
+
+  /// What the months alone add up to. Only worth showing beside
+  /// [startingAmountScaled], to say where the total came from.
+  int get monthsSavedScaled => _sum(positiveMonths);
 
   /// What the negative months add up to. Negative, or zero when there are none.
   int get lostScaled => _sum(negativeMonths);
 
   bool get hasGoal => goal != null;
+
+  bool get hasStartingAmount => startingAmountScaled > 0;
 
   /// How far along the goal is, between 0 and 1. Zero without a goal, so a
   /// progress bar built from this reads empty rather than throwing.

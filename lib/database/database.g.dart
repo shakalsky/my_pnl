@@ -2743,6 +2743,16 @@ class $GoalsTable extends Goals with TableInfo<$GoalsTable, GoalRow> {
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _startingAmountScaledMeta =
+      const VerificationMeta('startingAmountScaled');
+  @override
+  late final GeneratedColumn<int> startingAmountScaled = GeneratedColumn<int>(
+    'starting_amount_scaled',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2752,6 +2762,7 @@ class $GoalsTable extends Goals with TableInfo<$GoalsTable, GoalRow> {
     ownerId,
     ledgerId,
     targetAmountScaled,
+    startingAmountScaled,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2792,6 +2803,15 @@ class $GoalsTable extends Goals with TableInfo<$GoalsTable, GoalRow> {
       );
     } else if (isInserting) {
       context.missing(_targetAmountScaledMeta);
+    }
+    if (data.containsKey('starting_amount_scaled')) {
+      context.handle(
+        _startingAmountScaledMeta,
+        startingAmountScaled.isAcceptableOrUnknown(
+          data['starting_amount_scaled']!,
+          _startingAmountScaledMeta,
+        ),
+      );
     }
     return context;
   }
@@ -2836,6 +2856,10 @@ class $GoalsTable extends Goals with TableInfo<$GoalsTable, GoalRow> {
         DriftSqlType.int,
         data['${effectivePrefix}target_amount_scaled'],
       )!,
+      startingAmountScaled: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}starting_amount_scaled'],
+      ),
     );
   }
 
@@ -2874,6 +2898,18 @@ class GoalRow extends DataClass implements Insertable<GoalRow> {
 
   /// The figure being saved towards, scaled by `amountScale`. Always positive.
   final int targetAmountScaled;
+
+  /// What was already put aside before the app started counting, scaled by
+  /// `amountScale`. Never negative.
+  ///
+  /// The months in the ledger only add up what has happened since; someone who
+  /// arrives with savings already has no other way to say so, and without it
+  /// their progress bar starts at zero when their pot does not.
+  ///
+  /// Nullable because rows created before this column existed sync down without
+  /// it, exactly as `categories.kind` did; the mapper reads null as nothing put
+  /// aside.
+  final int? startingAmountScaled;
   const GoalRow({
     required this.id,
     required this.createdAt,
@@ -2882,6 +2918,7 @@ class GoalRow extends DataClass implements Insertable<GoalRow> {
     required this.ownerId,
     this.ledgerId,
     required this.targetAmountScaled,
+    this.startingAmountScaled,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2907,6 +2944,9 @@ class GoalRow extends DataClass implements Insertable<GoalRow> {
       map['ledger_id'] = Variable<String>(ledgerId);
     }
     map['target_amount_scaled'] = Variable<int>(targetAmountScaled);
+    if (!nullToAbsent || startingAmountScaled != null) {
+      map['starting_amount_scaled'] = Variable<int>(startingAmountScaled);
+    }
     return map;
   }
 
@@ -2923,6 +2963,9 @@ class GoalRow extends DataClass implements Insertable<GoalRow> {
           ? const Value.absent()
           : Value(ledgerId),
       targetAmountScaled: Value(targetAmountScaled),
+      startingAmountScaled: startingAmountScaled == null && nullToAbsent
+          ? const Value.absent()
+          : Value(startingAmountScaled),
     );
   }
 
@@ -2939,6 +2982,9 @@ class GoalRow extends DataClass implements Insertable<GoalRow> {
       ownerId: serializer.fromJson<String>(json['ownerId']),
       ledgerId: serializer.fromJson<String?>(json['ledgerId']),
       targetAmountScaled: serializer.fromJson<int>(json['targetAmountScaled']),
+      startingAmountScaled: serializer.fromJson<int?>(
+        json['startingAmountScaled'],
+      ),
     );
   }
   @override
@@ -2952,6 +2998,7 @@ class GoalRow extends DataClass implements Insertable<GoalRow> {
       'ownerId': serializer.toJson<String>(ownerId),
       'ledgerId': serializer.toJson<String?>(ledgerId),
       'targetAmountScaled': serializer.toJson<int>(targetAmountScaled),
+      'startingAmountScaled': serializer.toJson<int?>(startingAmountScaled),
     };
   }
 
@@ -2963,6 +3010,7 @@ class GoalRow extends DataClass implements Insertable<GoalRow> {
     String? ownerId,
     Value<String?> ledgerId = const Value.absent(),
     int? targetAmountScaled,
+    Value<int?> startingAmountScaled = const Value.absent(),
   }) => GoalRow(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -2971,6 +3019,9 @@ class GoalRow extends DataClass implements Insertable<GoalRow> {
     ownerId: ownerId ?? this.ownerId,
     ledgerId: ledgerId.present ? ledgerId.value : this.ledgerId,
     targetAmountScaled: targetAmountScaled ?? this.targetAmountScaled,
+    startingAmountScaled: startingAmountScaled.present
+        ? startingAmountScaled.value
+        : this.startingAmountScaled,
   );
   GoalRow copyWithCompanion(GoalsCompanion data) {
     return GoalRow(
@@ -2983,6 +3034,9 @@ class GoalRow extends DataClass implements Insertable<GoalRow> {
       targetAmountScaled: data.targetAmountScaled.present
           ? data.targetAmountScaled.value
           : this.targetAmountScaled,
+      startingAmountScaled: data.startingAmountScaled.present
+          ? data.startingAmountScaled.value
+          : this.startingAmountScaled,
     );
   }
 
@@ -2995,7 +3049,8 @@ class GoalRow extends DataClass implements Insertable<GoalRow> {
           ..write('deletedAt: $deletedAt, ')
           ..write('ownerId: $ownerId, ')
           ..write('ledgerId: $ledgerId, ')
-          ..write('targetAmountScaled: $targetAmountScaled')
+          ..write('targetAmountScaled: $targetAmountScaled, ')
+          ..write('startingAmountScaled: $startingAmountScaled')
           ..write(')'))
         .toString();
   }
@@ -3009,6 +3064,7 @@ class GoalRow extends DataClass implements Insertable<GoalRow> {
     ownerId,
     ledgerId,
     targetAmountScaled,
+    startingAmountScaled,
   );
   @override
   bool operator ==(Object other) =>
@@ -3020,7 +3076,8 @@ class GoalRow extends DataClass implements Insertable<GoalRow> {
           other.deletedAt == this.deletedAt &&
           other.ownerId == this.ownerId &&
           other.ledgerId == this.ledgerId &&
-          other.targetAmountScaled == this.targetAmountScaled);
+          other.targetAmountScaled == this.targetAmountScaled &&
+          other.startingAmountScaled == this.startingAmountScaled);
 }
 
 class GoalsCompanion extends UpdateCompanion<GoalRow> {
@@ -3031,6 +3088,7 @@ class GoalsCompanion extends UpdateCompanion<GoalRow> {
   final Value<String> ownerId;
   final Value<String?> ledgerId;
   final Value<int> targetAmountScaled;
+  final Value<int?> startingAmountScaled;
   final Value<int> rowid;
   const GoalsCompanion({
     this.id = const Value.absent(),
@@ -3040,6 +3098,7 @@ class GoalsCompanion extends UpdateCompanion<GoalRow> {
     this.ownerId = const Value.absent(),
     this.ledgerId = const Value.absent(),
     this.targetAmountScaled = const Value.absent(),
+    this.startingAmountScaled = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   GoalsCompanion.insert({
@@ -3050,6 +3109,7 @@ class GoalsCompanion extends UpdateCompanion<GoalRow> {
     required String ownerId,
     this.ledgerId = const Value.absent(),
     required int targetAmountScaled,
+    this.startingAmountScaled = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : ownerId = Value(ownerId),
        targetAmountScaled = Value(targetAmountScaled);
@@ -3061,6 +3121,7 @@ class GoalsCompanion extends UpdateCompanion<GoalRow> {
     Expression<String>? ownerId,
     Expression<String>? ledgerId,
     Expression<int>? targetAmountScaled,
+    Expression<int>? startingAmountScaled,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3072,6 +3133,8 @@ class GoalsCompanion extends UpdateCompanion<GoalRow> {
       if (ledgerId != null) 'ledger_id': ledgerId,
       if (targetAmountScaled != null)
         'target_amount_scaled': targetAmountScaled,
+      if (startingAmountScaled != null)
+        'starting_amount_scaled': startingAmountScaled,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3084,6 +3147,7 @@ class GoalsCompanion extends UpdateCompanion<GoalRow> {
     Value<String>? ownerId,
     Value<String?>? ledgerId,
     Value<int>? targetAmountScaled,
+    Value<int?>? startingAmountScaled,
     Value<int>? rowid,
   }) {
     return GoalsCompanion(
@@ -3094,6 +3158,7 @@ class GoalsCompanion extends UpdateCompanion<GoalRow> {
       ownerId: ownerId ?? this.ownerId,
       ledgerId: ledgerId ?? this.ledgerId,
       targetAmountScaled: targetAmountScaled ?? this.targetAmountScaled,
+      startingAmountScaled: startingAmountScaled ?? this.startingAmountScaled,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3128,6 +3193,9 @@ class GoalsCompanion extends UpdateCompanion<GoalRow> {
     if (targetAmountScaled.present) {
       map['target_amount_scaled'] = Variable<int>(targetAmountScaled.value);
     }
+    if (startingAmountScaled.present) {
+      map['starting_amount_scaled'] = Variable<int>(startingAmountScaled.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3144,6 +3212,7 @@ class GoalsCompanion extends UpdateCompanion<GoalRow> {
           ..write('ownerId: $ownerId, ')
           ..write('ledgerId: $ledgerId, ')
           ..write('targetAmountScaled: $targetAmountScaled, ')
+          ..write('startingAmountScaled: $startingAmountScaled, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -6272,6 +6341,7 @@ typedef $$GoalsTableCreateCompanionBuilder =
       required String ownerId,
       Value<String?> ledgerId,
       required int targetAmountScaled,
+      Value<int?> startingAmountScaled,
       Value<int> rowid,
     });
 typedef $$GoalsTableUpdateCompanionBuilder =
@@ -6283,6 +6353,7 @@ typedef $$GoalsTableUpdateCompanionBuilder =
       Value<String> ownerId,
       Value<String?> ledgerId,
       Value<int> targetAmountScaled,
+      Value<int?> startingAmountScaled,
       Value<int> rowid,
     });
 
@@ -6331,6 +6402,11 @@ class $$GoalsTableFilterComposer extends Composer<_$AppDatabase, $GoalsTable> {
     column: $table.targetAmountScaled,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<int> get startingAmountScaled => $composableBuilder(
+    column: $table.startingAmountScaled,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$GoalsTableOrderingComposer
@@ -6376,6 +6452,11 @@ class $$GoalsTableOrderingComposer
     column: $table.targetAmountScaled,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get startingAmountScaled => $composableBuilder(
+    column: $table.startingAmountScaled,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$GoalsTableAnnotationComposer
@@ -6407,6 +6488,11 @@ class $$GoalsTableAnnotationComposer
 
   GeneratedColumn<int> get targetAmountScaled => $composableBuilder(
     column: $table.targetAmountScaled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get startingAmountScaled => $composableBuilder(
+    column: $table.startingAmountScaled,
     builder: (column) => column,
   );
 }
@@ -6446,6 +6532,7 @@ class $$GoalsTableTableManager
                 Value<String> ownerId = const Value.absent(),
                 Value<String?> ledgerId = const Value.absent(),
                 Value<int> targetAmountScaled = const Value.absent(),
+                Value<int?> startingAmountScaled = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => GoalsCompanion(
                 id: id,
@@ -6455,6 +6542,7 @@ class $$GoalsTableTableManager
                 ownerId: ownerId,
                 ledgerId: ledgerId,
                 targetAmountScaled: targetAmountScaled,
+                startingAmountScaled: startingAmountScaled,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -6466,6 +6554,7 @@ class $$GoalsTableTableManager
                 required String ownerId,
                 Value<String?> ledgerId = const Value.absent(),
                 required int targetAmountScaled,
+                Value<int?> startingAmountScaled = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => GoalsCompanion.insert(
                 id: id,
@@ -6475,6 +6564,7 @@ class $$GoalsTableTableManager
                 ownerId: ownerId,
                 ledgerId: ledgerId,
                 targetAmountScaled: targetAmountScaled,
+                startingAmountScaled: startingAmountScaled,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

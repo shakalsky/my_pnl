@@ -119,6 +119,8 @@
     "removeTitle": "Убрать цель?",
     "removeBody": "Месяцы останутся как есть — уйдёт только сама цель.",
     "saved": "Накоплено за удачные месяцы",
+    "savedTotal": "Накоплено",
+    "includesStarting": "$starting уже было, $months за удачные месяцы",
     "ofTarget": "из $amount",
     "reached": "Цель достигнута",
     "toGo": "осталось $amount",
@@ -153,10 +155,14 @@
     "formSubtitle": "Каждый месяц, закрытый в плюс, её приближает.",
     "target": "Цель",
     "savingUp": "Копим $amount",
+    "alreadySaved": "Уже накоплено",
+    "alreadySavedHint": "Необязательно. Сколько было отложено до этого приложения.",
+    "startingFrom": "Начинаем с $amount",
     "formSave": "Сохранить цель",
     "formCreate": "Задать цель",
     "saveFailed": "Не удалось сохранить цель",
     "amountAboveZero": "Введите сумму больше нуля",
+    "startingBelowZero": "Введите сумму не меньше нуля",
     "amountTooLarge": "Введите сумму не больше 1 000 000 000 000"
   },
   "debts": {

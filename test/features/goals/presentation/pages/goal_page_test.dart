@@ -228,7 +228,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        tester.widget<TextField>(find.byType(TextField)).controller?.text,
+        tester
+            .widget<AppInput>(find.widgetWithText(AppInput, 'Target'))
+            .controller
+            ?.text,
         '5000.00',
         reason: 'opens with the current figure',
       );
@@ -240,6 +243,116 @@ void main() {
 
       expect((await goals.watchGoal().first)?.targetAmountScaled, 400000);
       expect(find.text(r'of $4,000.00'), findsOneWidget);
+    });
+
+    testWidgets('counts money put aside before the app towards the goal', (
+      tester,
+    ) async {
+      await bookAMixOfMonths();
+      await openPage(tester);
+
+      await tester.tap(find.text('Set a goal'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.widgetWithText(AppInput, 'Target'), '5000');
+      await tester.pump();
+      await tester.enterText(
+        find.widgetWithText(AppInput, 'Already saved'),
+        '1000',
+      );
+      await tester.pump();
+      expect(find.text(r'Starting from $1,000.00'), findsOneWidget);
+
+      await tester.tap(find.text('Set goal'));
+      await tester.pumpAndSettle();
+
+      expect((await goals.watchGoal().first)?.startingAmountScaled, 100000);
+      // 1000 already there plus the 2000 March finished up.
+      expect(find.text(r'$3,000.00'), findsOneWidget);
+      expect(find.text('Saved'), findsOneWidget);
+      expect(
+        find.text(r'$1,000.00 you already had, $2,000.00 from good months'),
+        findsOneWidget,
+      );
+      expect(find.text('60%'), findsOneWidget);
+      expect(find.text(r'$2,000.00 to go'), findsOneWidget);
+    });
+
+    testWidgets('leaves the starting field empty as nothing put aside', (
+      tester,
+    ) async {
+      await bookAMixOfMonths();
+      await openPage(tester);
+
+      await tester.tap(find.text('Set a goal'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.widgetWithText(AppInput, 'Target'), '5000');
+      await tester.pump();
+      await tester.tap(find.text('Set goal'));
+      await tester.pumpAndSettle();
+
+      expect((await goals.watchGoal().first)?.startingAmountScaled, 0);
+      // The months alone, under the label that says as much.
+      expect(find.text(r'$2,000.00'), findsOneWidget);
+      expect(find.text('Saved from good months'), findsOneWidget);
+    });
+
+    testWidgets('a starting amount alone can reach the goal', (tester) async {
+      goals = FakeGoalRepository(
+        initial: const SavingsGoal(
+          id: 'goal-1',
+          targetAmountScaled: 100000,
+          startingAmountScaled: 150000,
+        ),
+      );
+      await openPage(tester);
+
+      expect(find.text('Goal reached'), findsOneWidget);
+      expect(
+        tester
+            .widget<LinearProgressIndicator>(
+              find.byType(LinearProgressIndicator),
+            )
+            .value,
+        1,
+      );
+    });
+
+    testWidgets('edits the starting amount', (tester) async {
+      goals = FakeGoalRepository(
+        initial: const SavingsGoal(
+          id: 'goal-1',
+          targetAmountScaled: 500000,
+          startingAmountScaled: 100000,
+        ),
+      );
+      await bookAMixOfMonths();
+      await openPage(tester);
+
+      await tester.tap(find.text('Edit goal'));
+      await tester.pumpAndSettle();
+
+      final field = find.widgetWithText(AppInput, 'Already saved');
+      expect(
+        tester.widget<AppInput>(field).controller?.text,
+        '1000.00',
+        reason: 'opens with the figure already saved',
+      );
+
+      // Cleared, which has to be able to take the figure back to nothing.
+      await tester.enterText(field, '');
+      await tester.pump();
+      expect(
+        find.textContaining('What you had put aside before this app'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('Save goal'));
+      await tester.pumpAndSettle();
+
+      expect((await goals.watchGoal().first)?.startingAmountScaled, 0);
+      expect(find.text(r'$2,000.00'), findsOneWidget);
     });
 
     testWidgets('removes the goal after confirming', (tester) async {

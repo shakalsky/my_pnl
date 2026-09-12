@@ -14,4 +14,16 @@ import 'package:my_pnl/database/tables/synced_table.dart';
 class Goals extends Table with SyncedTable, LedgerScopedTable {
   /// The figure being saved towards, scaled by `amountScale`. Always positive.
   IntColumn get targetAmountScaled => integer()();
+
+  /// What was already put aside before the app started counting, scaled by
+  /// `amountScale`. Never negative.
+  ///
+  /// The months in the ledger only add up what has happened since; someone who
+  /// arrives with savings already has no other way to say so, and without it
+  /// their progress bar starts at zero when their pot does not.
+  ///
+  /// Nullable because rows created before this column existed sync down without
+  /// it, exactly as `categories.kind` did; the mapper reads null as nothing put
+  /// aside.
+  IntColumn get startingAmountScaled => integer().nullable()();
 }

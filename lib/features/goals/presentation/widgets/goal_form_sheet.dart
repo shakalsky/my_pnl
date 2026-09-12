@@ -75,19 +75,21 @@ class _GoalForm extends StatefulWidget {
 
 class _GoalFormState extends State<_GoalForm> {
   late final TextEditingController _amount;
+  late final TextEditingController _startingAmount;
 
   @override
   void initState() {
     super.initState();
-    // Seeded once from the bloc so editing opens with the current figure.
-    _amount = TextEditingController(
-      text: context.read<GoalFormBloc>().state.amount,
-    );
+    // Seeded once from the bloc so editing opens with the current figures.
+    final state = context.read<GoalFormBloc>().state;
+    _amount = TextEditingController(text: state.amount);
+    _startingAmount = TextEditingController(text: state.startingAmount);
   }
 
   @override
   void dispose() {
     _amount.dispose();
+    _startingAmount.dispose();
     super.dispose();
   }
 
@@ -132,7 +134,9 @@ class _GoalFormState extends State<_GoalForm> {
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
-              textInputAction: TextInputAction.done,
+              // Another field below, so the keyboard offers the way on rather
+              // than closing over it.
+              textInputAction: TextInputAction.next,
               // Blocks anything the parser would reject, so the field cannot
               // hold text that silently fails on submit. No minus: saving
               // towards a negative figure is not a goal.
@@ -147,6 +151,41 @@ class _GoalFormState extends State<_GoalForm> {
             const SizedBox(height: 8),
             Text(
               t.goal.savingUp(amount: formatAmount(state.amountScaled ?? 0)),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 20),
+            // What the ledger cannot work out on its own. The months only add
+            // up what has happened since the app was installed, so without
+            // this a reader who arrived with savings watches a bar start at
+            // zero while their pot does not.
+            AppInput.white(
+              controller: _startingAmount,
+              label: t.goal.alreadySaved,
+              prefixText: '$baseCurrencySymbol ',
+              inputHintText: '0.00',
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              textInputAction: TextInputAction.done,
+              // The same guards as the target. Optional, so an empty field is
+              // a complete answer and means nothing was put aside.
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^\d*[.,]?\d{0,2}')),
+                const _MaxAmountFormatter(maxGoalAmountScaled),
+              ],
+              textStyle: theme.textTheme.titleLarge,
+              onChanged: (value) => bloc.add(GoalStartingAmountChanged(value)),
+              onFieldSubmitted: (_) => bloc.add(const GoalFormSubmitted()),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              state.startingAmountScaled > 0
+                  ? t.goal.startingFrom(
+                      amount: formatAmount(state.startingAmountScaled),
+                    )
+                  : t.goal.alreadySavedHint,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

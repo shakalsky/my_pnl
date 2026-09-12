@@ -17,6 +17,16 @@ final class GoalAmountChanged extends GoalFormEvent {
   List<Object?> get props => [amount];
 }
 
+final class GoalStartingAmountChanged extends GoalFormEvent {
+  const GoalStartingAmountChanged(this.amount);
+
+  /// Raw text, exactly as typed. Empty when the field has been cleared.
+  final String amount;
+
+  @override
+  List<Object?> get props => [amount];
+}
+
 final class GoalFormSubmitted extends GoalFormEvent {
   const GoalFormSubmitted();
 }

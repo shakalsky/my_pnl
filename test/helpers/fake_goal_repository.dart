@@ -21,13 +21,17 @@ class FakeGoalRepository implements GoalRepository {
   }
 
   @override
-  Future<SavingsGoal> saveGoal(int targetAmountScaled) async {
+  Future<SavingsGoal> saveGoal({
+    required int targetAmountScaled,
+    int startingAmountScaled = 0,
+  }) async {
     if (writeError case final error?) throw error;
 
     // Keeps the id when there was already a goal, matching the real upsert.
     final saved = SavingsGoal(
       id: _goal?.id ?? newId(),
       targetAmountScaled: targetAmountScaled,
+      startingAmountScaled: startingAmountScaled,
     );
     _goal = saved;
     _controller.add(saved);

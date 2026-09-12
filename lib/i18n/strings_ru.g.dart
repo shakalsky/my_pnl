@@ -241,6 +241,8 @@ class _Translations$goal$ru extends Translations$goal$en {
 	@override String get removeTitle => 'Убрать цель?';
 	@override String get removeBody => 'Месяцы останутся как есть — уйдёт только сама цель.';
 	@override String get saved => 'Накоплено за удачные месяцы';
+	@override String get savedTotal => 'Накоплено';
+	@override String includesStarting({required Object starting, required Object months}) => '${starting} уже было, ${months} за удачные месяцы';
 	@override String ofTarget({required Object amount}) => 'из ${amount}';
 	@override String get reached => 'Цель достигнута';
 	@override String toGo({required Object amount}) => 'осталось ${amount}';
@@ -275,10 +277,14 @@ class _Translations$goal$ru extends Translations$goal$en {
 	@override String get formSubtitle => 'Каждый месяц, закрытый в плюс, её приближает.';
 	@override String get target => 'Цель';
 	@override String savingUp({required Object amount}) => 'Копим ${amount}';
+	@override String get alreadySaved => 'Уже накоплено';
+	@override String get alreadySavedHint => 'Необязательно. Сколько было отложено до этого приложения.';
+	@override String startingFrom({required Object amount}) => 'Начинаем с ${amount}';
 	@override String get formSave => 'Сохранить цель';
 	@override String get formCreate => 'Задать цель';
 	@override String get saveFailed => 'Не удалось сохранить цель';
 	@override String get amountAboveZero => 'Введите сумму больше нуля';
+	@override String get startingBelowZero => 'Введите сумму не меньше нуля';
 	@override String get amountTooLarge => 'Введите сумму не больше 1 000 000 000 000';
 }
 

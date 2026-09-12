@@ -323,6 +323,14 @@ create table if not exists public.goals (
   deleted_at           timestamptz
 );
 
+-- Added after the fact, so nullable: rows already synced to devices must stay
+-- valid, and a build that predates the column uploads without it. Null means
+-- nothing was put aside beforehand, which is how the client reads it.
+alter table public.goals
+  -- What was already saved before the app started counting. Scaled by 100.
+  add column if not exists starting_amount_scaled bigint
+    check (starting_amount_scaled >= 0);
+
 -- Money owed, in either direction. Not a transaction: a debt is a promise, so
 -- booking it into the ledger would count the same cash twice.
 create table if not exists public.debts (

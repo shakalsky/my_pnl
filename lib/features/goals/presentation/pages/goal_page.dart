@@ -168,7 +168,11 @@ class _ProgressCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              t.goal.saved,
+              // "Saved from good months" only holds while the months are all
+              // the figure is. Once a starting amount is folded in, the plain
+              // word is the honest label, and the line under the figure says
+              // where the rest came from.
+              state.hasStartingAmount ? t.goal.savedTotal : t.goal.saved,
               style: theme.textTheme.labelMedium?.copyWith(
                 color: colors.onSurfaceVariant,
               ),
@@ -183,6 +187,18 @@ class _ProgressCard extends StatelessWidget {
                 ),
               ),
             ),
+            if (state.hasStartingAmount) ...[
+              const SizedBox(height: 4),
+              Text(
+                t.goal.includesStarting(
+                  starting: formatAmount(state.startingAmountScaled),
+                  months: formatAmount(state.monthsSavedScaled),
+                ),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+            ],
             if (!state.hasGoal)
               _NoGoalYet(savedScaled: state.savedScaled)
             else ...[

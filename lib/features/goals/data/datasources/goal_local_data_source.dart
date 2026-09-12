@@ -32,6 +32,7 @@ class GoalLocalDataSource {
     required String ownerId,
     required String ledgerId,
     required int targetAmountScaled,
+    int startingAmountScaled = 0,
   }) async {
     final existing = await _liveRow(ledgerId);
 
@@ -45,6 +46,7 @@ class GoalLocalDataSource {
               ownerId: ownerId,
               ledgerId: Value(ledgerId),
               targetAmountScaled: targetAmountScaled,
+              startingAmountScaled: Value(startingAmountScaled),
             ),
           );
 
@@ -57,6 +59,10 @@ class GoalLocalDataSource {
         .write(
           GoalsCompanion(
             targetAmountScaled: Value(targetAmountScaled),
+            // Written even when zero: clearing the field is an edit like any
+            // other, and leaving the old figure in place would go on counting
+            // money the reader has just said is not there.
+            startingAmountScaled: Value(startingAmountScaled),
             updatedAt: Value(DateTime.now().toUtc()),
           ),
         );
@@ -90,8 +96,11 @@ class GoalLocalDataSource {
     return query.getSingleOrNull();
   }
 
+  // Null reads as nothing put aside: a row written before the column existed
+  // says nothing about a starting amount, and "nothing" is the right reading.
   SavingsGoal _toEntity(GoalRow row) => SavingsGoal(
     id: row.id,
     targetAmountScaled: row.targetAmountScaled,
+    startingAmountScaled: row.startingAmountScaled ?? 0,
   );
 }

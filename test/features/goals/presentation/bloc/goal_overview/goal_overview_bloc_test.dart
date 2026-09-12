@@ -163,7 +163,7 @@ void main() {
           ..add(const GoalOverviewSubscriptionRequested())
           ..add(const GoalTargetSubscriptionRequested());
         await Future<void>.delayed(Duration.zero);
-        await goals.saveGoal(500000);
+        await goals.saveGoal(targetAmountScaled: 500000);
       },
       verify: (bloc) => expect(bloc.state.progressPercent, 60),
     );

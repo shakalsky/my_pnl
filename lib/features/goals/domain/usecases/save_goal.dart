@@ -19,14 +19,31 @@ class SaveGoal {
 
   final GoalRepository _repository;
 
-  Future<SavingsGoal> call(int targetAmountScaled) {
+  Future<SavingsGoal> call({
+    required int targetAmountScaled,
+    int startingAmountScaled = 0,
+  }) {
     if (targetAmountScaled <= 0) {
       throw GoalFailure(t.goal.amountAboveZero);
     }
     if (targetAmountScaled > maxGoalAmountScaled) {
       throw GoalFailure(t.goal.amountTooLarge);
     }
+    // Zero is allowed here where it is not for the target: starting from
+    // nothing is the ordinary case, and it is what an empty field means.
+    if (startingAmountScaled < 0) {
+      throw GoalFailure(t.goal.startingBelowZero);
+    }
+    // Capped against the same ceiling rather than against the target. A
+    // starting amount past the target is not a mistake — it means the goal is
+    // already met, which the page has always been able to show.
+    if (startingAmountScaled > maxGoalAmountScaled) {
+      throw GoalFailure(t.goal.amountTooLarge);
+    }
 
-    return _repository.saveGoal(targetAmountScaled);
+    return _repository.saveGoal(
+      targetAmountScaled: targetAmountScaled,
+      startingAmountScaled: startingAmountScaled,
+    );
   }
 }

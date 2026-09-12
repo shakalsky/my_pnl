@@ -20,7 +20,14 @@ abstract interface class GoalRepository {
   /// There is one goal per user, so this edits the existing row rather than
   /// adding a second — the page measures against a single figure, and two rows
   /// would make "the goal" ambiguous.
-  Future<SavingsGoal> saveGoal(int targetAmountScaled);
+  ///
+  /// [startingAmountScaled] is what was already put aside before the app
+  /// started counting, and is written on every save: leaving the field empty
+  /// means zero, which has to be able to replace a figure entered earlier.
+  Future<SavingsGoal> saveGoal({
+    required int targetAmountScaled,
+    int startingAmountScaled = 0,
+  });
 
   /// Removes the goal.
   ///

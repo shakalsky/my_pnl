@@ -434,6 +434,12 @@ class Translations$goal$en {
 	/// en: 'Saved from good months'
 	String get saved => 'Saved from good months';
 
+	/// en: 'Saved'
+	String get savedTotal => 'Saved';
+
+	/// en: '$starting you already had, $months from good months'
+	String includesStarting({required Object starting, required Object months}) => '${starting} you already had, ${months} from good months';
+
 	/// en: 'of $amount'
 	String ofTarget({required Object amount}) => 'of ${amount}';
 
@@ -512,6 +518,15 @@ class Translations$goal$en {
 	/// en: 'Saving up $amount'
 	String savingUp({required Object amount}) => 'Saving up ${amount}';
 
+	/// en: 'Already saved'
+	String get alreadySaved => 'Already saved';
+
+	/// en: 'Optional. What you had put aside before this app.'
+	String get alreadySavedHint => 'Optional. What you had put aside before this app.';
+
+	/// en: 'Starting from $amount'
+	String startingFrom({required Object amount}) => 'Starting from ${amount}';
+
 	/// en: 'Save goal'
 	String get formSave => 'Save goal';
 
@@ -523,6 +538,9 @@ class Translations$goal$en {
 
 	/// en: 'Enter an amount above zero'
 	String get amountAboveZero => 'Enter an amount above zero';
+
+	/// en: 'Enter an amount of zero or more'
+	String get startingBelowZero => 'Enter an amount of zero or more';
 
 	/// en: 'Enter an amount up to 1,000,000,000,000'
 	String get amountTooLarge => 'Enter an amount up to 1,000,000,000,000';

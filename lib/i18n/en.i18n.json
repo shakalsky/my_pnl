@@ -117,6 +117,8 @@
     "removeTitle": "Remove your goal?",
     "removeBody": "Your months stay exactly as they are — only the target goes.",
     "saved": "Saved from good months",
+    "savedTotal": "Saved",
+    "includesStarting": "$starting you already had, $months from good months",
     "ofTarget": "of $amount",
     "reached": "Goal reached",
     "toGo": "$amount to go",
@@ -147,10 +149,14 @@
     "formSubtitle": "Every month you finish up adds to it.",
     "target": "Target",
     "savingUp": "Saving up $amount",
+    "alreadySaved": "Already saved",
+    "alreadySavedHint": "Optional. What you had put aside before this app.",
+    "startingFrom": "Starting from $amount",
     "formSave": "Save goal",
     "formCreate": "Set goal",
     "saveFailed": "Could not save your goal",
     "amountAboveZero": "Enter an amount above zero",
+    "startingBelowZero": "Enter an amount of zero or more",
     "amountTooLarge": "Enter an amount up to 1,000,000,000,000"
   },
   "debts": {
