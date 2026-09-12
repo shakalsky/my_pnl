@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:my_pnl/core/theme/semantic_colors.dart';
 import 'package:my_pnl/features/currencies/domain/repositories/currency_repository.dart';
 import 'package:my_pnl/features/currencies/domain/repositories/display_currency_store.dart';
 import 'package:my_pnl/features/currencies/domain/usecases/read_display_currency.dart';
@@ -39,6 +40,21 @@ class CategoryOverviewBody extends StatelessWidget {
   /// What the circle shows. Defaults to this page's own categories; the
   /// spending page passes the net instead.
   final int? totalScaled;
+
+  /// What colour the headline figure is written in.
+  ///
+  /// Taken from [kind] rather than from the sign of the figure: the spending
+  /// page's headline is income minus spending, and a month that finished up is
+  /// still the money-out side of the book. The two pages then read the same way
+  /// every month instead of the colour flipping on whichever side won.
+  Color _totalColor(BuildContext context) {
+    final semantics = AppSemanticColors.of(context);
+
+    return switch (kind) {
+      CategoryKind.expense => semantics.negative,
+      CategoryKind.income => semantics.positive,
+    };
+  }
 
   /// The ring around the total: one slice per category, in its own colour.
   ///
@@ -106,6 +122,7 @@ class CategoryOverviewBody extends StatelessWidget {
                           ),
                           label: totalLabel,
                           currencyLabel: currency.label,
+                          totalColor: _totalColor(context),
                           segments: _segments,
                           // Inert until there is a second currency to show, so a
                           // tap that could do nothing does not pretend

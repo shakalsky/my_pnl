@@ -108,6 +108,7 @@ class TotalCircle extends StatelessWidget {
     required this.label,
     this.segments = const [],
     this.currencyLabel,
+    this.totalColor,
     this.onTap,
     super.key,
   });
@@ -124,6 +125,14 @@ class TotalCircle extends StatelessWidget {
   /// Nullable rather than defaulted to it: the base is a choice the reader can
   /// change, so it is not a constant a default value could name.
   final String? currencyLabel;
+
+  /// What colour to write the figure in. Null keeps the plain on-surface text
+  /// colour, which is what a circle with no side of the ledger to take gets.
+  ///
+  /// A colour rather than a sign to read off [totalScaled]: what the figure
+  /// means is the page's business — the spending page's headline is a net that
+  /// is money out however it lands — and this only draws.
+  final Color? totalColor;
 
   /// Called when the circle is tapped. Null leaves it inert, with no ink to
   /// suggest otherwise.
@@ -179,7 +188,7 @@ class TotalCircle extends StatelessWidget {
                       ),
                       style: theme.textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.w600,
-                        color: colors.onSurface,
+                        color: totalColor ?? colors.onSurface,
                       ),
                     ),
                   ),

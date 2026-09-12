@@ -34,6 +34,7 @@ void main() {
 
       for (final color in [
         AppSemanticColors.dark.positive,
+        AppSemanticColors.dark.negative,
         AppSemanticColors.dark.caution,
         AppSemanticColors.dark.focus,
       ]) {
@@ -55,6 +56,14 @@ void main() {
       expect(
         AppSemanticColors.dark.positive.computeLuminance(),
         greaterThan(AppSemanticColors.light.positive.computeLuminance()),
+      );
+      expect(
+        AppSemanticColors.dark.negative,
+        isNot(AppSemanticColors.light.negative),
+      );
+      expect(
+        AppSemanticColors.dark.negative.computeLuminance(),
+        greaterThan(AppSemanticColors.light.negative.computeLuminance()),
       );
     });
   });

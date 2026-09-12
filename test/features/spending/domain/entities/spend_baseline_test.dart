@@ -22,13 +22,20 @@ void main() {
       expect(_usual.percentOf(-3333), 33);
     });
 
-    test('says nothing on one month of history', () {
+    test('compares against one month of history', () {
       const oneMonth = SpendBaseline(averageScaled: 10000, months: 1);
 
-      // A single month is a figure, not a habit: comparing against it would
-      // call the second month of every new category an overrun.
-      expect(oneMonth.isComparable, isFalse);
-      expect(oneMonth.percentOf(-50000), isNull);
+      // Thin evidence, but the alternative is a new category showing nothing
+      // for its first two months — a warning that late is not a warning.
+      expect(oneMonth.isComparable, isTrue);
+      expect(oneMonth.percentOf(-50000), 500);
+    });
+
+    test('says nothing with no month on record', () {
+      const none = SpendBaseline(averageScaled: 0, months: 0);
+
+      expect(none.isComparable, isFalse);
+      expect(none.percentOf(-50000), isNull);
     });
 
     test('says nothing against an average of nothing', () {

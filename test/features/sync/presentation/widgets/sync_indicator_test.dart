@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:my_pnl/core/theme/semantic_colors.dart';
 import 'package:my_pnl/features/sync/domain/entities/sync_state.dart';
 import 'package:my_pnl/features/sync/presentation/widgets/sync_indicator.dart';
 
@@ -40,7 +41,7 @@ void main() {
         ),
       );
 
-      expect(dotColor(tester), const Color(0xFF2E7D32));
+      expect(dotColor(tester), AppSemanticColors.light.positive);
 
       await tester.tap(find.byType(SyncIndicator));
       await tester.pumpAndSettle();
@@ -52,7 +53,7 @@ void main() {
     testWidgets('is amber while syncing and says so', (tester) async {
       await pumpIndicator(tester, const SyncState(health: SyncHealth.syncing));
 
-      expect(dotColor(tester), const Color(0xFFF9A825));
+      expect(dotColor(tester), AppSemanticColors.light.caution);
 
       await tester.tap(find.byType(SyncIndicator));
       await tester.pumpAndSettle();
@@ -82,14 +83,14 @@ void main() {
 
     testWidgets('follows the state as it changes', (tester) async {
       await pumpIndicator(tester, const SyncState(health: SyncHealth.syncing));
-      expect(dotColor(tester), const Color(0xFFF9A825));
+      expect(dotColor(tester), AppSemanticColors.light.caution);
 
       repository.emit(
         SyncState(health: SyncHealth.synced, lastSyncedAt: DateTime.utc(2026)),
       );
       await tester.pumpAndSettle();
 
-      expect(dotColor(tester), const Color(0xFF2E7D32));
+      expect(dotColor(tester), AppSemanticColors.light.positive);
     });
 
     testWidgets('is grey and quiet with no backend', (tester) async {

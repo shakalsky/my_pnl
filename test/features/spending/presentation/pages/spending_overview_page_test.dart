@@ -128,7 +128,8 @@ void main() {
 
       expect(find.text('Groceries'), findsOneWidget);
       expect(find.text('Rent'), findsOneWidget);
-      expect(find.text(r'-$42.35'), findsOneWidget);
+      // The tiles carry magnitudes; the minus is the headline's alone.
+      expect(find.text(r'$42.35'), findsOneWidget);
       // 42.35 + 1200.00, summed as integers.
       expect(find.text(r'-$1,242.35'), findsOneWidget);
     });
@@ -169,7 +170,7 @@ void main() {
 
       expect(find.text('Add an amount'), findsNothing);
       // 42.35 already booked, plus 7.65.
-      expect(find.text(r'-$50.00'), findsOneWidget);
+      expect(find.text(r'$50.00'), findsOneWidget);
       expect(find.text(r'-$1,250.00'), findsOneWidget, reason: 'new total');
     });
 

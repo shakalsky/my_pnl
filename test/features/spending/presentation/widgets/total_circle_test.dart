@@ -2,12 +2,14 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:my_pnl/core/theme/semantic_colors.dart';
 import 'package:my_pnl/features/currencies/domain/entities/currency.dart';
 import 'package:my_pnl/features/spending/domain/entities/calendar_month.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/entities/category_spend.dart';
 import 'package:my_pnl/features/spending/presentation/bloc/spending_overview/spending_overview_bloc.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/category_overview_body.dart';
+import 'package:my_pnl/features/spending/presentation/widgets/category_tile.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/total_circle.dart';
 
 import '../../../../helpers/helpers.dart';
@@ -53,6 +55,41 @@ const _oneCategoryBody = CategoryOverviewBody(
         totalScaled: -4235,
       ),
     ],
+  ),
+  kind: CategoryKind.expense,
+  totalLabel: 'Total spent',
+  totalScaled: 4235,
+);
+
+/// The same figure on the other side of the book.
+const _incomeBody = CategoryOverviewBody(
+  state: SpendingOverviewState(
+    month: _viewing,
+    status: SpendingOverviewStatus.success,
+    categories: [
+      CategorySpend(
+        category: Category(
+          id: 'salary',
+          name: 'Salary',
+          colorArgb: 0xFF00FF00,
+          iconKey: 'salary',
+          kind: CategoryKind.income,
+        ),
+        totalScaled: 4235,
+      ),
+    ],
+  ),
+  kind: CategoryKind.income,
+  totalLabel: 'Total earned',
+  totalScaled: 4235,
+);
+
+/// The spending page in a month that finished up: the headline is a net, and
+/// this one came out positive.
+const _surplusBody = CategoryOverviewBody(
+  state: SpendingOverviewState(
+    month: _viewing,
+    status: SpendingOverviewStatus.success,
   ),
   kind: CategoryKind.expense,
   totalLabel: 'Total spent',
@@ -195,6 +232,30 @@ void main() {
       expect(find.text('Total spent'), findsOneWidget);
     });
 
+    testWidgets('writes the figure in the colour it is given', (tester) async {
+      await tester.pumpApp(
+        const Scaffold(
+          body: Center(
+            child: SizedBox.square(
+              dimension: 200,
+              child: TotalCircle(
+                totalScaled: 4235,
+                label: 'Total spent',
+                totalColor: _red,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(tester.widget<Text>(find.text(r'$42.35')).style?.color, _red);
+      // The label beside it is not the figure and keeps its own colour.
+      expect(
+        tester.widget<Text>(find.text('Total spent')).style?.color,
+        isNot(_red),
+      );
+    });
+
     testWidgets('renders with nothing to break down', (tester) async {
       await tester.pumpApp(
         const Scaffold(
@@ -209,6 +270,57 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.text(r'$0.00'), findsOneWidget);
+    });
+  });
+
+  group('CategoryOverviewBody total colour', () {
+    late FakeCurrencyRepository currencies;
+
+    setUp(() => currencies = FakeCurrencyRepository());
+    tearDown(() => currencies.close());
+
+    Future<Color?> figureColour(WidgetTester tester, Widget body) async {
+      await tester.pumpApp(
+        Scaffold(body: body),
+        currencyRepository: currencies,
+      );
+      await tester.pumpAndSettle();
+
+      // Inside the circle: a category tile below can carry the same figure.
+      return tester
+          .widget<Text>(
+            find.descendant(
+              of: find.byType(TotalCircle),
+              matching: find.text(r'$42.35'),
+            ),
+          )
+          .style
+          ?.color;
+    }
+
+    testWidgets('writes the spending total in red', (tester) async {
+      expect(
+        await figureColour(tester, _oneCategoryBody),
+        AppSemanticColors.light.negative,
+      );
+    });
+
+    testWidgets('writes the income total in green', (tester) async {
+      expect(
+        await figureColour(tester, _incomeBody),
+        AppSemanticColors.light.positive,
+      );
+    });
+
+    testWidgets('keeps the colour of the side of the book, not the sign', (
+      tester,
+    ) async {
+      // A month that finished up is still the spending page's total, and the
+      // page reads the same way every month for it.
+      expect(
+        await figureColour(tester, _oneCategoryBody),
+        await figureColour(tester, _surplusBody),
+      );
     });
   });
 
@@ -230,11 +342,23 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    // The circle and the one tile below it carry the same figure — the tile
+    // drops the minus sign — so every assertion here says which it means.
+    Finder inCircle(String amount) => find.descendant(
+      of: find.byType(TotalCircle),
+      matching: find.text(amount),
+    );
+
+    Finder inTile(String amount) => find.descendant(
+      of: find.byType(CategoryTile),
+      matching: find.text(amount),
+    );
+
     testWidgets('reads in the base currency to begin with', (tester) async {
       currencies = FakeCurrencyRepository(initial: const [_euro]);
       await openBody(tester);
 
-      expect(find.text(r'$42.35'), findsOneWidget);
+      expect(inCircle(r'$42.35'), findsOneWidget);
     });
 
     testWidgets('a tap converts the total, another brings it back', (
@@ -247,13 +371,13 @@ void main() {
       await tester.pumpAndSettle();
 
       // $42.35 at 1.08 to the euro, with the euro's own sign.
-      expect(find.text('€39.21'), findsOneWidget);
+      expect(inCircle('€39.21'), findsOneWidget);
       expect(find.text(r'$42.35'), findsNothing);
 
       await tester.tap(find.byType(TotalCircle));
       await tester.pumpAndSettle();
 
-      expect(find.text(r'$42.35'), findsOneWidget);
+      expect(inCircle(r'$42.35'), findsOneWidget);
     });
 
     testWidgets('walks through every currency in turn', (tester) async {
@@ -262,16 +386,16 @@ void main() {
 
       await tester.tap(find.byType(TotalCircle));
       await tester.pumpAndSettle();
-      expect(find.text('€39.21'), findsOneWidget);
+      expect(inCircle('€39.21'), findsOneWidget);
 
       await tester.tap(find.byType(TotalCircle));
       await tester.pumpAndSettle();
       // No sign on this one, so its ticker follows the figure instead.
-      expect(find.text('457.84 SEK'), findsOneWidget);
+      expect(inCircle('457.84 SEK'), findsOneWidget);
 
       await tester.tap(find.byType(TotalCircle));
       await tester.pumpAndSettle();
-      expect(find.text(r'$42.35'), findsOneWidget);
+      expect(inCircle(r'$42.35'), findsOneWidget);
     });
 
     testWidgets('leaves the ring alone as the currency changes', (
@@ -300,22 +424,22 @@ void main() {
       // Tapping anyway changes nothing.
       await tester.tap(find.byType(TotalCircle));
       await tester.pumpAndSettle();
-      expect(find.text(r'$42.35'), findsOneWidget);
+      expect(inCircle(r'$42.35'), findsOneWidget);
     });
 
     testWidgets('converts the category totals with the circle', (tester) async {
       currencies = FakeCurrencyRepository(initial: const [_euro]);
       await openBody(tester);
 
-      // The tile's own figure, spending being stored negative.
-      expect(find.text(r'-$42.35'), findsOneWidget);
+      // The tile's own figure, as a magnitude.
+      expect(inTile(r'$42.35'), findsOneWidget);
 
       await tester.tap(find.byType(TotalCircle));
       await tester.pumpAndSettle();
 
       // Circle and grid move together, or the page would contradict itself.
-      expect(find.text('€39.21'), findsOneWidget);
-      expect(find.text('-€39.21'), findsOneWidget);
+      expect(inCircle('€39.21'), findsOneWidget);
+      expect(inTile('€39.21'), findsOneWidget);
       expect(find.textContaining(r'$'), findsNothing);
     });
 
@@ -328,8 +452,8 @@ void main() {
         store: FakeDisplayCurrencyStore(remembered: _euro.id),
       );
 
-      expect(find.text('€39.21'), findsOneWidget);
-      expect(find.text('-€39.21'), findsOneWidget);
+      expect(inCircle('€39.21'), findsOneWidget);
+      expect(inTile('€39.21'), findsOneWidget);
     });
 
     testWidgets('remembers a tap for the next page that asks', (tester) async {
@@ -360,7 +484,7 @@ void main() {
       await tester.tap(find.byType(TotalCircle));
       await tester.pumpAndSettle();
 
-      expect(find.text('🪙42.35'), findsOneWidget);
+      expect(inCircle('🪙42.35'), findsOneWidget);
     });
   });
 

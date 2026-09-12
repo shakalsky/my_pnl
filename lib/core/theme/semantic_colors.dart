@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 /// The colours in the app that carry a meaning rather than a style.
 ///
-/// Green for money coming in and for a device that is up to date, amber for
-/// something still in flight, green again — a brighter one — for the field the
-/// cursor is in. None of these can come from the colour scheme: a scheme's
+/// Green for money coming in and for a device that is up to date, red for money
+/// going out, amber for something still in flight, green again — a brighter
+/// one — for the field the cursor is in.
+///
+/// None of these can come from the colour scheme: a scheme's
 /// primary and secondary say which app you are in, and these have to say the
 /// same thing in any app, in either brightness.
 ///
@@ -17,13 +19,15 @@ import 'package:flutter/material.dart';
 class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
   const AppSemanticColors({
     required this.positive,
+    required this.negative,
     required this.caution,
     required this.focus,
   });
 
   /// What these meant before there was a dark theme, kept to the shade.
   static const light = AppSemanticColors(
-    positive: Color(0xFF2E7D32),
+    positive: Color.fromARGB(255, 0, 85, 4),
+    negative: Color.fromARGB(255, 104, 2, 2),
     caution: Color(0xFFF9A825),
     focus: Color(0xFF4CAF50),
   );
@@ -35,12 +39,20 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
   /// against a near-black one.
   static const dark = AppSemanticColors(
     positive: Color(0xFF81C784),
+    negative: Color(0xFFE57373),
     caution: Color(0xFFFFD54F),
     focus: Color(0xFF66BB6A),
   );
 
   /// Money in, and sync that has nothing left to send.
   final Color positive;
+
+  /// Money out.
+  ///
+  /// Deep enough on white to read as the sober figure it is rather than as an
+  /// alarm; the dark counterpart is the same red lightened, for the same reason
+  /// the green is.
+  final Color negative;
 
   /// Sync still working.
   final Color caution;
@@ -59,11 +71,13 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
   @override
   AppSemanticColors copyWith({
     Color? positive,
+    Color? negative,
     Color? caution,
     Color? focus,
   }) {
     return AppSemanticColors(
       positive: positive ?? this.positive,
+      negative: negative ?? this.negative,
       caution: caution ?? this.caution,
       focus: focus ?? this.focus,
     );
@@ -75,6 +89,7 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
 
     return AppSemanticColors(
       positive: Color.lerp(positive, other.positive, t)!,
+      negative: Color.lerp(negative, other.negative, t)!,
       caution: Color.lerp(caution, other.caution, t)!,
       focus: Color.lerp(focus, other.focus, t)!,
     );

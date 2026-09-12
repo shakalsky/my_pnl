@@ -24,9 +24,8 @@ enum SpendOverrun {
 /// What one category usually costs in a month.
 ///
 /// A magnitude and the number of months behind it, kept together because the
-/// average alone cannot say whether it is worth trusting: one month of history
-/// is a figure, not a habit, and flagging against it would call every second
-/// month of a new category an overrun.
+/// average alone cannot say how much weight it carries: one month is a figure
+/// and six are a habit, and what reads this may want to say so.
 class SpendBaseline extends Equatable {
   const SpendBaseline({required this.averageScaled, required this.months});
 
@@ -51,7 +50,13 @@ class SpendBaseline extends Equatable {
   static const lookbackMonths = 6;
 
   /// Fewest months worth comparing a figure against.
-  static const minimumMonths = 2;
+  ///
+  /// One: a single month is thin evidence, but waiting for a second means a
+  /// category shows nothing at all for its first two months — and a warning
+  /// that arrives after the money has gone twice is not a warning. The
+  /// thresholds are generous enough that an ordinary second month stays inside
+  /// one month of history, and the average steadies as the window fills.
+  static const minimumMonths = 1;
 
   /// Whether there is enough here to call a month unusual.
   ///

@@ -167,7 +167,11 @@ class CategoryTile extends StatelessWidget {
                         alignment: Alignment.centerLeft,
                         child: Text(
                           formatAmountIn(
-                            totalScaled ?? spend.totalScaled,
+                            // A magnitude: spending is stored negative, and a
+                            // minus in front of every tile on a page whose
+                            // heading already says these are what went out is a
+                            // sign that never varies and so says nothing.
+                            (totalScaled ?? spend.totalScaled).abs(),
                             currencyLabel ?? baseCurrencySymbol,
                           ),
                           maxLines: 1,
