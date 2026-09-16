@@ -28,7 +28,7 @@ dependencies:
   slang: ^4.19.0
   slang_flutter: ^4.19.0
   sqlite_async: ^0.14.4
-  supabase_flutter: ^2.16.0
+  supabase_flutter: ^2.17.1
   url_launcher: ^6.3.2
   uuid: ^4.6.0
 
