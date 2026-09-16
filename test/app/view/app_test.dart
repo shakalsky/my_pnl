@@ -15,6 +15,7 @@ import 'package:my_pnl/features/settings/domain/entities/app_theme_mode.dart';
 import 'package:my_pnl/features/settings/presentation/pages/settings_page.dart';
 import 'package:my_pnl/features/spending/presentation/pages/income_overview_page.dart';
 import 'package:my_pnl/features/spending/presentation/pages/spending_overview_page.dart';
+import 'package:my_pnl/features/spending/presentation/widgets/overview_toolbar.dart';
 import 'package:my_pnl/i18n/strings.g.dart';
 
 import '../../helpers/helpers.dart';
@@ -354,6 +355,26 @@ void main() {
         expect(
           Navigator.of(tester.element(find.byType(PageView))).canPop(),
           isFalse,
+        );
+      });
+
+      testWidgets('the toolbar is pinned over both pages', (tester) async {
+        await openOverview(tester);
+
+        final toolbar = find.byType(OverviewToolbar);
+        expect(toolbar, findsOneWidget, reason: 'one header, not one per page');
+        final before = tester.getTopLeft(toolbar);
+
+        await flick(tester, 300);
+        expectShowing(tester, IncomeOverviewPage);
+
+        // The pages slide underneath it: the ledger it names and the actions
+        // beside it are the same on both sides of the book.
+        expect(toolbar, findsOneWidget);
+        expect(
+          tester.getTopLeft(toolbar),
+          before,
+          reason: 'the header does not travel with the grid',
         );
       });
 

@@ -192,10 +192,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('History'), findsOneWidget);
-      // Once as the entry, once in its day's heading — the only entry that day
-      // — and once in the sheet's running total.
+      // Twice: once as the entry, and once in its day's heading — the only
+      // entry that day. The sheet keeps no running total of its own any more;
+      // the day headings are what add the entries up.
       expect(find.widgetWithText(ListTile, r'-$7.65'), findsOneWidget);
-      expect(find.text(r'-$7.65'), findsNWidgets(3));
+      expect(find.text(r'-$7.65'), findsNWidgets(2));
     });
 
     testWidgets('history is empty for a category with no entries', (

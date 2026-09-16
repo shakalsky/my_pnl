@@ -47,8 +47,11 @@ class IncomeOverviewView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
+        // Laid out exactly as the spending page is, so the circle and the grid
+        // stay put as the two slide past each other under the pinned toolbar.
+        bottom: false,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: BlocBuilder<SpendingOverviewBloc, SpendingOverviewState>(
             builder: (context, state) {
               return switch (state.status) {

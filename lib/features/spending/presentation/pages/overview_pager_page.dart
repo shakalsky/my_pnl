@@ -1,6 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:my_pnl/features/ledgers/domain/repositories/ledger_repository.dart';
+import 'package:my_pnl/features/ledgers/domain/usecases/create_family_ledger.dart';
+import 'package:my_pnl/features/ledgers/domain/usecases/create_personal_ledger.dart';
+import 'package:my_pnl/features/ledgers/domain/usecases/delete_personal_ledger.dart';
+import 'package:my_pnl/features/ledgers/domain/usecases/join_family_ledger.dart';
+import 'package:my_pnl/features/ledgers/domain/usecases/leave_ledger.dart';
+import 'package:my_pnl/features/ledgers/domain/usecases/rotate_invite_code.dart';
+import 'package:my_pnl/features/ledgers/domain/usecases/select_ledger.dart';
+import 'package:my_pnl/features/ledgers/domain/usecases/watch_ledgers.dart';
+import 'package:my_pnl/features/ledgers/presentation/bloc/ledger/ledger_bloc.dart';
 import 'package:my_pnl/features/spending/presentation/pages/income_overview_page.dart';
 import 'package:my_pnl/features/spending/presentation/pages/spending_overview_page.dart';
+import 'package:my_pnl/features/spending/presentation/widgets/overview_page_indicator.dart';
+import 'package:my_pnl/features/spending/presentation/widgets/overview_toolbar.dart';
 
 /// The two overviews side by side, spending showing first.
 ///
@@ -8,6 +21,10 @@ import 'package:my_pnl/features/spending/presentation/pages/spending_overview_pa
 /// ledger, not somewhere you go and come back from. A flick right brings it in,
 /// a flick left puts spending back, and neither page sits on top of the other —
 /// so there is no back stack to get out of step with what is on screen.
+///
+/// The toolbar is pinned above the pager rather than carried by either page:
+/// none of it is about one side of the ledger, so it stays still while the
+/// grids slide under it.
 class OverviewPagerPage extends StatefulWidget {
   const OverviewPagerPage({super.key});
 
@@ -38,16 +55,56 @@ class _OverviewPagerPageState extends State<OverviewPagerPage> {
 
   @override
   Widget build(BuildContext context) {
-    return OverviewPager(
-      showIncome: () => _to(_income),
-      showSpending: () => _to(_spending),
-      child: PageView(
-        controller: _controller,
-        // Keeps the page off screen built and subscribed, so swinging between
-        // the two is instant rather than a spinner and a fresh set of queries
-        // every time.
-        allowImplicitScrolling: true,
-        children: const [IncomeOverviewPage(), SpendingOverviewPage()],
+    final ledgers = context.read<LedgerRepository>();
+
+    return BlocProvider(
+      // The switcher in the pinned toolbar, and the sheet it opens. Provided
+      // here rather than by a page, because the toolbar outlives both pages:
+      // one subscription for the header the two of them share.
+      create: (_) => LedgerBloc(
+        watchLedgers: WatchLedgers(ledgers),
+        activeId: ledgers.activeId,
+        selectLedger: SelectLedger(ledgers),
+        createPersonalLedger: CreatePersonalLedger(ledgers),
+        createFamilyLedger: CreateFamilyLedger(ledgers),
+        joinFamilyLedger: JoinFamilyLedger(ledgers),
+        leaveLedger: LeaveLedger(ledgers),
+        deletePersonalLedger: DeletePersonalLedger(ledgers),
+        rotateInviteCode: RotateInviteCode(ledgers),
+      )..add(const LedgerSubscriptionRequested()),
+      child: OverviewPager(
+        showIncome: () => _to(_income),
+        showSpending: () => _to(_spending),
+        child: Scaffold(
+          body: SafeArea(
+            // Only the top: the toolbar is what the inset is for, and the grid
+            // below runs to the bottom of the screen on either page.
+            bottom: false,
+            child: Column(
+              children: [
+                const OverviewToolbar(),
+                OverviewPageIndicator(
+                  controller: _controller,
+                  incomePage: _income,
+                  spendingPage: _spending,
+                ),
+                Expanded(
+                  child: PageView(
+                    controller: _controller,
+                    // Keeps the page off screen built and subscribed, so
+                    // swinging between the two is instant rather than a spinner
+                    // and a fresh set of queries every time.
+                    allowImplicitScrolling: true,
+                    children: const [
+                      IncomeOverviewPage(),
+                      SpendingOverviewPage(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
