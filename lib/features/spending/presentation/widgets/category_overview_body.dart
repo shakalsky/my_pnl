@@ -189,7 +189,6 @@ class CategoryOverviewBody extends StatelessWidget {
                           child: CategoryTile(
                             spend: spend,
                             totalScaled: currency.convert(spend.totalScaled),
-                            currencyLabel: currency.label,
                             // Worked out from the unconverted figures: a rate
                             // applies to both sides of the comparison and
                             // cancels out, so converting first could only

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:my_pnl/core/money/amount_format.dart';
-import 'package:my_pnl/core/money/scales.dart';
 import 'package:my_pnl/features/spending/domain/entities/category_spend.dart';
 import 'package:my_pnl/features/spending/domain/entities/spend_baseline.dart';
 import 'package:my_pnl/features/spending/presentation/theme/category_style.dart';
@@ -15,7 +14,6 @@ class CategoryTile extends StatelessWidget {
     required this.onShowHistory,
     required this.onEdit,
     this.totalScaled,
-    this.currencyLabel,
     this.overrun = SpendOverrun.none,
     super.key,
   });
@@ -35,13 +33,6 @@ class CategoryTile extends StatelessWidget {
   /// to display rather than working it out — one currency for the circle and the
   /// grid, or they would disagree.
   final int? totalScaled;
-
-  /// The sign or ticker beside the total. Null falls back to the base
-  /// currency's sign, which is what the total is recorded in.
-  ///
-  /// Nullable rather than defaulted to it: the base is a choice the reader can
-  /// change, so it is not a constant a default value could name.
-  final String? currencyLabel;
 
   /// Tap books an amount — the frequent action gets the primary gesture.
   final VoidCallback onAddAmount;
@@ -131,7 +122,9 @@ class CategoryTile extends StatelessWidget {
                     // target to keep the tap from opening the amount modal.
                     _SettingsButton(
                       onPressed: onEdit,
-                      semanticLabel: t.spending.categorySettings(name: category.name),
+                      semanticLabel: t.spending.categorySettings(
+                        name: category.name,
+                      ),
                     ),
                   ],
                 ),
@@ -166,14 +159,11 @@ class CategoryTile extends StatelessWidget {
                         fit: BoxFit.scaleDown,
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          formatAmountIn(
-                            // A magnitude: spending is stored negative, and a
-                            // minus in front of every tile on a page whose
-                            // heading already says these are what went out is a
-                            // sign that never varies and so says nothing.
-                            (totalScaled ?? spend.totalScaled).abs(),
-                            currencyLabel ?? baseCurrencySymbol,
-                          ),
+                          // A magnitude: spending is stored negative, and a
+                          // minus in front of every tile on a page whose
+                          // heading already says these are what went out is a
+                          // sign that never varies and so says nothing.
+                          _amountText((totalScaled ?? spend.totalScaled).abs()),
                           maxLines: 1,
                           style: amountStyle,
                           strutStyle: StrutStyle.fromTextStyle(
@@ -193,6 +183,13 @@ class CategoryTile extends StatelessWidget {
     );
   }
 }
+
+/// What a tile shows for [scaled], the currency named by the circle above.
+///
+/// A dash for nothing booked, rather than `0.00`: a grid where every untouched
+/// category reads as a figure gives the eye four columns of digits to sort
+/// through before the ones that were actually spent stand out.
+String _amountText(int scaled) => scaled == 0 ? '-' : formatAmountBare(scaled);
 
 /// How tall [lines] lines of [style] come out here, text scaling included.
 ///

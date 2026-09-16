@@ -1,4 +1,3 @@
-
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -128,8 +127,9 @@ void main() {
 
       expect(find.text('Groceries'), findsOneWidget);
       expect(find.text('Rent'), findsOneWidget);
-      // The tiles carry magnitudes; the minus is the headline's alone.
-      expect(find.text(r'$42.35'), findsOneWidget);
+      // The tiles carry bare magnitudes; the sign and the minus are the
+      // headline's alone.
+      expect(find.text('42.35'), findsOneWidget);
       // 42.35 + 1200.00, summed as integers.
       expect(find.text(r'-$1,242.35'), findsOneWidget);
     });
@@ -151,7 +151,8 @@ void main() {
 
       expect(find.text('New category'), findsNothing);
       expect(find.text('Utilities'), findsOneWidget);
-      expect(find.text(r'$0.00'), findsOneWidget);
+      // Nothing booked yet reads as a dash, not as a figure.
+      expect(find.text('-'), findsOneWidget);
     });
 
     testWidgets('tapping a category books an amount against it', (
@@ -170,7 +171,7 @@ void main() {
 
       expect(find.text('Add an amount'), findsNothing);
       // 42.35 already booked, plus 7.65.
-      expect(find.text(r'$50.00'), findsOneWidget);
+      expect(find.text('50.00'), findsOneWidget);
       expect(find.text(r'-$1,250.00'), findsOneWidget, reason: 'new total');
     });
 

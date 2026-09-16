@@ -92,6 +92,23 @@ void main() {
       expect(short, long);
     });
 
+    testWidgets('shows the figure bare, with no currency sign', (tester) async {
+      await tester.pumpTile(_spend('Rent', -123456));
+
+      // The circle above the grid names the currency every tile counts in, so
+      // repeating it four times a row only costs the digits room.
+      expect(find.text('1,234.56'), findsOneWidget);
+    });
+
+    testWidgets('shows a dash for a category nothing was booked to', (
+      tester,
+    ) async {
+      await tester.pumpTile(_spend('Rent', 0));
+
+      expect(find.text('-'), findsOneWidget);
+      expect(find.text('0.00'), findsNothing);
+    });
+
     testWidgets('holds the amount block’s height as the figure shrinks', (
       tester,
     ) async {

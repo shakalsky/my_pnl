@@ -343,7 +343,8 @@ void main() {
     }
 
     // The circle and the one tile below it carry the same figure — the tile
-    // drops the minus sign — so every assertion here says which it means.
+    // drops the minus and the currency sign — so every assertion here says
+    // which it means.
     Finder inCircle(String amount) => find.descendant(
       of: find.byType(TotalCircle),
       matching: find.text(amount),
@@ -431,15 +432,16 @@ void main() {
       currencies = FakeCurrencyRepository(initial: const [_euro]);
       await openBody(tester);
 
-      // The tile's own figure, as a magnitude.
-      expect(inTile(r'$42.35'), findsOneWidget);
+      // The tile's own figure, as a bare magnitude.
+      expect(inTile('42.35'), findsOneWidget);
 
       await tester.tap(find.byType(TotalCircle));
       await tester.pumpAndSettle();
 
-      // Circle and grid move together, or the page would contradict itself.
+      // Circle and grid move together, or the page would contradict itself:
+      // the circle names the currency both are counted in.
       expect(inCircle('€39.21'), findsOneWidget);
-      expect(inTile('€39.21'), findsOneWidget);
+      expect(inTile('39.21'), findsOneWidget);
       expect(find.textContaining(r'$'), findsNothing);
     });
 
@@ -453,7 +455,7 @@ void main() {
       );
 
       expect(inCircle('€39.21'), findsOneWidget);
-      expect(inTile('€39.21'), findsOneWidget);
+      expect(inTile('39.21'), findsOneWidget);
     });
 
     testWidgets('remembers a tap for the next page that asks', (tester) async {

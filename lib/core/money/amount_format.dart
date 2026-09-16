@@ -35,6 +35,12 @@ String formatAmountIn(int scaled, String label) {
       : '$sign$label$digits';
 }
 
+/// The grouped digits on their own, for somewhere the currency is already named.
+///
+/// An empty label is a sign rather than a ticker — nothing to put in front of
+/// the digits, and no space left behind where it would have gone.
+String formatAmountBare(int scaled) => formatAmountIn(scaled, '');
+
 /// An exchange rate, trailing zeros trimmed so `1.500000` reads as `1.5`.
 String formatRate(int scaled) {
   final whole = scaled ~/ rateScale;
