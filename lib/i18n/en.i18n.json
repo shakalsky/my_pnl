@@ -30,6 +30,9 @@
     "unusualMonths": "Unusual months",
     "previousMonth": "Previous month",
     "nextMonth": "Next month",
+    "selectMonth": "Select month",
+    "previousYear": "Previous year",
+    "nextYear": "Next year",
     "categorySettings": "$name settings"
   },
   "income": {

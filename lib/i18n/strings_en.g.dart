@@ -158,6 +158,15 @@ class Translations$spending$en {
 	/// en: 'Next month'
 	String get nextMonth => 'Next month';
 
+	/// en: 'Select month'
+	String get selectMonth => 'Select month';
+
+	/// en: 'Previous year'
+	String get previousYear => 'Previous year';
+
+	/// en: 'Next year'
+	String get nextYear => 'Next year';
+
 	/// en: '$name settings'
 	String categorySettings({required Object name}) => '${name} settings';
 }

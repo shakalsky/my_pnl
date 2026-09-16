@@ -17,6 +17,7 @@ import 'package:my_pnl/features/spending/presentation/bloc/spending_overview/spe
 import 'package:my_pnl/features/spending/presentation/widgets/amount_entry_sheet.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/category_form_sheet.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/category_tile.dart';
+import 'package:my_pnl/features/spending/presentation/widgets/month_picker_sheet.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/total_circle.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/transaction_history_sheet.dart';
 import 'package:my_pnl/i18n/strings.g.dart';
@@ -310,23 +311,56 @@ class _ReorderableCell extends StatelessWidget {
   }
 }
 
-/// Which month the figures below are for.
+/// Which month the figures below are for, and where another one is chosen.
+///
+/// Tapping it opens the month picker: the arrows either side of the circle walk
+/// one month at a time, which is a long way round for a month a year back. The
+/// choice goes to the month both overviews share, so the page off screen and the
+/// toolbar above them follow.
 class _MonthHeader extends StatelessWidget {
   const _MonthHeader({required this.month});
 
   final CalendarMonth month;
 
+  Future<void> _pick(BuildContext context) async {
+    final cubit = context.read<SelectedMonthCubit>();
+    final chosen = await MonthPickerSheet.show(context, selected: month);
+    if (chosen != null) cubit.select(chosen);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final style = theme.textTheme.titleMedium?.copyWith(
+      fontWeight: FontWeight.w600,
+      color: theme.colorScheme.onSurface,
+    );
 
-    return Text(
-      // Month and year together: paged back far enough, "January" alone stops
-      // saying which January.
-      DateFormat.yMMMM().format(month.startsOn),
-      style: theme.textTheme.titleMedium?.copyWith(
-        fontWeight: FontWeight.w600,
-        color: theme.colorScheme.onSurface,
+    return InkWell(
+      onTap: () => _pick(context),
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              // Month and year together: paged back far enough, "January" alone
+              // stops saying which January.
+              DateFormat.yMMMM().format(month.startsOn),
+              style: style,
+            ),
+            const SizedBox(width: 2),
+            // A heading that opens something reads as a heading until it says
+            // otherwise, and the arrows beside the circle have already taught
+            // the reader that the month moves.
+            Icon(
+              Icons.arrow_drop_down,
+              size: 20,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ],
+        ),
       ),
     );
   }

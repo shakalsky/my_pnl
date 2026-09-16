@@ -103,6 +103,9 @@ class _Translations$spending$ru extends Translations$spending$en {
 	@override String get unusualMonths => 'Необычные месяцы';
 	@override String get previousMonth => 'Предыдущий месяц';
 	@override String get nextMonth => 'Следующий месяц';
+	@override String get selectMonth => 'Выберите месяц';
+	@override String get previousYear => 'Предыдущий год';
+	@override String get nextYear => 'Следующий год';
 	@override String categorySettings({required Object name}) => 'Настройки категории «${name}»';
 }
 

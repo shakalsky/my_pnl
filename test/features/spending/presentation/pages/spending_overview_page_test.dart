@@ -519,6 +519,63 @@ void main() {
           findsOneWidget,
         );
       });
+
+      /// How the picker names a month in its grid.
+      String cellFor(CalendarMonth month) =>
+          DateFormat.MMM().format(month.startsOn);
+
+      /// Opens the picker the way a reader does: by tapping the heading.
+      Future<void> openPicker(WidgetTester tester) async {
+        await tester.tap(find.text(labelFor(CalendarMonth.now())));
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('jumps to a month chosen in the picker', (tester) async {
+        await pumpPage(tester);
+        repository.requestedMonths.clear();
+
+        await openPicker(tester);
+
+        // A year back and a month in it: the arrows walk one month at a time,
+        // and this is the jump they cannot make.
+        await tester.tap(find.byTooltip('Previous year'));
+        await tester.pumpAndSettle();
+
+        final target = CalendarMonth(CalendarMonth.now().year - 1, 1);
+        await tester.tap(find.text(cellFor(target)));
+        await tester.pumpAndSettle();
+
+        expect(find.text(labelFor(target)), findsOneWidget);
+        expect(repository.requestedMonths, [target]);
+      });
+
+      testWidgets('offers no month that has not happened', (tester) async {
+        await pumpPage(tester);
+
+        await openPicker(tester);
+
+        final now = CalendarMonth.now();
+
+        // December aside, the months after this one sit in the same grid, and
+        // a year with nothing choosable in it is nowhere to step to.
+        if (now.month < DateTime.monthsPerYear) {
+          final ahead = tester.widget<InkWell>(
+            find.ancestor(
+              of: find.text(cellFor(now.next)),
+              matching: find.byType(InkWell),
+            ),
+          );
+          expect(ahead.onTap, isNull);
+        }
+
+        final forward = tester.widget<IconButton>(
+          find.ancestor(
+            of: find.byTooltip('Next year'),
+            matching: find.byType(IconButton),
+          ),
+        );
+        expect(forward.onPressed, isNull);
+      });
     });
 
     group('unusual months', () {

@@ -30,6 +30,9 @@
     "unusualMonths": "Необычные месяцы",
     "previousMonth": "Предыдущий месяц",
     "nextMonth": "Следующий месяц",
+    "selectMonth": "Выберите месяц",
+    "previousYear": "Предыдущий год",
+    "nextYear": "Следующий год",
     "categorySettings": "Настройки категории «$name»"
   },
   "income": {
