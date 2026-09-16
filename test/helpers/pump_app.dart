@@ -15,6 +15,7 @@ import 'package:my_pnl/features/settings/domain/repositories/theme_mode_store.da
 import 'package:my_pnl/features/spending/domain/repositories/category_repository.dart';
 import 'package:my_pnl/features/spending/domain/repositories/overrun_settings_store.dart';
 import 'package:my_pnl/features/spending/domain/repositories/transaction_repository.dart';
+import 'package:my_pnl/features/spending/presentation/bloc/selected_month/selected_month_cubit.dart';
 import 'package:my_pnl/features/sync/domain/repositories/sync_repository.dart';
 
 import 'fake_app_update_repository.dart';
@@ -32,7 +33,9 @@ extension PumpApp on WidgetTester {
   ///
   /// An [AuthBloc] is always provided — pages carry an account affordance, and
   /// leaving it out fails with a provider lookup error rather than anything
-  /// that points at the real problem.
+  /// that points at the real problem. A [SelectedMonthCubit] likewise: the two
+  /// overviews share one month, which the pager provides above them, and a page
+  /// pumped on its own still has to find it.
   Future<void> pumpApp(
     Widget widget, {
     AppUpdateRepository? appUpdateRepository,
@@ -113,10 +116,15 @@ extension PumpApp on WidgetTester {
               value: transactionRepository,
             ),
         ],
-        child: BlocProvider(
-          create: (_) =>
-              AuthBloc(authRepository: auth)
-                ..add(const AuthSubscriptionRequested()),
+        child: MultiBlocProvider(
+          providers: [
+            BlocProvider(
+              create: (_) =>
+                  AuthBloc(authRepository: auth)
+                    ..add(const AuthSubscriptionRequested()),
+            ),
+            BlocProvider(create: (_) => SelectedMonthCubit()),
+          ],
           child: MaterialApp(home: widget),
         ),
       ),

@@ -1,6 +1,7 @@
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
 import 'package:my_pnl/app/app.dart';
 import 'package:my_pnl/core/money/base_currency.dart';
 import 'package:my_pnl/database/database.dart';
@@ -13,6 +14,7 @@ import 'package:my_pnl/features/currencies/domain/entities/currency.dart';
 import 'package:my_pnl/features/currencies/presentation/widgets/base_currency_sheet.dart';
 import 'package:my_pnl/features/settings/domain/entities/app_theme_mode.dart';
 import 'package:my_pnl/features/settings/presentation/pages/settings_page.dart';
+import 'package:my_pnl/features/spending/domain/entities/calendar_month.dart';
 import 'package:my_pnl/features/spending/presentation/pages/income_overview_page.dart';
 import 'package:my_pnl/features/spending/presentation/pages/spending_overview_page.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/overview_toolbar.dart';
@@ -375,6 +377,45 @@ void main() {
           tester.getTopLeft(toolbar),
           before,
           reason: 'the header does not travel with the grid',
+        );
+      });
+
+      /// How a month header names [month].
+      String labelFor(CalendarMonth month) =>
+          DateFormat.yMMMM().format(month.startsOn);
+
+      testWidgets('paging a month moves both overviews', (tester) async {
+        await openOverview(tester);
+
+        await tester.tap(find.byTooltip('Previous month'));
+        await tester.pumpAndSettle();
+
+        await flick(tester, 300);
+        expectShowing(tester, IncomeOverviewPage);
+
+        // One month for one book: income arrives on the month spending was
+        // paged back to, rather than snapping to the present as the reader
+        // swipes across.
+        expect(
+          find.text(labelFor(CalendarMonth.now().previous)),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('the ledger it opens is the month on screen', (tester) async {
+        await openOverview(tester);
+
+        await tester.tap(find.byTooltip('Previous month'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byTooltip('All transactions'));
+        await tester.pumpAndSettle();
+
+        // The toolbar sits above both pages, and the sheet it opens is scoped
+        // to the month they are showing.
+        expect(
+          find.text('${labelFor(CalendarMonth.now().previous)} · Newest first'),
+          findsOneWidget,
         );
       });
 

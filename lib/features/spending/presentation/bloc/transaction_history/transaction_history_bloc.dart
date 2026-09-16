@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:bloc/bloc.dart';
 import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'package:equatable/equatable.dart';
+import 'package:my_pnl/features/spending/domain/entities/calendar_month.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/entities/spend_entry.dart';
 import 'package:my_pnl/features/spending/domain/usecases/delete_spend.dart';
@@ -19,8 +20,10 @@ class TransactionHistoryBloc
     required WatchCategoryHistory watchCategoryHistory,
     required DeleteSpend deleteSpend,
     required Category category,
+    CalendarMonth? month,
   }) : _watchCategoryHistory = watchCategoryHistory,
        _deleteSpend = deleteSpend,
+       _month = month,
        super(TransactionHistoryState(category: category)) {
     on<TransactionHistorySubscriptionRequested>(
       _onSubscriptionRequested,
@@ -31,6 +34,12 @@ class TransactionHistoryBloc
 
   final WatchCategoryHistory _watchCategoryHistory;
   final DeleteSpend _deleteSpend;
+
+  /// Which month is listed, or null for the whole history.
+  ///
+  /// Fixed for the life of the sheet: it is the month the page behind was
+  /// showing when the sheet was opened, and nothing in here changes it.
+  final CalendarMonth? _month;
 
   Future<void> _onEntryDeleted(
     TransactionHistoryEntryDeleted event,
@@ -52,7 +61,7 @@ class TransactionHistoryBloc
     emit(state.copyWith(status: TransactionHistoryStatus.loading));
 
     await emit.forEach<List<SpendEntry>>(
-      _watchCategoryHistory(state.category.id),
+      _watchCategoryHistory(state.category.id, month: _month),
       onData: (entries) => state.copyWith(
         status: TransactionHistoryStatus.success,
         entries: entries,

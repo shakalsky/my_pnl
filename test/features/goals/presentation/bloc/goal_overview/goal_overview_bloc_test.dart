@@ -36,11 +36,14 @@ class _StubTransactions implements TransactionRepository {
       throw UnimplementedError();
 
   @override
-  Stream<List<LedgerEntry>> watchAllEntries() => throw UnimplementedError();
+  Stream<List<LedgerEntry>> watchAllEntries({CalendarMonth? month}) =>
+      throw UnimplementedError();
 
   @override
-  Stream<List<SpendEntry>> watchCategoryHistory(String categoryId) =>
-      throw UnimplementedError();
+  Stream<List<SpendEntry>> watchCategoryHistory(
+    String categoryId, {
+    CalendarMonth? month,
+  }) => throw UnimplementedError();
 
   @override
   Future<void> recordSpend({

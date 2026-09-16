@@ -191,7 +191,15 @@ void main() {
       await tester.tap(find.byTooltip('Transactions'));
       await tester.pumpAndSettle();
 
-      expect(find.text('History'), findsOneWidget);
+      // The sheet names the month it lists, because the month on the grid is
+      // all it lists — the same scope the tile's own figure is for.
+      expect(
+        find.text(
+          '${DateFormat.yMMMM().format(CalendarMonth.now().startsOn)}'
+          ' · History',
+        ),
+        findsOneWidget,
+      );
       // Twice: once as the entry, and once in its day's heading — the only
       // entry that day. The sheet keeps no running total of its own any more;
       // the day headings are what add the entries up.
@@ -488,6 +496,27 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(repository.requestedMonths, [CalendarMonth.now().previous]);
+      });
+
+      testWidgets('a history opened after paging is that month', (
+        tester,
+      ) async {
+        await pumpPage(tester);
+
+        await tester.tap(find.byTooltip('Previous month'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.bySemanticsLabel('Groceries settings'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Transactions'));
+        await tester.pumpAndSettle();
+
+        // The tile's figure is the month the grid was paged to, so the list
+        // behind it has to be that month and not the one happening now.
+        expect(
+          find.text('${labelFor(CalendarMonth.now().previous)} · History'),
+          findsOneWidget,
+        );
       });
     });
 

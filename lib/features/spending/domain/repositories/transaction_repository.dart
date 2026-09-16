@@ -49,14 +49,24 @@ abstract interface class TransactionRepository {
   Future<void> deleteSpend(String id);
 
   /// A category's entries, newest first, re-emitted as they change.
-  Stream<List<SpendEntry>> watchCategoryHistory(String categoryId);
+  ///
+  /// [month] narrows the list to what was booked in that month, matching the
+  /// total the tile it was opened from shows. Null lists the whole history.
+  Stream<List<SpendEntry>> watchCategoryHistory(
+    String categoryId, {
+    CalendarMonth? month,
+  });
 
   /// Every entry in the ledger, newest first, with its category and who
   /// recorded it.
   ///
+  /// [month] narrows the list to what was booked in that month, so the sheet
+  /// agrees with the figures on the page it was opened from. Null lists the
+  /// whole ledger.
+  ///
   /// Capped at [allEntriesLimit]: a full ledger is unbounded, and a modal
   /// cannot usefully show thousands of rows anyway.
-  Stream<List<LedgerEntry>> watchAllEntries();
+  Stream<List<LedgerEntry>> watchAllEntries({CalendarMonth? month});
 
   /// Income minus spending, across every category.
   ///

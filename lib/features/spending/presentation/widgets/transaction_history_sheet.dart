@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:my_pnl/core/money/amount_format.dart';
+import 'package:my_pnl/features/spending/domain/entities/calendar_month.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/entities/spend_entry.dart';
 import 'package:my_pnl/features/spending/domain/repositories/transaction_repository.dart';
@@ -15,10 +16,30 @@ import 'package:my_pnl/features/spending/presentation/widgets/entry_author_label
 import 'package:my_pnl/i18n/strings.g.dart';
 
 /// Modal listing what has been booked against a category.
+///
+/// Scoped to one month wherever it is opened from a figure for that month,
+/// which is everywhere the grid offers it: the list under a total has to be
+/// what the total is made of.
 class TransactionHistorySheet extends StatelessWidget {
-  const TransactionHistorySheet({super.key});
+  const TransactionHistorySheet({this.month, super.key});
 
-  static Future<void> show(BuildContext context, Category category) {
+  /// Which month is listed. Null lists the category's whole history.
+  ///
+  /// Carried by the widget as well as by the bloc, because the header names it
+  /// — an empty list has to read as "nothing that month" rather than as
+  /// "nothing ever".
+  final CalendarMonth? month;
+
+  /// Opens the sheet over [category], listing what was booked in [month].
+  ///
+  /// The month is passed rather than read from a provider: the sheet is a route
+  /// above the overview's own Navigator, so the page's state is out of reach by
+  /// the time this builds.
+  static Future<void> show(
+    BuildContext context,
+    Category category, {
+    CalendarMonth? month,
+  }) {
     final repository = context.read<TransactionRepository>();
 
     return showModalBottomSheet<void>(
@@ -30,8 +51,9 @@ class TransactionHistorySheet extends StatelessWidget {
           watchCategoryHistory: WatchCategoryHistory(repository),
           deleteSpend: DeleteSpend(repository),
           category: category,
+          month: month,
         )..add(const TransactionHistorySubscriptionRequested()),
-        child: const TransactionHistorySheet(),
+        child: TransactionHistorySheet(month: month),
       ),
     );
   }
@@ -85,7 +107,16 @@ class TransactionHistorySheet extends StatelessWidget {
                           style: theme.textTheme.titleLarge,
                         ),
                         Text(
-                          t.entries.historyTitle,
+                          // The month leads the subtitle wherever there is
+                          // one: this list is only that month's entries, and
+                          // a short one has to read as "that is the month"
+                          // rather than as a history gone missing.
+                          switch (month) {
+                            null => t.entries.historyTitle,
+                            final month =>
+                              '${DateFormat.yMMMM().format(month.startsOn)}'
+                                  ' · ${t.entries.historyTitle}',
+                          },
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),

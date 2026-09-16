@@ -95,13 +95,12 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('is an icon while there is only one book', (tester) async {
+    testWidgets('names the open book when it is the only one', (tester) async {
       await pumpSwitcher(tester);
 
-      // "Personal" says nothing when it is the only answer, and the header it
-      // sits in has no width to spare for it.
-      expect(find.byTooltip('Accounts'), findsOneWidget);
-      expect(find.text('Personal'), findsNothing);
+      // Named rather than left as a bare icon: a reader who has not made a
+      // second book yet still has to be able to see which one they are in.
+      expect(find.widgetWithText(TextButton, 'Personal'), findsOneWidget);
     });
 
     testWidgets('names the open book once there is a second', (tester) async {

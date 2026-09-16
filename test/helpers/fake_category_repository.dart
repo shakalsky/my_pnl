@@ -186,14 +186,15 @@ class FakeCategoryRepository
   int keptOnDelete = 0;
 
   @override
-  Stream<List<LedgerEntry>> watchAllEntries() async* {
+  Stream<List<LedgerEntry>> watchAllEntries({CalendarMonth? month}) async* {
     List<LedgerEntry> all() {
       final entries =
           [
               for (final spend in _spend)
                 for (final entry
                     in _history[spend.category.id] ?? const <SpendEntry>[])
-                  LedgerEntry(entry: entry, category: spend.category),
+                  if (_bookedIn(entry, month))
+                    LedgerEntry(entry: entry, category: spend.category),
             ]
             // Newest first across every category, the way the drift query orders
             // them — which is what lets the sheet group a day's entries together
@@ -277,7 +278,10 @@ class FakeCategoryRepository
       SpendEntry(
         id: newId(),
         amountScaled: signed,
-        occurredAt: (occurredAt ?? DateTime(2026, 3, 14, 9, 30)).toUtc(),
+        // Now, as the data source books it when the caller names no date.
+        // A fixed date would fall outside the month the pages are showing, and
+        // every list is scoped to a month.
+        occurredAt: (occurredAt ?? DateTime.now()).toUtc(),
         note: note,
       ),
     );
@@ -312,7 +316,10 @@ class FakeCategoryRepository
       SpendEntry(
         id: newId(),
         amountScaled: signed,
-        occurredAt: (occurredAt ?? DateTime(2026, 3, 14, 9, 30)).toUtc(),
+        // Now, as the data source books it when the caller names no date.
+        // A fixed date would fall outside the month the pages are showing, and
+        // every list is scoped to a month.
+        occurredAt: (occurredAt ?? DateTime.now()).toUtc(),
         note: note,
         isOwn: false,
         authorName: authorName,
@@ -397,12 +404,25 @@ class FakeCategoryRepository
   }
 
   @override
-  Stream<List<SpendEntry>> watchCategoryHistory(String categoryId) async* {
-    yield List.unmodifiable(_history[categoryId] ?? const []);
+  Stream<List<SpendEntry>> watchCategoryHistory(
+    String categoryId, {
+    CalendarMonth? month,
+  }) async* {
+    List<SpendEntry> booked() => List.unmodifiable([
+      for (final entry in _history[categoryId] ?? const <SpendEntry>[])
+        if (_bookedIn(entry, month)) entry,
+    ]);
+
+    yield booked();
     yield* _historyController.stream
         .where((id) => id == categoryId)
-        .map((_) => List<SpendEntry>.unmodifiable(_history[categoryId]!));
+        .map((_) => booked());
   }
+
+  /// Whether [entry] falls in [month], read in UTC the way the drift queries
+  /// read it. A null month takes everything, as it does there.
+  bool _bookedIn(SpendEntry entry, CalendarMonth? month) =>
+      month == null || CalendarMonth.of(entry.occurredAt) == month;
 
   void _requireFreeName(String name, {String? exceptId}) {
     final normalized = name.trim().toLowerCase();

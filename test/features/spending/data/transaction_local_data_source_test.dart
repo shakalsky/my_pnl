@@ -508,6 +508,139 @@ void main() {
       });
     });
 
+    group('entries for one month', () {
+      late Category groceries;
+      late Category rent;
+
+      /// 1250 in March and 500 in April against groceries, 100000 in March
+      /// against rent.
+      Future<void> seedTwoMonths() async {
+        groceries = await newCategory();
+        rent = await categories.createCategory(
+          const NewCategory(name: 'Rent', colorArgb: 2, iconKey: 'home'),
+          ownerId: owner,
+          ledgerId: ledger,
+        );
+
+        await transactions.recordSpend(
+          ownerId: owner,
+          ledgerId: ledger,
+          categoryId: groceries.id,
+          amountScaled: 1250,
+          occurredAt: DateTime.utc(2026, 3, 14),
+        );
+        await transactions.recordSpend(
+          ownerId: owner,
+          ledgerId: ledger,
+          categoryId: rent.id,
+          amountScaled: 100000,
+          occurredAt: DateTime.utc(2026, 3, 28),
+        );
+        await transactions.recordSpend(
+          ownerId: owner,
+          ledgerId: ledger,
+          categoryId: groceries.id,
+          amountScaled: 500,
+          occurredAt: DateTime.utc(2026, 4, 2),
+        );
+      }
+
+      test('the whole ledger lists only that month', () async {
+        await seedTwoMonths();
+
+        final march = await transactions
+            .watchAllEntries(
+              ledgerId: ledger,
+              viewerId: owner,
+              month: const CalendarMonth(2026, 3),
+            )
+            .first;
+
+        expect(march.map((e) => e.entry.amountScaled), [-100000, -1250]);
+      });
+
+      test("the entries listed add up to that month's net total", () async {
+        await seedTwoMonths();
+
+        const month = CalendarMonth(2026, 3);
+        final entries = await transactions
+            .watchAllEntries(ledgerId: ledger, viewerId: owner, month: month)
+            .first;
+
+        // The sheet adds its own rows up for the figure in its header, so the
+        // two figures disagreeing would be visible on screen.
+        expect(
+          entries.fold(0, (sum, e) => sum + e.entry.amountScaled),
+          await transactions.watchNetTotal(ledger, month: month).first,
+        );
+      });
+
+      test('a category lists only that month', () async {
+        await seedTwoMonths();
+
+        final march = await transactions
+            .watchCategoryHistory(
+              ledgerId: ledger,
+              viewerId: owner,
+              categoryId: groceries.id,
+              month: const CalendarMonth(2026, 3),
+            )
+            .first;
+
+        expect(march.map((e) => e.amountScaled), [-1250]);
+      });
+
+      test('a month with nothing booked lists nothing', () async {
+        await seedTwoMonths();
+
+        expect(
+          await transactions
+              .watchAllEntries(
+                ledgerId: ledger,
+                viewerId: owner,
+                month: const CalendarMonth(2026, 2),
+              )
+              .first,
+          isEmpty,
+        );
+      });
+
+      test('the months are UTC months, as the totals are', () async {
+        groceries = await newCategory();
+
+        // Half an hour into April in UTC, which is where it is stored and so
+        // where it is counted — a reader an hour behind sees a March evening.
+        await transactions.recordSpend(
+          ownerId: owner,
+          ledgerId: ledger,
+          categoryId: groceries.id,
+          amountScaled: 1250,
+          occurredAt: DateTime.utc(2026, 4, 1, 0, 30),
+        );
+
+        Future<int> entriesIn(CalendarMonth month) async {
+          final entries = await transactions
+              .watchAllEntries(ledgerId: ledger, viewerId: owner, month: month)
+              .first;
+
+          return entries.length;
+        }
+
+        expect(await entriesIn(const CalendarMonth(2026, 3)), 0);
+        expect(await entriesIn(const CalendarMonth(2026, 4)), 1);
+      });
+
+      test('no month asked for lists the whole ledger', () async {
+        await seedTwoMonths();
+
+        final all = await transactions
+            .watchAllEntries(ledgerId: ledger, viewerId: owner)
+            .first;
+
+        expect(all, hasLength(3));
+      });
+    });
+
     group('a family account', () {
       /// Puts [userId] in [ledger] under [name], which is what gives their
       /// entries a label on the other partner's device.

@@ -10,6 +10,7 @@ import 'package:my_pnl/features/ledgers/domain/usecases/rotate_invite_code.dart'
 import 'package:my_pnl/features/ledgers/domain/usecases/select_ledger.dart';
 import 'package:my_pnl/features/ledgers/domain/usecases/watch_ledgers.dart';
 import 'package:my_pnl/features/ledgers/presentation/bloc/ledger/ledger_bloc.dart';
+import 'package:my_pnl/features/spending/presentation/bloc/selected_month/selected_month_cubit.dart';
 import 'package:my_pnl/features/spending/presentation/pages/income_overview_page.dart';
 import 'package:my_pnl/features/spending/presentation/pages/spending_overview_page.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/overview_page_indicator.dart';
@@ -57,21 +58,28 @@ class _OverviewPagerPageState extends State<OverviewPagerPage> {
   Widget build(BuildContext context) {
     final ledgers = context.read<LedgerRepository>();
 
-    return BlocProvider(
-      // The switcher in the pinned toolbar, and the sheet it opens. Provided
-      // here rather than by a page, because the toolbar outlives both pages:
-      // one subscription for the header the two of them share.
-      create: (_) => LedgerBloc(
-        watchLedgers: WatchLedgers(ledgers),
-        activeId: ledgers.activeId,
-        selectLedger: SelectLedger(ledgers),
-        createPersonalLedger: CreatePersonalLedger(ledgers),
-        createFamilyLedger: CreateFamilyLedger(ledgers),
-        joinFamilyLedger: JoinFamilyLedger(ledgers),
-        leaveLedger: LeaveLedger(ledgers),
-        deletePersonalLedger: DeletePersonalLedger(ledgers),
-        rotateInviteCode: RotateInviteCode(ledgers),
-      )..add(const LedgerSubscriptionRequested()),
+    return MultiBlocProvider(
+      providers: [
+        // The switcher in the pinned toolbar, and the sheet it opens. Provided
+        // here rather than by a page, because the toolbar outlives both pages:
+        // one subscription for the header the two of them share.
+        BlocProvider(
+          create: (_) => LedgerBloc(
+            watchLedgers: WatchLedgers(ledgers),
+            activeId: ledgers.activeId,
+            selectLedger: SelectLedger(ledgers),
+            createPersonalLedger: CreatePersonalLedger(ledgers),
+            createFamilyLedger: CreateFamilyLedger(ledgers),
+            joinFamilyLedger: JoinFamilyLedger(ledgers),
+            leaveLedger: LeaveLedger(ledgers),
+            deletePersonalLedger: DeletePersonalLedger(ledgers),
+            rotateInviteCode: RotateInviteCode(ledgers),
+          )..add(const LedgerSubscriptionRequested()),
+        ),
+        // Likewise above both pages: the month is one choice about one book,
+        // and the toolbar reads it to scope the sheets it opens.
+        BlocProvider(create: (_) => SelectedMonthCubit()),
+      ],
       child: OverviewPager(
         showIncome: () => _to(_income),
         showSpending: () => _to(_spending),

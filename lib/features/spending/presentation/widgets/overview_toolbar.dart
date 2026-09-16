@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_pnl/app/routing/app_router.dart';
 import 'package:my_pnl/features/ledgers/presentation/widgets/ledger_switcher.dart';
+import 'package:my_pnl/features/spending/presentation/bloc/selected_month/selected_month_cubit.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/account_button.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/all_transactions_sheet.dart';
 import 'package:my_pnl/features/sync/presentation/widgets/sync_indicator.dart';
@@ -28,13 +30,22 @@ class OverviewToolbar extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           const SyncIndicator(),
-          // Ahead of everything else, and flexible so the icons keep their
-          // room: which book is open is what every figure below depends on, and
-          // a total read against the wrong one is not a small mistake.
-          const Flexible(child: LedgerSwitcher()),
-          const Spacer(),
+          // Ahead of everything else, and given the row's whole remainder
+          // rather than a Flexible beside a Spacer: which book is open is what
+          // every figure below depends on, and a total read against the wrong
+          // one is not a small mistake. Sharing the free width with a spacer
+          // split it evenly — half a row of blank against half a name — and on
+          // a phone that left the name as an ellipsis. The switcher cuts its
+          // own label short, so the icons keep their room either way.
+          const Expanded(child: LedgerSwitcher()),
           IconButton(
-            onPressed: () => AllTransactionsSheet.show(context),
+            // Scoped to the month both overviews are showing: the sheet is
+            // opened from a page of figures for one month, and a ledger
+            // running back over every month would not be a list of them.
+            onPressed: () => AllTransactionsSheet.show(
+              context,
+              month: context.read<SelectedMonthCubit>().state,
+            ),
             icon: const Icon(Icons.receipt_long_outlined, size: 20),
             tooltip: t.spending.allTransactions,
             visualDensity: VisualDensity.compact,
@@ -61,7 +72,7 @@ class OverviewToolbar extends StatelessWidget {
             tooltip: t.settings.tooltip,
             visualDensity: VisualDensity.compact,
           ),
-          const Flexible(child: AccountButton()),
+          const AccountButton(),
         ],
       ),
     );

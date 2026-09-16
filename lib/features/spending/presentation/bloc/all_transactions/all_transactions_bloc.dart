@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:bloc/bloc.dart';
 import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'package:equatable/equatable.dart';
+import 'package:my_pnl/features/spending/domain/entities/calendar_month.dart';
 import 'package:my_pnl/features/spending/domain/entities/ledger_entry.dart';
 import 'package:my_pnl/features/spending/domain/usecases/delete_spend.dart';
 import 'package:my_pnl/features/spending/domain/usecases/watch_all_entries.dart';
@@ -17,8 +18,10 @@ class AllTransactionsBloc
   AllTransactionsBloc({
     required WatchAllEntries watchAllEntries,
     required DeleteSpend deleteSpend,
+    CalendarMonth? month,
   }) : _watchAllEntries = watchAllEntries,
        _deleteSpend = deleteSpend,
+       _month = month,
        super(const AllTransactionsState()) {
     on<AllTransactionsSubscriptionRequested>(
       _onSubscriptionRequested,
@@ -30,6 +33,12 @@ class AllTransactionsBloc
   final WatchAllEntries _watchAllEntries;
   final DeleteSpend _deleteSpend;
 
+  /// Which month is listed, or null for the whole ledger.
+  ///
+  /// Fixed for the life of the sheet: it is the month the overview was showing
+  /// when the sheet was opened, and nothing in here changes it.
+  final CalendarMonth? _month;
+
   Future<void> _onSubscriptionRequested(
     AllTransactionsSubscriptionRequested event,
     Emitter<AllTransactionsState> emit,
@@ -37,7 +46,7 @@ class AllTransactionsBloc
     emit(state.copyWith(status: AllTransactionsStatus.loading));
 
     await emit.forEach<List<LedgerEntry>>(
-      _watchAllEntries(),
+      _watchAllEntries(month: _month),
       onData: (entries) => state.copyWith(
         status: AllTransactionsStatus.success,
         entries: entries,

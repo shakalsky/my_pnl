@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:my_pnl/core/money/amount_format.dart';
 import 'package:my_pnl/core/theme/semantic_colors.dart';
+import 'package:my_pnl/features/spending/domain/entities/calendar_month.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/entities/ledger_entry.dart';
 import 'package:my_pnl/features/spending/domain/repositories/transaction_repository.dart';
@@ -16,14 +17,23 @@ import 'package:my_pnl/features/spending/presentation/widgets/entry_author_label
 import 'package:my_pnl/features/spending/presentation/widgets/transaction_history_sheet.dart';
 import 'package:my_pnl/i18n/strings.g.dart';
 
-/// Every entry across every category, newest first.
+/// Every entry across every category in one month, newest first.
 ///
 /// Tap to correct an amount, the bin to remove one. The per-category history
-/// does the same for one category; this is the whole ledger.
+/// does the same for one category; this is the whole ledger for that month.
 class AllTransactionsSheet extends StatelessWidget {
-  const AllTransactionsSheet({super.key});
+  const AllTransactionsSheet({this.month, super.key});
 
-  static Future<void> show(BuildContext context) {
+  /// Which month is listed. Null lists the whole ledger, up to the cap the
+  /// repository puts on it.
+  final CalendarMonth? month;
+
+  /// Opens the sheet over what was booked in [month].
+  ///
+  /// The month is passed rather than read from a provider: the sheet is a route
+  /// above the overview's own Navigator, so the pager's state is out of reach
+  /// by the time this builds.
+  static Future<void> show(BuildContext context, {CalendarMonth? month}) {
     final repository = context.read<TransactionRepository>();
 
     return showModalBottomSheet<void>(
@@ -34,8 +44,9 @@ class AllTransactionsSheet extends StatelessWidget {
         create: (_) => AllTransactionsBloc(
           watchAllEntries: WatchAllEntries(repository),
           deleteSpend: DeleteSpend(repository),
+          month: month,
         )..add(const AllTransactionsSubscriptionRequested()),
-        child: const AllTransactionsSheet(),
+        child: AllTransactionsSheet(month: month),
       ),
     );
   }
@@ -73,7 +84,15 @@ class AllTransactionsSheet extends StatelessWidget {
                           style: theme.textTheme.titleLarge,
                         ),
                         Text(
-                          t.entries.newestFirst,
+                          // The month leads the subtitle wherever there is
+                          // one: the figure beside it is that month's net, and
+                          // a list this short has to say what it is short of.
+                          switch (month) {
+                            null => t.entries.newestFirst,
+                            final month =>
+                              '${DateFormat.yMMMM().format(month.startsOn)}'
+                                  ' · ${t.entries.newestFirst}',
+                          },
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -108,6 +127,7 @@ class AllTransactionsSheet extends StatelessWidget {
                   ),
                   AllTransactionsStatus.success => _EntryList(
                     entries: state.entries,
+                    month: month,
                   ),
                 },
               ),
@@ -120,9 +140,13 @@ class AllTransactionsSheet extends StatelessWidget {
 }
 
 class _EntryList extends StatelessWidget {
-  const _EntryList({required this.entries});
+  const _EntryList({required this.entries, required this.month});
 
   final List<LedgerEntry> entries;
+
+  /// Carried down to the category icons, so a history opened from a row is the
+  /// same month as the list it was opened from.
+  final CalendarMonth? month;
 
   @override
   Widget build(BuildContext context) {
@@ -187,7 +211,7 @@ class _EntryList extends StatelessWidget {
       // recorded one may change it, so no edit is offered rather than one
       // that the server would refuse on upload.
       onTap: item.entry.isOwn ? () => _edit(context, item) : null,
-      leading: _CategoryAvatar(category: category),
+      leading: _CategoryAvatar(category: category, month: month),
       title: Text(category?.name ?? t.entries.uncategorised),
       // Stored in UTC, shown in the reader's zone. The entry's own note
       // rides along on the same line — it is what tells two amounts in the
@@ -309,9 +333,12 @@ class _EntryList extends StatelessWidget {
 /// untappable rather than given a gesture that could only lead to an empty
 /// sheet.
 class _CategoryAvatar extends StatelessWidget {
-  const _CategoryAvatar({required this.category});
+  const _CategoryAvatar({required this.category, required this.month});
 
   final Category? category;
+
+  /// The month the sheet is listing, handed on to the history it opens.
+  final CalendarMonth? month;
 
   @override
   Widget build(BuildContext context) {
@@ -337,7 +364,8 @@ class _CategoryAvatar extends StatelessWidget {
       label: t.entries.categoryHistory(name: category.name),
       button: true,
       child: InkResponse(
-        onTap: () => TransactionHistorySheet.show(context, category),
+        onTap: () =>
+            TransactionHistorySheet.show(context, category, month: month),
         radius: 24,
         child: avatar,
       ),

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:my_pnl/core/money/scales.dart';
 import 'package:my_pnl/core/widgets/text_input/app_input.dart';
+import 'package:my_pnl/features/spending/domain/entities/calendar_month.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/repositories/category_repository.dart';
 import 'package:my_pnl/features/spending/domain/usecases/create_category.dart';
@@ -21,7 +22,7 @@ import 'package:my_pnl/i18n/strings.g.dart';
 /// the bloc reaching [CategoryFormStatus.success], so the write completes
 /// before the modal goes away.
 class CategoryFormSheet extends StatelessWidget {
-  const CategoryFormSheet({this.category, super.key});
+  const CategoryFormSheet({this.category, this.month, super.key});
 
   /// The category being edited, or null while creating one.
   ///
@@ -30,6 +31,11 @@ class CategoryFormSheet extends StatelessWidget {
   /// it stands and not the half-edited form.
   final Category? category;
 
+  /// Which month the history behind the button above is listed for. Null lists
+  /// the category's whole history, and there is nothing to list while creating
+  /// one.
+  final CalendarMonth? month;
+
   /// Opens the modal with an empty form for a category of [kind].
   static Future<void> showCreate(
     BuildContext context, {
@@ -37,14 +43,21 @@ class CategoryFormSheet extends StatelessWidget {
   }) => _show(context, null, kind);
 
   /// Opens the modal seeded with [category].
-  static Future<void> showEdit(BuildContext context, Category category) =>
-      _show(context, category, category.kind);
+  ///
+  /// [month] is the month the grid behind is showing, which is what the history
+  /// opened from here is scoped to — the same list the tile's own icon opens.
+  static Future<void> showEdit(
+    BuildContext context,
+    Category category, {
+    CalendarMonth? month,
+  }) => _show(context, category, category.kind, month: month);
 
   static Future<void> _show(
     BuildContext context,
     Category? initial,
-    CategoryKind kind,
-  ) {
+    CategoryKind kind, {
+    CalendarMonth? month,
+  }) {
     final repository = context.read<CategoryRepository>();
 
     return showModalBottomSheet<void>(
@@ -68,7 +81,7 @@ class CategoryFormSheet extends StatelessWidget {
           kind: kind,
           initial: initial,
         ),
-        child: CategoryFormSheet(category: initial),
+        child: CategoryFormSheet(category: initial, month: month),
       ),
     );
   }
@@ -95,15 +108,18 @@ class CategoryFormSheet extends StatelessWidget {
             break;
         }
       },
-      child: _CategoryForm(category: category),
+      child: _CategoryForm(category: category, month: month),
     );
   }
 }
 
 class _CategoryForm extends StatefulWidget {
-  const _CategoryForm({this.category});
+  const _CategoryForm({this.category, this.month});
 
   final Category? category;
+
+  /// The month the history button lists, carried down from the grid.
+  final CalendarMonth? month;
 
   @override
   State<_CategoryForm> createState() => _CategoryFormState();
@@ -173,8 +189,11 @@ class _CategoryFormState extends State<_CategoryForm> {
                 // only exists on the editing form.
                 if (widget.category case final category?)
                   IconButton(
-                    onPressed: () =>
-                        TransactionHistorySheet.show(context, category),
+                    onPressed: () => TransactionHistorySheet.show(
+                      context,
+                      category,
+                      month: widget.month,
+                    ),
                     icon: const Icon(Icons.receipt_long_outlined),
                     tooltip: t.categoryForm.transactions,
                     visualDensity: VisualDensity.compact,

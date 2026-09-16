@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:my_pnl/features/spending/domain/entities/calendar_month.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/repositories/category_repository.dart';
 import 'package:my_pnl/features/spending/domain/usecases/generate_due_recurring_income.dart';
 import 'package:my_pnl/features/spending/domain/usecases/reorder_categories.dart';
 import 'package:my_pnl/features/spending/domain/usecases/watch_category_spend.dart';
+import 'package:my_pnl/features/spending/presentation/bloc/selected_month/selected_month_cubit.dart';
 import 'package:my_pnl/features/spending/presentation/bloc/spending_overview/spending_overview_bloc.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/category_overview_body.dart';
 import 'package:my_pnl/i18n/strings.g.dart';
@@ -33,9 +35,21 @@ class IncomeOverviewPage extends StatelessWidget {
           watchCategorySpend: WatchCategorySpend(repository),
           reorderCategories: ReorderCategories(repository),
           kind: CategoryKind.income,
+          // The month both overviews share: this page is built as the reader
+          // swipes to it, and it has to arrive on the month they were looking
+          // at rather than on the current one.
+          initialMonth: context.read<SelectedMonthCubit>().state,
         )..add(const SpendingOverviewSubscriptionRequested());
       },
-      child: const IncomeOverviewView(),
+      // Paging months on either overview writes to the shared month, which is
+      // handed back to both pages here — so the two never disagree about which
+      // month is on screen.
+      child: BlocListener<SelectedMonthCubit, CalendarMonth>(
+        listener: (context, month) => context.read<SpendingOverviewBloc>().add(
+          SpendingOverviewMonthChanged(month),
+        ),
+        child: const IncomeOverviewView(),
+      ),
     );
   }
 }

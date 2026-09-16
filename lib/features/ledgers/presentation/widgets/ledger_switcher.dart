@@ -11,11 +11,10 @@ import 'package:my_pnl/i18n/strings.g.dart';
 /// thing every figure on the page depends on: a total read against the wrong
 /// book is not a small mistake.
 ///
-/// Two shapes, and the difference is about the header's width rather than
-/// taste. A reader with only their own book has nothing to be told — the name
-/// "Personal" is noise when it is the only answer — so it is an icon like the
-/// actions beside it, and it costs the same. Once there is a second book, which
-/// one is open stops being obvious and the name earns the room.
+/// Always names the book rather than standing as a bare icon, even for a reader
+/// with only one. A personal book and a family one are a tap apart and read the
+/// same at a glance otherwise, and a name that appears only once a second book
+/// exists teaches nothing about where the figures came from before that.
 class LedgerSwitcher extends StatelessWidget {
   const LedgerSwitcher({super.key});
 
@@ -32,15 +31,6 @@ class LedgerSwitcher extends StatelessWidget {
         final icon = (active?.isShared ?? false)
             ? Icons.people_outline
             : Icons.person_outline;
-
-        if (!state.canSwitch) {
-          return IconButton(
-            onPressed: () => AccountsSheet.show(context),
-            icon: Icon(icon, size: 20),
-            tooltip: t.accounts.tooltip,
-            visualDensity: VisualDensity.compact,
-          );
-        }
 
         return TextButton.icon(
           onPressed: () => AccountsSheet.show(context),
@@ -59,6 +49,10 @@ class LedgerSwitcher extends StatelessWidget {
             visualDensity: VisualDensity.compact,
             padding: const EdgeInsets.symmetric(horizontal: 8),
             foregroundColor: theme.colorScheme.onSurface,
+            // The header hands it the row's whole remainder, which is more than
+            // most names need. Centred, the icon would drift away from the edge
+            // it belongs to and sit at a different place on every account.
+            alignment: Alignment.centerLeft,
           ),
         );
       },

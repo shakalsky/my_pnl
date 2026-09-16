@@ -66,11 +66,15 @@ class TransactionRepositoryImpl implements TransactionRepository {
   // Every read below follows `_ledger.changes`, so a switch re-runs it under the
   // page that is already watching. See `switchLatest`.
   @override
-  Stream<List<LedgerEntry>> watchAllEntries() => switchLatest(
-    _ledger.changes,
-    (ledgerId) =>
-        _local.watchAllEntries(ledgerId: ledgerId, viewerId: _owner.id),
-  );
+  Stream<List<LedgerEntry>> watchAllEntries({CalendarMonth? month}) =>
+      switchLatest(
+        _ledger.changes,
+        (ledgerId) => _local.watchAllEntries(
+          ledgerId: ledgerId,
+          viewerId: _owner.id,
+          month: month,
+        ),
+      );
 
   @override
   Stream<int> watchNetTotal({CalendarMonth? month}) => switchLatest(
@@ -88,13 +92,17 @@ class TransactionRepositoryImpl implements TransactionRepository {
   Future<int> normalizeAmountSigns() => _local.normalizeAmountSigns(_owner.id);
 
   @override
-  Stream<List<SpendEntry>> watchCategoryHistory(String categoryId) {
+  Stream<List<SpendEntry>> watchCategoryHistory(
+    String categoryId, {
+    CalendarMonth? month,
+  }) {
     return switchLatest(
       _ledger.changes,
       (ledgerId) => _local.watchCategoryHistory(
         ledgerId: ledgerId,
         viewerId: _owner.id,
         categoryId: categoryId,
+        month: month,
       ),
     );
   }

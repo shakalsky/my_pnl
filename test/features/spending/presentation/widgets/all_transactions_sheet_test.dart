@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
+import 'package:my_pnl/features/spending/domain/entities/calendar_month.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/entities/category_spend.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/all_transactions_sheet.dart';
@@ -51,12 +53,14 @@ void main() {
 
     tearDown(() => repository.close());
 
-    Future<void> openSheet(WidgetTester tester) async {
+    /// Opens the sheet over [month] — or, with none, over the whole ledger,
+    /// which is what most of these read the entries they booked in.
+    Future<void> openSheet(WidgetTester tester, {CalendarMonth? month}) async {
       await tester.pumpApp(
         Scaffold(
           body: Builder(
             builder: (context) => TextButton(
-              onPressed: () => AllTransactionsSheet.show(context),
+              onPressed: () => AllTransactionsSheet.show(context, month: month),
               child: const Text('open'),
             ),
           ),
@@ -233,6 +237,74 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.widgetWithText(ListTile, r'-$12.50'), findsOneWidget);
+    });
+
+    group('scoped to one month', () {
+      /// 12.50 on 14 March, 40.00 on 2 April.
+      Future<void> seedTwoMonths() async {
+        await repository.recordSpend(
+          categoryId: _groceries.category.id,
+          amountScaled: 1250,
+          occurredAt: DateTime.utc(2026, 3, 14, 9, 30),
+        );
+        await repository.recordSpend(
+          categoryId: _groceries.category.id,
+          amountScaled: 4000,
+          occurredAt: DateTime.utc(2026, 4, 2, 9, 30),
+        );
+      }
+
+      testWidgets('lists what was booked in that month and nothing else', (
+        tester,
+      ) async {
+        await seedTwoMonths();
+        await openSheet(tester, month: const CalendarMonth(2026, 3));
+
+        expect(find.text(r'-$12.50'), findsWidgets);
+        expect(find.text(r'-$40.00'), findsNothing);
+      });
+
+      testWidgets('adds up only the month it lists', (tester) async {
+        await seedTwoMonths();
+        await openSheet(tester, month: const CalendarMonth(2026, 3));
+
+        // March alone, not the 52.50 the whole ledger comes to — the figure
+        // has to be the one the overview behind the sheet is showing.
+        expect(headerTotal(r'-$12.50'), findsOneWidget);
+      });
+
+      testWidgets('names the month it is listing', (tester) async {
+        await seedTwoMonths();
+        await openSheet(tester, month: const CalendarMonth(2026, 3));
+
+        final march = DateFormat.yMMMM().format(DateTime(2026, 3));
+        expect(find.text('$march · Newest first'), findsOneWidget);
+      });
+
+      testWidgets('a month with nothing in it says so', (tester) async {
+        await seedTwoMonths();
+        await openSheet(tester, month: const CalendarMonth(2026, 2));
+
+        expect(find.text('Nothing recorded yet'), findsOneWidget);
+      });
+
+      testWidgets('opens a history in the same month', (tester) async {
+        await seedTwoMonths();
+        await openSheet(tester, month: const CalendarMonth(2026, 3));
+
+        await tester.tap(find.bySemanticsLabel('Groceries history'));
+        await tester.pumpAndSettle();
+
+        Finder inHistory(Finder finder) => find.descendant(
+          of: find.byType(TransactionHistorySheet),
+          matching: finder,
+        );
+
+        // The row was reached through a list of March, so what hangs off it is
+        // March as well rather than the category's whole history.
+        expect(inHistory(find.text(r'-$12.50')), findsWidgets);
+        expect(inHistory(find.text(r'-$40.00')), findsNothing);
+      });
     });
 
     group('divided by day', () {

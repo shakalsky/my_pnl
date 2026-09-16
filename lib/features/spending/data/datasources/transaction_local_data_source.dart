@@ -79,9 +79,15 @@ class TransactionLocalDataSource {
   /// A left join on the membership too, which is how a partner's entry gets a
   /// name beside it. Left rather than inner for the same reason: a member who
   /// has left is gone from that table, and their spending stays in the book.
+  ///
+  /// [month] narrows it to one UTC month, the same month the overview's totals
+  /// are read for. Unlike the category grid, the filter belongs in the `where`:
+  /// this is a list of entries, and an entry outside the month is not one of
+  /// them. Null lists the whole ledger.
   Stream<List<LedgerEntry>> watchAllEntries({
     required String ledgerId,
     required String viewerId,
+    CalendarMonth? month,
   }) {
     final query =
         _db.select(_db.transactions).join([
@@ -98,7 +104,8 @@ class TransactionLocalDataSource {
           ])
           ..where(
             _db.transactions.ledgerId.equals(ledgerId) &
-                _db.transactions.deletedAt.isNull(),
+                _db.transactions.deletedAt.isNull() &
+                _bookedIn(month),
           )
           ..orderBy([OrderingTerm.desc(_db.transactions.executedAt)])
           ..limit(allEntriesLimit);
@@ -130,23 +137,40 @@ class TransactionLocalDataSource {
   /// Null sums the whole ledger.
   Stream<int> watchNetTotal(String ledgerId, {CalendarMonth? month}) {
     final total = _db.transactions.amountScaled.sum();
-    // See `watchMonthlyPnl` on the cast: the column is stored as text, and the
-    // date functions read that text as it stands.
-    final executedAt = _db.transactions.executedAt.dartCast<DateTime>();
 
     final query = _db.selectOnly(_db.transactions)
       ..addColumns([total])
       ..where(
         _db.transactions.ledgerId.equals(ledgerId) &
             _db.transactions.deletedAt.isNull() &
-            // `AND 1` when no month is asked for, which SQLite folds away.
-            (month == null
-                ? const Constant<bool>(true)
-                : executedAt.year.equals(month.year) &
-                      executedAt.month.equals(month.month)),
+            _bookedIn(month),
       );
 
     return query.watchSingle().map((row) => row.read(total) ?? 0);
+  }
+
+  /// Matches a transaction booked in [month] — or every transaction, when no
+  /// month is asked for.
+  ///
+  /// The month is read with the date functions rather than by comparing the
+  /// stored text to a range, so it is a UTC month exactly as [watchMonthlyPnl]
+  /// groups them. A device an hour either side of the boundary then cannot move
+  /// an entry between months just by travelling, and a figure here agrees with
+  /// the month's row there.
+  Expression<bool> _bookedIn(CalendarMonth? month) {
+    // `AND 1` when there is no month, which SQLite folds away, and which keeps
+    // every caller's `where` in one piece rather than assembled in two
+    // branches.
+    if (month == null) return const Constant<bool>(true);
+
+    // See `watchMonthlyPnl` on the cast: the column carries a type converter,
+    // so drift types it as the String it is stored as. `dartCast` puts the
+    // DateTime back for the sake of the date functions and changes no SQL —
+    // they read the ISO-8601 text exactly as it stands.
+    final executedAt = _db.transactions.executedAt.dartCast<DateTime>();
+
+    return executedAt.year.equals(month.year) &
+        executedAt.month.equals(month.month);
   }
 
   /// Income minus spending per calendar month, newest first.
@@ -361,10 +385,14 @@ class TransactionLocalDataSource {
   }
 
   /// A category's entries, newest first, whoever recorded them.
+  ///
+  /// [month] narrows it to one UTC month, which is what makes the list add up
+  /// to the total on the tile it was opened from. Null lists the whole history.
   Stream<List<SpendEntry>> watchCategoryHistory({
     required String ledgerId,
     required String viewerId,
     required String categoryId,
+    CalendarMonth? month,
   }) {
     final query =
         _db.select(_db.transactions).join([
@@ -377,7 +405,8 @@ class TransactionLocalDataSource {
           ..where(
             _db.transactions.ledgerId.equals(ledgerId) &
                 _db.transactions.categoryId.equals(categoryId) &
-                _db.transactions.deletedAt.isNull(),
+                _db.transactions.deletedAt.isNull() &
+                _bookedIn(month),
           )
           ..orderBy([OrderingTerm.desc(_db.transactions.executedAt)]);
 

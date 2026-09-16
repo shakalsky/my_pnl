@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:my_pnl/features/spending/domain/entities/calendar_month.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
 import 'package:my_pnl/features/spending/domain/repositories/category_repository.dart';
 import 'package:my_pnl/features/spending/domain/repositories/overrun_settings_store.dart';
@@ -7,6 +8,7 @@ import 'package:my_pnl/features/spending/domain/usecases/reorder_categories.dart
 import 'package:my_pnl/features/spending/domain/usecases/watch_category_spend.dart';
 import 'package:my_pnl/features/spending/domain/usecases/watch_overrun_settings.dart';
 import 'package:my_pnl/features/spending/domain/usecases/watch_spend_baselines.dart';
+import 'package:my_pnl/features/spending/presentation/bloc/selected_month/selected_month_cubit.dart';
 import 'package:my_pnl/features/spending/presentation/bloc/spending_overview/spending_overview_bloc.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/category_overview_body.dart';
 import 'package:my_pnl/i18n/strings.g.dart';
@@ -23,6 +25,10 @@ class SpendingOverviewPage extends StatelessWidget {
               watchCategorySpend: WatchCategorySpend(
                 context.read<CategoryRepository>(),
               ),
+              // Seeded from the month both pages share, so a page built as the
+              // reader swipes to it opens on the month they were already
+              // looking at rather than on this one.
+              initialMonth: context.read<SelectedMonthCubit>().state,
               // Only the spending page: a month of income above the usual is
               // not something to warn anybody about.
               watchSpendBaselines: WatchSpendBaselines(
@@ -40,7 +46,15 @@ class SpendingOverviewPage extends StatelessWidget {
             ..add(const SpendingOverviewSubscriptionRequested())
             ..add(const SpendingOverviewBaselinesRequested())
             ..add(const SpendingOverviewSettingsRequested()),
-      child: const SpendingOverviewView(),
+      // The arrows write to the shared month rather than to this bloc, and it
+      // is handed back here. That is the one path a month change takes, so the
+      // page off screen moves with this one instead of drifting behind it.
+      child: BlocListener<SelectedMonthCubit, CalendarMonth>(
+        listener: (context, month) => context.read<SpendingOverviewBloc>().add(
+          SpendingOverviewMonthChanged(month),
+        ),
+        child: const SpendingOverviewView(),
+      ),
     );
   }
 }

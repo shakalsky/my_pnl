@@ -12,6 +12,7 @@ import 'package:my_pnl/features/currencies/domain/usecases/watch_currencies.dart
 import 'package:my_pnl/features/currencies/presentation/bloc/display_currency/display_currency_bloc.dart';
 import 'package:my_pnl/features/spending/domain/entities/calendar_month.dart';
 import 'package:my_pnl/features/spending/domain/entities/category.dart';
+import 'package:my_pnl/features/spending/presentation/bloc/selected_month/selected_month_cubit.dart';
 import 'package:my_pnl/features/spending/presentation/bloc/spending_overview/spending_overview_bloc.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/amount_entry_sheet.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/category_form_sheet.dart';
@@ -197,13 +198,19 @@ class CategoryOverviewBody extends StatelessWidget {
                             overrun: state.overrunFor(spend),
                             onAddAmount: () =>
                                 AmountEntrySheet.show(context, spend.category),
+                            // Both sheets are scoped to the month on screen:
+                            // the tile's own figure is this month's, and a
+                            // list behind it that ran back over the whole
+                            // ledger would not add up to the number tapped.
                             onShowHistory: () => TransactionHistorySheet.show(
                               context,
                               spend.category,
+                              month: state.month,
                             ),
                             onEdit: () => CategoryFormSheet.showEdit(
                               context,
                               spend.category,
+                              month: state.month,
                             ),
                           ),
                         );
@@ -330,6 +337,10 @@ class _MonthHeader extends StatelessWidget {
 ///
 /// [month] is where it goes; null leaves the arrow disabled, which is how the
 /// forward one spends the current month.
+///
+/// The choice is written to the month both overviews share rather than to this
+/// page's own bloc, which is what carries it to the page off screen and to the
+/// toolbar above them.
 class _MonthStep extends StatelessWidget {
   const _MonthStep({
     required this.icon,
@@ -350,9 +361,7 @@ class _MonthStep extends StatelessWidget {
       tooltip: tooltip,
       onPressed: target == null
           ? null
-          : () => context.read<SpendingOverviewBloc>().add(
-              SpendingOverviewMonthChanged(target),
-            ),
+          : () => context.read<SelectedMonthCubit>().select(target),
     );
   }
 }
