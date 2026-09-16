@@ -68,6 +68,7 @@ class _Translations$common$ru extends Translations$common$en {
 	@override String get join => 'Войти';
 	@override String get leave => 'Выйти';
 	@override String get add => 'Добавить';
+	@override String get select => 'Выбрать';
 	@override String get reset => 'Сбросить';
 	@override String get name => 'Название';
 	@override String get amount => 'Сумма';
@@ -193,7 +194,11 @@ class _Translations$categoryForm$ru extends Translations$categoryForm$en {
 	@override String get day => 'День';
 	@override String get recurringNote => 'В месяцах короче выбранного дня используется последний день месяца. Пропущенные месяцы записываются при следующем запуске приложения.';
 	@override String get color => 'Цвет';
+	@override String get customColor => 'Больше цветов';
+	@override String get pickColor => 'Выберите цвет';
 	@override String get icon => 'Значок';
+	@override String get moreIcons => 'Больше значков';
+	@override String get pickIcon => 'Выберите значок';
 	@override String get delete => 'Удалить категорию';
 	@override String deleteTitleNamed({required Object name}) => 'Удалить «${name}»?';
 	@override String get deleteTitleUnnamed => 'Удалить эту категорию?';

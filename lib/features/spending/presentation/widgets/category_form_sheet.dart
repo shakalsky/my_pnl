@@ -13,6 +13,8 @@ import 'package:my_pnl/features/spending/domain/usecases/delete_category.dart';
 import 'package:my_pnl/features/spending/domain/usecases/update_category.dart';
 import 'package:my_pnl/features/spending/presentation/bloc/category_form/category_form_bloc.dart';
 import 'package:my_pnl/features/spending/presentation/theme/category_style.dart';
+import 'package:my_pnl/features/spending/presentation/widgets/color_palette_picker.dart';
+import 'package:my_pnl/features/spending/presentation/widgets/icon_picker_dialog.dart';
 import 'package:my_pnl/features/spending/presentation/widgets/transaction_history_sheet.dart';
 import 'package:my_pnl/i18n/strings.g.dart';
 
@@ -77,7 +79,9 @@ class CategoryFormSheet extends StatelessWidget {
           updateCategory: UpdateCategory(repository),
           deleteCategory: DeleteCategory(repository),
           defaultColorArgb: categoryColors.first,
-          defaultIconKey: categoryIcons.keys.first,
+          // From the quick set, so a new form opens with its icon highlighted
+          // in the grid rather than tucked behind the button.
+          defaultIconKey: categoryQuickIcons.keys.first,
           kind: kind,
           initial: initial,
         ),
@@ -327,6 +331,15 @@ class _CategoryFormState extends State<_CategoryForm> {
                         selected: color == state.colorArgb,
                         onTap: () => bloc.add(CategoryFormColorSelected(color)),
                       ),
+                    // Fills the last cell of the second row. Shows the chosen
+                    // colour when it came from the palette rather than the
+                    // presets, so the form still says what is selected.
+                    _MoreColorsButton(
+                      size: size,
+                      selectedArgb: state.colorArgb,
+                      onPicked: (color) =>
+                          bloc.add(CategoryFormColorSelected(color)),
+                    ),
                   ],
                 );
               },
@@ -338,12 +351,20 @@ class _CategoryFormState extends State<_CategoryForm> {
               spacing: 10,
               runSpacing: 10,
               children: [
-                for (final iconKey in categoryIcons.keys)
+                for (final iconKey in categoryQuickIcons.keys)
                   _IconChoice(
                     iconKey: iconKey,
                     selected: iconKey == state.iconKey,
                     onTap: () => bloc.add(CategoryFormIconSelected(iconKey)),
                   ),
+                // Twelfth tile, so the eleven above it and this make two even
+                // rows. Wears the chosen icon when it came from the sheet
+                // behind it, so the form still shows what is selected.
+                _MoreIconsButton(
+                  selectedKey: state.iconKey,
+                  onPicked: (iconKey) =>
+                      bloc.add(CategoryFormIconSelected(iconKey)),
+                ),
               ],
             ),
             const SizedBox(height: 24),
@@ -468,6 +489,127 @@ class _ColorSwatch extends StatelessWidget {
           child: selected
               ? Icon(Icons.check, color: Colors.white, size: size / 2)
               : null,
+        ),
+      ),
+    );
+  }
+}
+
+/// The last cell of the colour grid: opens [ColorPalettePicker].
+class _MoreColorsButton extends StatelessWidget {
+  const _MoreColorsButton({
+    required this.size,
+    required this.selectedArgb,
+    required this.onPicked,
+  });
+
+  /// Matches the swatches beside it, which size themselves to the row.
+  final double size;
+
+  /// The colour the form holds, shown here when it is not one of the presets.
+  final int selectedArgb;
+
+  final ValueChanged<int> onPicked;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    // A preset colour is already ticked in the grid, so the button stays
+    // neutral; anything else came from the palette and belongs here.
+    final custom = !categoryColors.contains(selectedArgb);
+
+    return Semantics(
+      selected: custom,
+      button: true,
+      label: t.categoryForm.customColor,
+      child: Tooltip(
+        message: t.categoryForm.customColor,
+        child: InkWell(
+          onTap: () async {
+            final picked = await ColorPalettePicker.show(
+              context,
+              selectedArgb,
+            );
+            if (picked != null) onPicked(picked);
+          },
+          customBorder: const CircleBorder(),
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: custom
+                  ? Color(selectedArgb)
+                  : colors.surfaceContainerHighest,
+              border: Border.all(
+                color: custom ? colors.onSurface : colors.outlineVariant,
+                width: custom ? 3 : 1,
+              ),
+            ),
+            child: Icon(
+              Icons.palette_outlined,
+              size: size / 2,
+              color: custom ? Colors.white : colors.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The last tile of the icon grid: opens [IconPickerDialog].
+class _MoreIconsButton extends StatelessWidget {
+  const _MoreIconsButton({required this.selectedKey, required this.onPicked});
+
+  /// The icon the form holds, shown here when it is not one of the eleven.
+  final String selectedKey;
+
+  final ValueChanged<String> onPicked;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    // A quick icon is already highlighted in the grid, so the button stays
+    // neutral; anything else came from the sheet and belongs here.
+    final fromSheet = !categoryQuickIcons.containsKey(selectedKey);
+
+    return Semantics(
+      selected: fromSheet,
+      button: true,
+      label: t.categoryForm.moreIcons,
+      child: Tooltip(
+        message: t.categoryForm.moreIcons,
+        child: InkWell(
+          onTap: () async {
+            final picked = await IconPickerDialog.show(context, selectedKey);
+            if (picked != null) onPicked(picked);
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: fromSheet
+                  ? colors.secondaryContainer
+                  : colors.surfaceContainerHighest,
+              border: Border.all(
+                color: fromSheet ? colors.secondary : colors.outlineVariant,
+                width: fromSheet ? 2 : 1,
+              ),
+            ),
+            child: Icon(
+              // The chosen icon when it lives behind the button, so the form
+              // never shows an icon the grid cannot account for; otherwise the
+              // plain "there are more" mark.
+              fromSheet ? iconForKey(selectedKey) : Icons.more_horiz,
+              size: 22,
+              color: fromSheet
+                  ? colors.onSecondaryContainer
+                  : colors.onSurfaceVariant,
+            ),
+          ),
         ),
       ),
     );

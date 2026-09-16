@@ -89,6 +89,9 @@ class Translations$common$en {
 	/// en: 'Add'
 	String get add => 'Add';
 
+	/// en: 'Select'
+	String get select => 'Select';
+
 	/// en: 'Reset'
 	String get reset => 'Reset';
 
@@ -338,8 +341,20 @@ class Translations$categoryForm$en {
 	/// en: 'Color'
 	String get color => 'Color';
 
+	/// en: 'More colors'
+	String get customColor => 'More colors';
+
+	/// en: 'Pick a color'
+	String get pickColor => 'Pick a color';
+
 	/// en: 'Icon'
 	String get icon => 'Icon';
+
+	/// en: 'More icons'
+	String get moreIcons => 'More icons';
+
+	/// en: 'Pick an icon'
+	String get pickIcon => 'Pick an icon';
 
 	/// en: 'Delete category'
 	String get delete => 'Delete category';
